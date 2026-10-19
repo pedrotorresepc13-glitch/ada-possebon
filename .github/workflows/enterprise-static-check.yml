@@ -16,6 +16,9 @@ jobs:
           node --input-type=module --check < studio/app.js
           node --input-type=module --check < studio/demo.js
           node --check services/assistant-server.mjs
+          node --check tests/gesture-engine.test.mjs
+      - name: Testar gestos sintéticos (sem webcam)
+        run: node tests/gesture-engine.test.mjs
       - name: Confirmar arquivos do deploy
         run: |
           test -s index.html
