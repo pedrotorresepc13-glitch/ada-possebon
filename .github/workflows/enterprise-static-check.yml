@@ -1,0 +1,26 @@
+name: HOLO Enterprise - verificação estática
+on:
+  push:
+    branches: [main, 'feat/enterprise-studio-mvp-ptbr']
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar sintaxe dos módulos
+        run: |
+          node --input-type=module --check < studio/app.js
+          node --input-type=module --check < studio/demo.js
+          node --check services/assistant-server.mjs
+      - name: Confirmar arquivos do deploy
+        run: |
+          test -s index.html
+          test -s studio/style.css
+          test -s vendor/three.module.js
+          test -s vendor/vision_bundle.mjs
+          test -s vendor/hand_landmarker.task
+          python3 -m json.tool vercel.json >/dev/null
