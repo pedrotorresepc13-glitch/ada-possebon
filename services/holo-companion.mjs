@@ -20,7 +20,7 @@ const externalURL=process.env.HOLO_API_URL||'https://api.openai.com/v1/chat/comp
 const externalToken=process.env.HOLO_API_KEY||'';
 const connected=Boolean(brainURL&&brainToken);
 const allowedDocs=new Map([['.txt','text/plain; charset=utf-8'],['.md','text/plain; charset=utf-8'],['.csv','text/plain; charset=utf-8'],['.json','text/plain; charset=utf-8'],['.pdf','application/pdf'],['.png','image/png'],['.jpg','image/jpeg'],['.jpeg','image/jpeg']]);
-const staticTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.wasm':'application/wasm','.glb':'model/gltf-binary','.woff2':'font/woff2'};
+const staticTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.task':'application/octet-stream','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.wasm':'application/wasm','.glb':'model/gltf-binary','.woff2':'font/woff2'};
 let active=false;
 let memory={history:[],notes:[]};
 let saveChain=Promise.resolve();
@@ -121,7 +121,7 @@ async function sendDoc(res,name){
   if(!st.isFile()||st.size>12*1024*1024)return error(res,413,'Arquivo não disponível');
   const canonical=await realpath(filepath);
   if(path.dirname(canonical)!==rootReal)return error(res,403,'Arquivo fora da biblioteca autorizada');
-  res.writeHead(200,{'Content-Type':allowedDocs.get(ext),'Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; sandbox",'X-Content-Type-Options':'nosniff','Content-Disposition':'inline'});
+  res.writeHead(200,{'Content-Type':allowedDocs.get(ext),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'inline'});
   createReadStream(canonical).pipe(res);
 }
 async function serveStatic(res,url){
