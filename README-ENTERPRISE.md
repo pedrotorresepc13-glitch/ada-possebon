@@ -3,8 +3,8 @@
 Este fork mantém **intacto o HOLO Gestures original** em `holo.html` e acrescenta um protótipo independente em `index.html`. É uma prova de conceito, **não um ERP pronto nem uma integração ativa com a POSSEBON**.
 
 ## O que já existe neste protótipo
-- Interface pt-BR e mapa de áreas em Three.js, com navegação por mouse.
-- Gestos com MediaPipe local: iniciar câmera por ação explícita e fazer pinça para selecionar uma esfera. Pode exigir webcam, desempenho e permissões do navegador.
+- Interface em português do Brasil, objetos distribuídos em planos 3D e mapa de áreas em Three.js, com navegação por mouse. Um **Modo imersivo** oculta os painéis laterais para liberar a área espacial; a câmera opcional funciona como pano de fundo escurecido.
+- Gestos com MediaPipe local (branch de validação): pinça para selecionar e arrastar áreas, movimento no espaço vazio para girar o mapa, duas pinças para aproximar/afastar e girar, e sinal de paz para restaurar. Exigem webcam, desempenho e permissões do navegador; validação manual com câmera ainda pendente.
 - Comandos de voz em português **quando o navegador suporta reconhecimento**; saída falada optativa.
 - Apresentação em tela cheia e indicadores **100% inventados**.
 - Criação de espaço empresarial local vazio (somente `localStorage` deste navegador; sem sincronização entre usuários).
