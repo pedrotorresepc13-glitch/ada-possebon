@@ -69,6 +69,7 @@ function respond(value) {
 function ask(question) {
   const input=question.trim();if(!input)return;
   const log=$('#assistant-log'); log.append(text('p',input,'user-message'));log.scrollTop=log.scrollHeight;
+  if(state.provider!=='demo') { void askModel(input); return; }
   const q=input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const destinations={
     pessoas:['pessoa','colaborador','equipe','rh','treinamento','funcionario'],
@@ -90,6 +91,25 @@ function ask(question) {
     return;
   }
   respond('Esta primeira versão utiliza comandos de demonstração, não um modelo de IA. '+helpText);
+}
+async function askModel(prompt) {
+  if(!['localhost','127.0.0.1'].includes(location.hostname)) {
+    respond('O modelo local ou por API exige um serviço backend autenticado. Nesta prévia pública ele ainda não está disponível. Use Demonstração.');
+    return;
+  }
+  respond('Consultando o provedor configurado no serviço local. Nenhuma fonte empresarial está conectada.');
+  try {
+    const reply=await fetch('http://127.0.0.1:4892/api/assist',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:prompt,area:state.area,provider:state.provider}),
+      signal:AbortSignal.timeout(50000)
+    });
+    const data=await reply.json();
+    if(!reply.ok)throw new Error(data.error||('HTTP '+reply.status));
+    respond(data.answer);
+  } catch(err) {
+    respond('Não foi possível consultar o modelo: '+String(err?.message||'Falha de comunicação')+'. Inicie o serviço local e confira a configuração.');
+  }
 }
 function updateCompany() {
   $('#company-name').textContent=state.company;
@@ -169,7 +189,7 @@ function openSettings(mode) {
     }
     host.append(text('p','Provedor selecionado: '+state.provider+'. Conexão operacional: somente demonstração.','disclaimer'));
   }
-  $('#modal-settings').showModal();
+  if(!$('#modal-settings').open) $('#modal-settings').showModal();
 }
 function listen() {
   const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
