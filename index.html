@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060c19">
+<meta name="description" content="Holo Enterprise: protótipo de inteligência empresarial visual em português.">
+<title>HOLO Enterprise — Inteligência Visual</title>
+<link rel="stylesheet" href="/studio/style.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong>HOLO <em>ENTERPRISE</em></strong><small>Inteligência empresarial visual · protótipo</small></div></div>
+  <div class="header-actions">
+    <span class="demo-flag" id="data-badge">DADOS FICTÍCIOS</span>
+    <button id="btn-company" class="secondary">Empresa</button>
+    <button id="btn-present" class="primary">Apresentar ⛶</button>
+  </div>
+</header>
+<main class="workspace">
+  <aside class="sidebar">
+    <div class="section-label">ESPAÇO DE TRABALHO</div>
+    <div class="company-box"><small>Empresa selecionada</small><strong id="company-name">Empresa Exemplo</strong><span id="company-type">Ambiente de demonstração</span></div>
+    <div class="section-label space-top">MAPA DE ÁREAS</div>
+    <nav id="area-list" aria-label="Navegação pelas áreas"></nav>
+    <div class="sidebar-bottom">
+      <button id="btn-connect" class="wide secondary">⛓ Conexões de dados</button>
+      <button id="btn-source" class="wide secondary">◈ Motor de IA</button>
+      <p class="privacy">Nenhum dado real da POSSEBON está conectado. A câmera é opcional e é processada no navegador.</p>
+    </div>
+  </aside>
+  <section class="center" aria-label="Mapa interativo">
+    <div class="scene-head"><span class="eyebrow">MAPA DE CONHECIMENTO</span><h1 id="scene-title">Sua empresa em outra dimensão.</h1><p>Selecione uma área. Faça perguntas por texto, voz ou gestos.</p></div>
+    <div class="scene-wrap" id="scene-wrap">
+      <canvas id="scene" aria-label="Mapa tridimensional interativo das áreas da empresa"></canvas>
+      <div class="scene-note">ARRASTE PARA GIRAR · CLIQUE PARA EXPLORAR</div>
+      <div id="scene-fallback" class="scene-fallback" hidden>Visualização 3D indisponível. Use o menu de áreas à esquerda.</div>
+      <video id="camera-feed" autoplay playsinline muted hidden></video>
+      <div id="gesture-pointer" hidden aria-hidden="true"></div>
+    </div>
+    <div class="scene-toolbar">
+      <button id="btn-gestures" class="secondary">✋ Ativar gestos</button>
+      <button id="btn-reset" class="secondary">↺ Centralizar</button>
+      <span id="camera-status" class="status" role="status">Câmera desligada</span>
+    </div>
+  </section>
+  <aside class="insights">
+    <div class="panel-header"><span class="eyebrow">EXPLORAÇÃO</span><h2 id="selected-title">Visão geral</h2><p id="selected-description">Indicadores ilustrativos de uma empresa fictícia.</p></div>
+    <div class="metrics" id="metrics"></div>
+    <div class="chart-box"><div class="section-label">DISTRIBUIÇÃO ILUSTRATIVA</div><div id="bars"></div></div>
+    <div class="assistant-area">
+      <div class="section-label">ASSISTENTE EMPRESARIAL</div>
+      <div class="assistant-log" id="assistant-log" role="log" aria-live="polite">
+        <p class="ai-message">Olá! Sou o protótipo do HOLO Enterprise. Posso navegar pelos indicadores fictícios desta demonstração. Ainda não sou uma IA conectada.</p>
+      </div>
+      <form id="command-form" class="command-form">
+        <label for="command-input" class="sr-only">Pergunte sobre a empresa</label>
+        <input id="command-input" name="command" autocomplete="off" placeholder="Ex.: mostre compras, pessoas ou segurança" required>
+        <button class="primary" title="Enviar pergunta" aria-label="Enviar pergunta">➜</button>
+      </form>
+      <div class="voice-actions">
+        <button id="btn-mic" class="secondary">🎙 Falar</button>
+        <button id="btn-tts" class="secondary" aria-pressed="false">🔈 Voz desligada</button>
+      </div>
+      <p class="disclaimer">Respostas de demonstração, sem modelo de IA ou dados empresariais externos. Não use para decisões reais.</p>
+    </div>
+  </aside>
+</main>
+</div>
+<dialog id="modal-company" aria-labelledby="modal-company-title">
+  <form method="dialog" id="company-form" class="modal-body">
+    <h2 id="modal-company-title">Novo espaço empresarial</h2>
+    <p>Crie uma empresa local de demonstração. Os dados ficam apenas neste navegador, não na nuvem.</p>
+    <label>Nome da empresa<input id="new-company-name" maxlength="80" required placeholder="Nome da empresa"></label>
+    <div class="modal-actions"><button type="button" class="secondary close-modal">Cancelar</button><button class="primary" value="create">Criar empresa</button></div>
+    <button type="button" id="btn-back-demo" class="linkish">Voltar à empresa fictícia de exemplo</button>
+  </form>
+</dialog>
+<dialog id="modal-settings" aria-labelledby="modal-settings-title">
+  <div class="modal-body">
+    <h2 id="modal-settings-title">Configurações</h2>
+    <p id="settings-description"></p>
+    <div id="settings-content"></div>
+    <div class="modal-actions"><button class="primary close-modal">Fechar</button></div>
+  </div>
+</dialog>
+<script type="module" src="/studio/app.js"></script>
+</body>
+</html>
