@@ -34,14 +34,15 @@
     <div class="scene-head"><span class="eyebrow">MAPA DE CONHECIMENTO</span><h1 id="scene-title">Sua empresa em outra dimensão.</h1><p>Selecione uma área. Faça perguntas por texto, voz ou gestos.</p></div>
     <div class="scene-wrap" id="scene-wrap">
       <canvas id="scene" aria-label="Mapa tridimensional interativo das áreas da empresa"></canvas>
-      <div class="scene-note">ARRASTE PARA GIRAR · CLIQUE PARA EXPLORAR</div>
+      <div class="scene-note">PINÇA: PEGAR E MOVER · DUAS MÃOS: ZOOM E GIRO · ✌: RESTAURAR</div>
       <div id="scene-fallback" class="scene-fallback" hidden>Visualização 3D indisponível. Use o menu de áreas à esquerda.</div>
       <video id="camera-feed" autoplay playsinline muted hidden></video>
       <div id="gesture-pointer" hidden aria-hidden="true"></div>
     </div>
     <div class="scene-toolbar">
       <button id="btn-gestures" class="secondary">✋ Ativar gestos</button>
-      <button id="btn-reset" class="secondary">↺ Centralizar</button>
+      <button id="btn-reset" class="secondary">↺ Restaurar</button>
+      <button id="btn-immersive" class="secondary" aria-pressed="false" title="Ocultar painéis laterais e ampliar a cena 3D">◌ Modo imersivo</button>
       <span id="camera-status" class="status" role="status">Câmera desligada</span>
     </div>
   </section>
