@@ -1,5 +1,8 @@
 # HOLO Enterprise — protótipo empresarial (pt-BR)
 
+> **Novo: Companion local e assistente por voz (branch em testes)** — consulte [instalação no Windows e limites de segurança](docs/INSTALACAO-HOLO-LOCAL.md). Esse serviço separado pode consultar o Brain se configurado, mas não é conexão real comprovada e não altera o POSSEBON Web.
+
+
 Este fork mantém **intacto o HOLO Gestures original** em `holo.html` e acrescenta um protótipo independente em `index.html`. É uma prova de conceito, **não um ERP pronto nem uma integração ativa com a POSSEBON**.
 
 ## O que já existe neste protótipo
