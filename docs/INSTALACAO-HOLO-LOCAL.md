@@ -8,11 +8,21 @@ Ela NÃO altera o POSSEBON Web, My Import, filas, banco de dados nem a branch pr
 ## Windows: iniciar com um clique
 1. Baixe o ZIP da branch feature/holo-assistente-local-brain e extraia.
 2. Execute o arquivo Iniciar-HOLO.cmd, depois de conferir que o script veio do repositório confiável.
-3. Quando necessário, ele instala Node.js LTS e Ollama pelo winget, baixa o modelo llama3.2:3b (aproximadamente 2 GB de modelo) e abre http://127.0.0.1:4891/
+3. O script exige que o disco `D:` esteja acessível antes de baixar qualquer modelo. Cria `D:\HOLO\Modelos-Ollama` e `D:\HOLO\Memoria-HOLO`, configura `OLLAMA_MODELS` e `HOLO_LOCAL_DATA_DIR` para o seu usuário e tenta instalar o Ollama em `D:\HOLO\Aplicativos\Ollama` se ele não existir. Node.js LTS pode ser instalado no local padrão do Windows. O instalador baixa o modelo `llama3.2:3b` (aproximadamente 2 GB) e abre http://127.0.0.1:4891/.
 4. Clique no botão HOLO Assistente, no canto direito. Use o microfone se o navegador permitir, ou digite.
 5. Para um modelo menor, no PowerShell execute: .\tools\Instalar-HOLO.ps1 -Modelo llama3.2:1b
 
-O script precisa de internet e espaço em disco. Se existir um servidor de testes HOLO na porta 4891, encerre apenas esse servidor antes. Não encerre My Import ou POSSEBON.
+O script precisa de internet e espaço no disco D:. **O local padrão dos modelos e da memória é D:**, mas bibliotecas do Windows, caches, componentes já instalados e Node.js podem continuar ocupando algum espaço no C:. O projeto deve ser extraído para `D:\HOLO\App` se você quiser os próprios arquivos do HOLO no D:. Não encerre My Import ou POSSEBON. Se o Ollama já estiver ativo com o destino antigo, o script pedirá autorização para reiniciar **somente o Ollama**.
+
+### Você já instalou usando a versão antiga?
+
+1. Espere a instalação em andamento terminar ou interrompa apenas o download da IA, se desejar. **Uma alteração no GitHub não atualiza automaticamente um instalador que já está aberto.**
+2. Baixe novamente o ZIP da branch atual e extraia-o no D: (ex.: `D:\HOLO\App`).
+3. Execute `Iniciar-HOLO.cmd` da nova pasta. Ele copia os modelos já baixados de `%USERPROFILE%\.ollama\models` para `D:\HOLO\Modelos-Ollama` quando o destino estiver vazio, mantendo a pasta original intacta. Se o D: já contiver modelos, não mistura bibliotecas automaticamente.
+4. A memória anterior em `%USERPROFILE%\.holo-enterprise\conversas.json` também será copiada para `D:\HOLO\Memoria-HOLO\conversas.json`, desde que o novo destino não exista.
+5. **Não apague nada do C:** antes de confirmar que o Ollama lista seus modelos e o HOLO responde normalmente a partir do D:.
+
+Para verificar o destino no PowerShell, execute `[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')`. O resultado esperado é `D:\HOLO\Modelos-Ollama`. Se alterou o destino com o Ollama já aberto, é necessário reiniciá-lo para a mudança valer.
 
 ## Conectar ao Brain (opcional)
 O POSSEBON Brain já possui método contextoPossebonBrain, com autenticação Bearer técnica ligada a usuário e unidade. O endereço e o método HTTP precisam ser confirmados na API do ambiente vivo.
@@ -30,7 +40,7 @@ Esta integração apenas consulta o catálogo de conhecimento Brain. Não lê to
 
 ## Documentos e memória
 - HOLO_DOCUMENTOS_DIR: caminho de uma pasta LOCAL expressamente autorizada. Somente arquivos regulares na raiz dessa pasta, tipos txt, md, csv, json, pdf, png e jpg, até 12 MB cada. A janela flutuante pode ser arrastada por mouse ou toque; a movimentação por gestos ainda não está integrada.
-- Os dados ficam em %USERPROFILE%\.holo-enterprise\conversas.json: até 36 mensagens e 100 notas.
+- Os dados ficam por padrão em `D:\HOLO\Memoria-HOLO\conversas.json` (variável `HOLO_LOCAL_DATA_DIR`): até 36 mensagens e 100 notas.
 - Dizer "HOLO, lembre que..." grava uma anotação marcada PENDENTE_VALIDACAO; não altera regras oficiais no Brain.
 - O reconhecimento de fala do navegador pode enviar áudio ao fornecedor do navegador. Whisper/Piper completamente offline ainda não foram implementados.
 
