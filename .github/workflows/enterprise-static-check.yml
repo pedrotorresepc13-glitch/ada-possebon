@@ -17,6 +17,9 @@ jobs:
           node --input-type=module --check < studio/demo.js
           node --check services/assistant-server.mjs
           node --check services/holo-companion.mjs
+          node --check services/holo-possebon.mjs
+          node --input-type=module --check < studio/brain-onboarding.js
+          node --check tests/holo-possebon.test.mjs
           node --input-type=module --check < studio/companion.js
           node --check tests/companion.test.mjs
           node --check tests/gesture-engine.test.mjs
@@ -24,6 +27,8 @@ jobs:
         run: node tests/gesture-engine.test.mjs
       - name: Testar a assistente local (sem Ollama, webcam ou dados reais)
         run: node tests/companion.test.mjs
+      - name: Testar onboarding do POSSEBON Brain sem rede externa
+        run: node tests/holo-possebon.test.mjs
       - name: Confirmar arquivos do deploy
         run: |
           test -s index.html
