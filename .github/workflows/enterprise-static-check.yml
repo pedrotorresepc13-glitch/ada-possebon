@@ -47,7 +47,16 @@ jobs:
             $errors | ForEach-Object { Write-Error $_.Message }
             exit 1
           }
+          # Evita o bug real: function Winget -> chamada recursiva a winget.
+          $functions = @($tokens | Where-Object { $_.Kind -eq 'Identifier' })
+          $functionDefs = @([System.Management.Automation.Language.Parser]::ParseFile('tools/Instalar-HOLO.ps1', [ref]$null, [ref]$null).FindAll({ param($a) $a -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true))
+          if ($functionDefs | Where-Object { $_.Name -ieq 'winget' }) {
+            throw 'Recursao: funcao Winget mascara winget.exe no PowerShell.'
+          }
           $script = Get-Content tools/Instalar-HOLO.ps1 -Raw
+          if ($script -notmatch 'function Install-UsingWinget' -or $script -notmatch '(?m)^\\s*& winget\\.exe @args') {
+            throw 'Instalador deve invocar winget.exe de forma explicita.'
+          }
           if ($script -notmatch 'OLLAMA_MODELS' -or $script -notmatch 'HOLO_LOCAL_DATA_DIR' -or $script -notmatch 'D:\\HOLO') {
             throw 'Configuracao de armazenamento no D: nao encontrada.'
           }
