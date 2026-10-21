@@ -58,9 +58,9 @@ function selectArea(id, announce=false) {
     n.mesh.scale.setScalar((active?1.27:1)*(n.userScale||1));
   });
   // Gestos e cliques repetidos não devem inundar a conversa com avisos iguais.
-  if(announce && previous!==a.id) respond(state.custom
-    ? a.name+' selecionada. Nenhuma fonte empresarial está conectada a esta área.'
-    : shown.summary);
+  // No modo de empresa sem conexões, a seleção apenas atualiza a interface.
+  // Não emitir o mesmo aviso a cada gesto; pedidos no chat têm resposta própria.
+  if(announce && previous!==a.id && !state.custom) respond(shown.summary);
 }
 function respond(value) {
   const log=$('#assistant-log'); log.append(text('p',value,'ai-message'));log.scrollTop=log.scrollHeight;
