@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import {areas, helpText} from './demo.js';
+import {areas, helpText, requestedNavigationId} from './demo.js';
 import {createGestureEngine} from './gesture-engine.js';
 
 // Prototipo frontend: sem tokens, endpoints externos ou dados empresariais reais.
@@ -28,6 +28,7 @@ function formatArea(a) { return state.custom ? {
   bars:[],summary:'Sua empresa ainda não possui dados. Configure conexões de forma segura no backend antes de consultar informações reais.'
 } : a; }
 function selectArea(id, announce=false) {
+  const previous=state.area;
   const a=areas.find(x=>x.id===id) || areas[0]; state.area=a.id;
   const shown=formatArea(a);
   $('#selected-title').textContent=a.name;
@@ -56,7 +57,10 @@ function selectArea(id, announce=false) {
     n.mesh.material.emissiveIntensity=active?1.1:0.36;
     n.mesh.scale.setScalar((active?1.27:1)*(n.userScale||1));
   });
-  if(announce) respond(shown.summary);
+  // Gestos e cliques repetidos não devem inundar a conversa com avisos iguais.
+  if(announce && previous!==a.id) respond(state.custom
+    ? a.name+' selecionada. Nenhuma fonte empresarial está conectada a esta área.'
+    : shown.summary);
 }
 function respond(value) {
   const log=$('#assistant-log'); log.append(text('p',value,'ai-message'));log.scrollTop=log.scrollHeight;
@@ -70,6 +74,16 @@ function respond(value) {
 function ask(question) {
   const input=question.trim();if(!input)return;
   const log=$('#assistant-log'); log.append(text('p',input,'user-message'));log.scrollTop=log.scrollHeight;
+  const navigation=requestedNavigationId(input);
+  if(navigation) {
+    const selected=areas.find(a=>a.id===navigation);
+    selectArea(navigation,false);
+    if(state.provider!=='demo'){
+      respond('Abrindo '+selected.name+' no mapa 3D.');
+      void askModel(input,navigation);
+    } else respond('Área '+selected.name+' aberta. '+formatArea(selected).summary);
+    return;
+  }
   if(state.provider!=='demo') { void askModel(input); return; }
   const q=input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const destinations={
@@ -93,7 +107,7 @@ function ask(question) {
   }
   respond('Esta primeira versão utiliza comandos de demonstração, não um modelo de IA. '+helpText);
 }
-async function askModel(prompt) {
+async function askModel(prompt, navigation=null) {
   if(!['localhost','127.0.0.1'].includes(location.hostname) || location.port !== '4891') {
     respond('A IA local funciona no HOLO instalado em http://127.0.0.1:4891/. Esta prévia pública não tem acesso ao modelo do seu computador.');
     return;
@@ -120,7 +134,7 @@ async function askModel(prompt) {
       : 'Consultando a IA local. O catálogo empresarial POSSEBON Brain ainda não está conectado.');
     const reply=await fetch('/api/chat',{
       method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
-      body:JSON.stringify({message:prompt}),
+      body:JSON.stringify({message:prompt,area:state.area,navigation, demoMode:!state.custom}),
       signal:AbortSignal.timeout(105000)
     });
     if(!reply.headers.get('content-type')?.includes('application/json')) {
@@ -152,6 +166,10 @@ function setupNavigation() {
     b.addEventListener('click',()=>selectArea(a.id,true));nav.append(b);
   }
   updateCompany();
+  // O painel flutuante e o assistente principal controlam o mesmo mapa 3D.
+  window.addEventListener('holo:navigate-area',event=>{
+    if(areas.some(a=>a.id===event.detail?.id))selectArea(event.detail.id,false);
+  });
   $('#command-form').addEventListener('submit',ev=>{
     ev.preventDefault();ask($('#command-input').value);$('#command-input').value='';
   });
@@ -206,11 +224,11 @@ function openSettings(mode) {
     }
   } else {
     $('#modal-settings-title').textContent='Motor de inteligência híbrida';
-    $('#settings-description').textContent='Você escolhe o provedor, mas o backend ainda não está conectado. Nenhuma pergunta é enviada a modelos externos nesta versão.';
+    $('#settings-description').textContent='Modelo local e API externa usam o serviço HOLO Companion, quando configurado. A opção API externa exige autorização e chave no servidor. Os dados empresariais não são conectados automaticamente.';
     for(const [value,title,detail] of [
-      ['demo','Demonstração (ativa)','Regras locais, respostas reproduzíveis, sem modelo de IA.'],
-      ['local','Modelo aberto / local','Planejado para Ollama ou servidor compatível, via backend protegido.'],
-      ['api','API de IA externa','Planejado para provedores com chave mantida apenas no servidor.']
+      ['demo','Demonstração','Regras locais, respostas reproduzíveis, sem modelo de IA.'],
+      ['local','Modelo aberto / local','Usa o Ollama do seu computador através do HOLO Companion (porta 4891).'],
+      ['api','API de IA externa','Disponível apenas se o servidor estiver configurado com chave e autorização.']
     ]) {
       const c=document.createElement('button');c.className='settings-choice wide';
       c.textContent=(state.provider===value?'✓ ':'')+title;
@@ -218,7 +236,7 @@ function openSettings(mode) {
         state.provider=value;save();openSettings('ia');
       });host.append(c);
     }
-    host.append(text('p','Provedor selecionado: '+state.provider+'. Conexão operacional: somente demonstração.','disclaimer'));
+    host.append(text('p','Provedor selecionado: '+state.provider+'. Dados empresariais reais: ainda requerem fonte autorizada.','disclaimer'));
   }
   if(!$('#modal-settings').open) $('#modal-settings').showModal();
 }
