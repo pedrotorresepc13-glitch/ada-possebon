@@ -116,7 +116,9 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
       // O catálogo existente fica intacto até que o estudo completo termine.
       await writeFile(temporary,'',{mode:0o600});
       const byNamespace={};
-      for(const ns of namespaces){
+      // Primeiro as fontes principais, depois qualquer outro namespace encontrado.
+      const toRead=[...new Set([...namespaces,...Object.keys(counts)])].filter(ns=>/^[a-z0-9_-]{1,50}$/i.test(ns));
+      for(const ns of toRead){
         if(!counts[ns])continue;
         if(session!==current)throw Error('Sessão alterada: estudo interrompido.');
         progress.namespace=ns;
