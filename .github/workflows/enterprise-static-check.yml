@@ -32,3 +32,22 @@ jobs:
           test -s vendor/vision_bundle.mjs
           test -s vendor/hand_landmarker.task
           python3 -m json.tool vercel.json >/dev/null
+
+  windows-installer-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar a sintaxe PowerShell sem instalar nada
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile('tools/Instalar-HOLO.ps1', [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          $script = Get-Content tools/Instalar-HOLO.ps1 -Raw
+          if ($script -notmatch 'OLLAMA_MODELS' -or $script -notmatch 'HOLO_LOCAL_DATA_DIR' -or $script -notmatch 'D:\\HOLO') {
+            throw 'Configuracao de armazenamento no D: nao encontrada.'
+          }
