@@ -194,6 +194,44 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     }
     return results.slice(0,7).map(x=>x.item);
   }
+
+  // Visão baseada SOMENTE nos títulos/fontes do Brain, nunca em contagens operacionais.
+  async function overview(){
+    checkSession();
+    const groups={
+      geral:{title:'Visão geral',keywords:[]},
+      pessoas:{title:'Pessoas',keywords:['pessoa','colaborador','equipe','funcao','treinamento','candidato','rh','admissao','cracha']},
+      compras:{title:'Compras',keywords:['compra','procurement','material','fornecedor','solicitacao','pedido','estoque','totvs','importacao']},
+      seguranca:{title:'Segurança',keywords:['seguranca','auditoria','ronda','audicomp','epi','acao','plano','risco','incidente']},
+      operacoes:{title:'Operações',keywords:['rdo','operacao','obra','projeto','transporte','rota','producao','atividade','equipe','contrato']}
+    };
+    const result={source:'POSSEBON Brain',unit_id:session.unitId,operationalConnected:false,
+      ready:cached.ready,total:cached.count,completedAt:cached.completedAt,
+      namespaces:{...cached.byNamespace},areas:{}};
+    for(const [key,def] of Object.entries(groups)){
+      result.areas[key]={id:key,title:def.title,count:0,namespaces:{},examples:[]};
+    }
+    if(!cached.ready)return result;
+    const input=readline.createInterface({input:createReadStream(cachePath(),{encoding:'utf8'}),crlfDelay:Infinity});
+    for await(const line of input){
+      let item;try{item=JSON.parse(line);}catch{continue;}
+      const label=short([item.title,item.knowledge_key,item.source_ref].join(' '),1000)
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const matched=['geral',...Object.entries(groups).filter(([id,def])=>
+        id!=='geral' && def.keywords.some(term=>label.includes(term))).map(([id])=>id)];
+      for(const id of matched){
+        const area=result.areas[id];area.count++;
+        const ns=short(item.namespace,50)||'outros';
+        area.namespaces[ns]=(area.namespaces[ns]||0)+1;
+        if(area.examples.length<6&&item.title){
+          area.examples.push({title:short(item.title,120),namespace:ns,
+            source:short(item.source_ref||item.source_type,90)});
+        }
+      }
+    }
+    return result;
+  }
+
   async function handle(req,res,url,send,readBody){
     if(!url.pathname.startsWith('/api/possebon/'))return false;
     function bad(e){
@@ -203,6 +241,7 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     }
     try{
       if(req.method==='GET'&&url.pathname==='/api/possebon/status'){send(res,200,publicStatus());return true;}
+      if(req.method==='GET'&&url.pathname==='/api/possebon/overview'){send(res,200,{ok:true,...await overview()});return true;}
       if(req.method==='POST'&&url.pathname==='/api/possebon/login'){
         const input=await readBody(req);send(res,200,await login(input));return true;
       }
