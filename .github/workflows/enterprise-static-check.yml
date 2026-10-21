@@ -54,7 +54,7 @@ jobs:
             throw 'Recursao: funcao Winget mascara winget.exe no PowerShell.'
           }
           $script = Get-Content tools/Instalar-HOLO.ps1 -Raw
-          if ($script -notmatch 'function Install-UsingWinget' -or $script -notmatch '(?m)^\\s*& winget\\.exe @args') {
+          if ($script -notmatch 'function Install-UsingWinget' -or -not $script.Contains('& winget.exe @args')) {
             throw 'Instalador deve invocar winget.exe de forma explicita.'
           }
           if ($script -notmatch 'OLLAMA_MODELS' -or $script -notmatch 'HOLO_LOCAL_DATA_DIR' -or $script -notmatch 'D:\\HOLO') {
