@@ -50,14 +50,14 @@ function Executavel([string]$nome, [string[]]$alternativas) {
   }
   return $null
 }
-function Winget([string]$id, [string]$instalarEm = '') {
+function Install-UsingWinget([string]$id, [string]$instalarEm = '') {
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget nao encontrado. Instale o App Installer da Microsoft.'
   }
   $args = @('install','--id',$id,'--exact','--accept-source-agreements','--accept-package-agreements')
   if ($instalarEm) { $args += @('--location',$instalarEm) }
   Write-Host "Instalando $id..." -ForegroundColor Yellow
-  & winget @args
+  & winget.exe @args
   if ($LASTEXITCODE -ne 0) {
     throw "A instalacao de $id falhou (codigo $LASTEXITCODE). Nenhuma instalacao alternativa no C: sera iniciada automaticamente."
   }
@@ -66,7 +66,7 @@ function Winget([string]$id, [string]$instalarEm = '') {
 # Evita reinstalar componentes ja existentes. O Node.js do sistema pode estar no C:.
 $node = Executavel 'node' @("$env:ProgramFiles\nodejs\node.exe", "$env:LOCALAPPDATA\Programs\nodejs\node.exe")
 if (-not $node) {
-  Winget 'OpenJS.NodeJS.LTS'
+  Install-UsingWinget 'OpenJS.NodeJS.LTS'
   $node = Executavel 'node' @("$env:ProgramFiles\nodejs\node.exe", "$env:LOCALAPPDATA\Programs\nodejs\node.exe")
 }
 if (-not $node) { throw 'Node.js instalado, mas nao localizado. Reabra o terminal e tente novamente.' }
@@ -83,7 +83,7 @@ $ollama = Executavel 'ollama' @(
 if (-not $ollama) {
   # O instalador Ollama aceita localizacao personalizada. O winget passa --location;
   # se o pacote nao suportar, falha sem cair silenciosamente no C:.
-  Winget 'Ollama.Ollama' $ollamaInstallDir
+  Install-UsingWinget 'Ollama.Ollama' $ollamaInstallDir
   $ollama = Executavel 'ollama' @(
     (Join-Path $ollamaInstallDir 'ollama.exe'),
     "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe",
