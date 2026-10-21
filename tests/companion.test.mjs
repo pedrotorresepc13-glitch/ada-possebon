@@ -36,7 +36,20 @@ try{
   await wait();
   // Regressao: a interface antiga usava porta 4892, mas o instalador inicia
   // somente o servidor Companion (4891) que recebe /api/chat.
+  const demoCode=await readFile(path.join(root,'studio/demo.js'),'utf8');
+  const {requestedNavigationId}=await import('data:text/javascript;base64,'+Buffer.from(demoCode).toString('base64'));
+  assert.equal(requestedNavigationId('me mostre operações e fale mais sobre ela'),'operacoes');
+  assert.equal(requestedNavigationId('abra o painel de compras'),'compras');
+  assert.equal(requestedNavigationId('mostre pessoas'),'pessoas');
+  assert.equal(requestedNavigationId('abra segurança'),'seguranca');
+  assert.equal(requestedNavigationId('o que são operações CRUD?'),null);
   const dashboard=await readFile(path.join(root,'studio/app.js'),'utf8');
+  assert.match(dashboard,/requestedNavigationId\(input\)/,'Chat principal precisa navegar');
+  assert.match(dashboard,/holo:navigate-area/,'Painel flutuante precisa navegar na mesma cena');
+  const companion=await readFile(path.join(root,'studio/companion.js'),'utf8');
+  assert.match(companion,/requestedNavigationId\(message\)/,'Assistente flutuante precisa reconhecer navegacao');
+  const serverCode=await readFile(path.join(root,'services/holo-companion.mjs'),'utf8');
+  assert.match(serverCode,/operacoes:\['Operações'/,'Servidor deve entender contexto da area Operações');
   assert.match(dashboard,/fetch\('\/api\/chat'/,'O painel principal deve usar o Companion');
   assert.doesNotMatch(dashboard,/127\.0\.0\.1:4892\/api\/assist/,'Nao usar o endpoint legado que exige outro servidor');
   const health=await(await fetch(base+'/api/health')).json();
