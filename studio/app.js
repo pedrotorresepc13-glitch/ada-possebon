@@ -94,22 +94,47 @@ function ask(question) {
   respond('Esta primeira versão utiliza comandos de demonstração, não um modelo de IA. '+helpText);
 }
 async function askModel(prompt) {
-  if(!['localhost','127.0.0.1'].includes(location.hostname)) {
-    respond('O modelo local ou por API exige um serviço backend autenticado. Nesta prévia pública ele ainda não está disponível. Use Demonstração.');
+  if(!['localhost','127.0.0.1'].includes(location.hostname) || location.port !== '4891') {
+    respond('A IA local funciona no HOLO instalado em http://127.0.0.1:4891/. Esta prévia pública não tem acesso ao modelo do seu computador.');
     return;
   }
-  respond('Consultando o provedor configurado no serviço local. Nenhuma fonte empresarial está conectada.');
   try {
-    const reply=await fetch('http://127.0.0.1:4892/api/assist',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt:prompt,area:state.area,provider:state.provider}),
-      signal:AbortSignal.timeout(50000)
+    const healthReply=await fetch('/api/health', {headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000)});
+    if(!healthReply.ok || !healthReply.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('O serviço HOLO Companion não está ativo. Abra o HOLO pelo arquivo Iniciar-HOLO.cmd em vez de um servidor estático.');
+    }
+    const health=await healthReply.json();
+    if(!health.ok || health.mode!=='local') {
+      throw new Error('O servidor atual não é o HOLO Companion.');
+    }
+    // O provedor é definido no servidor: a seleção visual não pode trocar
+    // silenciosamente de modelo local para API externa (nem vice-versa).
+    if(health.provider!==state.provider) {
+      respond('O servidor está configurado para '+(health.provider==='api'?'API externa':'IA local')+
+        ', mas você selecionou '+(state.provider==='api'?'API externa':'IA local')+
+        '. Ajuste a opção Motor de IA e reenvie a pergunta. O provedor real é configurado no servidor.');
+      return;
+    }
+    respond(health.brainConfigured
+      ? 'Consultando a IA e o catálogo do POSSEBON Brain (somente leitura).'
+      : 'Consultando a IA local. O catálogo empresarial POSSEBON Brain ainda não está conectado.');
+    const reply=await fetch('/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+      body:JSON.stringify({message:prompt}),
+      signal:AbortSignal.timeout(105000)
     });
+    if(!reply.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('O serviço respondeu em formato inesperado. Confirme que o HOLO Companion está rodando na porta 4891.');
+    }
     const data=await reply.json();
     if(!reply.ok)throw new Error(data.error||('HTTP '+reply.status));
     respond(data.answer);
+    if(data.brain==='indisponivel') {
+      respond('Aviso: não consegui consultar o POSSEBON Brain nesta pergunta. Esta resposta não deve ser tratada como informação empresarial confirmada.');
+    }
   } catch(err) {
-    respond('Não foi possível consultar o modelo: '+String(err?.message||'Falha de comunicação')+'. Inicie o serviço local e confira a configuração.');
+    respond('Falha ao conversar com a IA: '+String(err?.message||'Falha de comunicação')+
+      '. Verifique o endereço http://127.0.0.1:4891/api/health e se o Ollama está iniciado.');
   }
 }
 function updateCompany() {
