@@ -24,6 +24,47 @@ O script precisa de internet e espaço no disco D:. **O local padrão dos modelo
 
 Para verificar o destino no PowerShell, execute `[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')`. O resultado esperado é `D:\HOLO\Modelos-Ollama`. Se alterou o destino com o Ollama já aberto, é necessário reiniciá-lo para a mudança valer.
 
+## Conectar ao POSSEBON Web pela nova API HOLO (etapa de testes)
+
+**Pré-requisito:** o administrador deve ter publicado `HoloKnowledgeApiTrait.php`, as 3 rotas
+`/api/app/holo/*` e a inclusão correspondente no `ApiAppController` do MAD Builder vivo.
+A integração usa credenciais de usuário diretamente na interface local, **não** deve receber
+tokens ou senhas em chats, GitHub ou arquivos de configuração.
+
+1. O POSSEBON Web deve responder por HTTPS com certificado válido. O endereço padrão do conector
+   é `https://app.possebon.com.br:19302`. Se o endereço HTTPS real for diferente, configure
+   a variável de ambiente `HOLO_POSSEBON_URL` **antes de iniciar** o serviço HOLO. Não é aceito HTTP
+   para autenticação por senha, nem certificados ignorados.
+2. No HOLO local em `http://127.0.0.1:4891/`, clique **Conectar POSSEBON**. Informe seu login e senha
+   do POSSEBON Web diretamente no formulário, selecione a unidade autorizada e conecte. Se a conta
+   exigir 2FA, a API recusa a primeira versão até existir o fluxo de dois fatores.
+3. No primeiro acesso por usuário/unidade, o estudo inicia automaticamente. A HOLO consulta
+   `brain/status` e `brain/itens`, por páginas de até 30 itens e pequenos intervalos.
+   **Não chama sync, commit, feedback nem modifica o banco.**
+4. A tela informa progresso e o índice concluído fica em
+   `D:\HOLO\Memoria-HOLO\conhecimento-possebon\user-<ID>-unit-<ID>.jsonl`,
+   se `HOLO_LOCAL_DATA_DIR` estiver configurada conforme o instalador. O cache é separado
+   por usuário/unidade. Uma nova autenticação é necessária ao reiniciar o Companion.
+   O token da sessão (30 minutos) só fica na memória do processo e não no disco.
+5. O botão **Estudar / atualizar Brain** refaz a leitura quando necessário. O índice anterior
+   permanece válido caso a nova tentativa falhe. A assistente utiliza trechos relevantes
+   da base local e indica quando não há fonte.
+6. O arquivo JSONL local contém metadados/código do Brain **em texto legível**: proteja o
+   acesso NTFS à pasta D:. O conteúdo pode ser sensível; não compartilhe o cache.
+   O estudo não acessa automaticamente dados operacionais ao vivo ou documentos fora do Brain.
+
+Para verificar a publicação sem expor credenciais:
+```powershell
+try {
+  Invoke-WebRequest -Uri "https://app.possebon.com.br:19302/api/app/holo/brain/status" -UseBasicParsing
+} catch {
+  Write-Host "HTTP:" ([int]$_.Exception.Response.StatusCode)
+  Write-Host "Erro:" $_.Exception.Message
+}
+```
+O resultado esperado, sem um token, é HTTP 401. Se falhar o HTTPS, confirme o endereço
+e o certificado antes de tentar login. Nenhum teste simulado certifica a conexão real.
+
 ## Conectar ao Brain (opcional)
 O POSSEBON Brain já possui método contextoPossebonBrain, com autenticação Bearer técnica ligada a usuário e unidade. O endereço e o método HTTP precisam ser confirmados na API do ambiente vivo.
 
