@@ -39,7 +39,7 @@ const fakeFetch=async(uri,opts)=>{
 const bridge=createHoloPossebon({localDir:temp,fetchImpl:fakeFetch});
 async function call(route,payload){
   let result,code;
-  await bridge.handle({}, {}, new URL(route,'http://127.0.0.1:4891'),
+  await bridge.handle({method:route==='/api/possebon/status'?'GET':'POST'}, {}, new URL(route,'http://127.0.0.1:4891'),
     (_res,status,obj)=>{code=status;result=obj;},async()=>payload);
   assert.equal(code,200,result?.error||'HTTP '+code);
   return result;
