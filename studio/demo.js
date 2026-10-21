@@ -18,3 +18,20 @@ export const areas = [
    bars:[["Finalizadas",41],["Em andamento",22]],summary:"Na amostra fictícia, 41 de 63 atividades estão finalizadas."}
 ];
 export const helpText="Você pode dizer: mostrar pessoas, abrir compras, ver segurança, operações, visão geral, fazer resumo ou iniciar apresentação. Para dados reais, será necessário conectar e autorizar uma fonte.";
+
+/**
+ * Detecta SOMENTE pedidos explícitos de navegação na interface (não perguntas
+ * genéricas sobre CRUD). Puro e seguro: não executa comandos ou integrações.
+ */
+export function requestedNavigationId(message) {
+  const q=String(message||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!/\b(?:mostra|mostre|mostrar|abre|abra|abrir|exibe|exiba|exibir|acesse|acessar|acesse|navegue|navegar|visualize|visualizar|veja|ver|entre|entrar|leva|leve|ir|va|vá)\b/.test(q))return null;
+  const names=[
+    ['operacoes',/\b(?:operacao|operacoes|projeto|projetos|atividade|atividades|producao|obras|obra)\b/],
+    ['pessoas',/\b(?:pessoa|pessoas|colaborador|colaboradores|funcionario|funcionarios|equipe|equipes|rh|treinamento|treinamentos)\b/],
+    ['compras',/\b(?:compra|compras|material|materiais|fornecedor|fornecedores|solicitacao|solicitacoes|suprimentos)\b/],
+    ['seguranca',/\b(?:seguranca|inspecao|inspecoes|auditoria|auditorias|ronda|rondas)\b/],
+    ['geral',/\b(?:geral|inicio|panorama|principal)\b/]
+  ];
+  return names.find(([id,re])=>re.test(q))?.[0]||null;
+}
