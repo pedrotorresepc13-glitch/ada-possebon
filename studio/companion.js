@@ -1,4 +1,5 @@
 // Painel de voz da assistente HOLO. Somente o serviço local fornece respostas reais.
+import {areas,requestedNavigationId} from './demo.js';
 const host=document.createElement('div');
 host.id='holo-companion';
 host.innerHTML=[
@@ -48,8 +49,15 @@ async function health(){
 async function ask(message){
   message=message.trim();if(!message||busy)return;
   busy=true;stopMic();$('hc-send').disabled=true;line(message,'user');status('Pensando...');
+  const navigation=requestedNavigationId(message);
+  if(navigation){
+    window.dispatchEvent(new CustomEvent('holo:navigate-area',{detail:{id:navigation}}));
+    line('Abrindo '+(areas.find(a=>a.id===navigation)?.name||'área')+' no mapa holográfico.');
+  }
+  const area=navigation||document.querySelector('.area-button[aria-current="page"]')?.dataset.area||'geral';
+  const demoMode=document.querySelector('#data-badge')?.textContent==='DADOS FICTÍCIOS';
   try{
-    const response=await json('/api/chat',{method:'POST',body:JSON.stringify({message})});
+    const response=await json('/api/chat',{method:'POST',body:JSON.stringify({message,area,navigation,demoMode})});
     line(response.answer);status('IA '+response.provider+' · Brain '+(response.brain||'não consultado'));
     if(response.sources?.length)line('Fontes: '+response.sources.slice(0,5).join('; '));
     busy=false;say(response.answer);
