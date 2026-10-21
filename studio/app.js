@@ -23,8 +23,8 @@ function text(tag, value, cls) {
   const e=document.createElement(tag); if(cls)e.className=cls; e.textContent=value; return e;
 }
 function formatArea(a) { return state.custom ? {
-  ...a,description:'Empresa criada localmente. Nenhuma fonte de dados está conectada.',
-  stats:[['Fonte de dados','Pendente'],['Indicadores','0'],['IA','Não conectada'],['Conexões','0']],
+  ...a,description:a.description+' Os indicadores reais desta empresa ainda não estão conectados.',
+  stats:[['Fonte de dados','Pendente'],['Indicadores','Sem fonte'],['Motor de IA',state.provider==='local'?'Local selecionado':state.provider==='api'?'API selecionada':'Demonstração'],['Conexões','0']],
   bars:[],summary:'Sua empresa ainda não possui dados. Configure conexões de forma segura no backend antes de consultar informações reais.'
 } : a; }
 function selectArea(id, announce=false) {
