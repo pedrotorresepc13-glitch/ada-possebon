@@ -1,7 +1,7 @@
 // Smoke local sem Ollama, token Brain, webcam ou acesso ao POSSEBON.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
@@ -34,6 +34,11 @@ const wait=async()=>{
 };
 try{
   await wait();
+  // Regressao: a interface antiga usava porta 4892, mas o instalador inicia
+  // somente o servidor Companion (4891) que recebe /api/chat.
+  const dashboard=await readFile(path.join(root,'studio/app.js'),'utf8');
+  assert.match(dashboard,/fetch\('\/api\/chat'/,'O painel principal deve usar o Companion');
+  assert.doesNotMatch(dashboard,/127\.0\.0\.1:4892\/api\/assist/,'Nao usar o endpoint legado que exige outro servidor');
   const health=await(await fetch(base+'/api/health')).json();
   assert.equal(health.ok,true);
   assert.equal(health.brainConfigured,false);
