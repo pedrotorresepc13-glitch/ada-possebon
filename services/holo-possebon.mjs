@@ -17,7 +17,7 @@ function targetUrl(){
      base.pathname!=='/' && base.pathname!=='')throw Error('Use HOLO_POSSEBON_URL com HTTPS e endereço base, sem caminho ou credenciais.');
   return base.origin;
 }
-export function createHoloPossebon({localDir}){
+export function createHoloPossebon({localDir,fetchImpl=fetch}){
   let session=null;
   let task=null;
   let progress={running:false,done:false,phase:'desconectado',count:0,expected:0,namespace:'',error:null};
@@ -38,7 +38,7 @@ export function createHoloPossebon({localDir}){
     if(!task)progress={running:false,done:false,phase:'desconectado',count:0,expected:0,namespace:'',error:null};
   }
   async function remoteJson(route,{method='GET',payload,token,timeout=20000}={}){
-    const response=await fetch(remote+route,{
+    const response=await fetchImpl(remote+route,{
       method,headers:{'Accept':'application/json',...(payload?{'Content-Type':'application/json'}:{}),
         ...(token?{'Authorization':'Bearer '+token}:{})},
       ...(payload?{body:json(payload)}:{}),
