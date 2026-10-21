@@ -1,0 +1,30 @@
+#holo-brain-onboarding{display:inline-flex;align-items:center}
+#holo-brain-onboarding .hb-open{border:1px solid #438eae;background:#102b3f;color:#a4f7f1;white-space:nowrap;padding:9px 13px;border-radius:10px;font-weight:700;cursor:pointer}
+#holo-brain-onboarding .hb-open:hover{background:#163c51}
+#holo-brain-onboarding .hb-modal{width:min(560px,calc(100vw - 24px));max-height:92vh;overflow:auto;margin:auto;border:1px solid #365776;border-radius:18px;padding:0;background:#0b1929;color:#e9f6fc;box-shadow:0 24px 100px #000b;font-size:14px}
+#holo-brain-onboarding .hb-modal::backdrop{background:#03070cbb;backdrop-filter:blur(4px)}
+#holo-brain-onboarding .hb-form{padding:23px;display:grid;gap:16px}
+#holo-brain-onboarding header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+#holo-brain-onboarding header strong{font-size:18px;display:block}
+#holo-brain-onboarding header small{display:block;color:#9cb6c8;margin-top:6px}
+#holo-brain-onboarding #hb-close{background:transparent;color:#bed8e9;border:1px solid #35516a;border-radius:9px;padding:5px 9px}
+#holo-brain-onboarding .hb-connection{font-size:12px;color:#b8d2e1;background:#11273b;padding:12px;border:1px solid #29465c;border-radius:10px;overflow-wrap:anywhere;margin:0}
+#holo-brain-onboarding .hb-login,#holo-brain-onboarding .hb-study{display:grid;gap:14px}
+#holo-brain-onboarding [hidden]{display:none!important}
+#holo-brain-onboarding label{display:grid;gap:6px;color:#b4ccdc;font-size:13px}
+#holo-brain-onboarding input,#holo-brain-onboarding select{width:100%;border:1px solid #355773;background:#071323;color:#e9f6fc;border-radius:9px;padding:12px;font-size:14px;outline:none}
+#holo-brain-onboarding input:focus,#holo-brain-onboarding select:focus{border-color:#67dacf}
+#holo-brain-onboarding button{font:inherit;cursor:pointer}
+#holo-brain-onboarding button:disabled{opacity:.55;cursor:wait}
+#holo-brain-onboarding .hb-primary{padding:12px 15px;background:#52d5c9;color:#06121a;border:0;border-radius:10px;font-weight:700}
+#holo-brain-onboarding .hb-metrics{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+#holo-brain-onboarding .hb-metrics span{font-size:13px;color:#c0d2dc}
+#holo-brain-onboarding .hb-meter{height:10px;background:#172c3d;border-radius:20px;overflow:hidden}
+#holo-brain-onboarding #hb-meter-fill{height:100%;width:0;background:linear-gradient(90deg,#68b8ee,#53e4c1);transition:width .5s}
+#holo-brain-onboarding .hb-actions{display:flex;flex-wrap:wrap;gap:12px}
+#holo-brain-onboarding .hb-actions button:not(.hb-primary){background:#192e42;border:1px solid #365773;border-radius:10px;color:#e2f3ff;padding:11px 14px}
+#holo-brain-onboarding .hb-message{min-height:20px;color:#b1f2e7;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+#holo-brain-onboarding .hb-message.hb-error{color:#ffaaa5}
+#holo-brain-onboarding .hb-small{font-size:12px;color:#90adbd;line-height:1.6;margin:0}
+#holo-brain-onboarding #hb-progress{color:#c9e1ef;font-size:13px}
+@media(max-width:760px){#holo-brain-onboarding .hb-open{font-size:12px;padding:8px}#holo-brain-onboarding .hb-form{padding:16px}}
