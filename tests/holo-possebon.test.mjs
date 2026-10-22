@@ -18,7 +18,8 @@ const fakeFetch=async(uri,opts)=>{
     assert.equal(opts.method,'POST');
     assert.equal(input.password,'segredo_apenas_para_teste');
     if(!input.unit_id) response={requires_unit_selection:true,units:[{id:3,name:'EPC13'},{id:4,name:'Outra unidade'}]};
-    else response={access_token:fakeJwt(21,input.unit_id),unit_id:input.unit_id,user_name:'Usuario Teste',expires_in:1800};
+    else response={access_token:fakeJwt(21,input.unit_id),unit_id:input.unit_id,user_name:'Usuario Teste',expires_in:1800,
+      can_manage_ai:input.login!=='usuario_comum'};
   }else if(u.pathname.endsWith('/operacional/colaboradores/ativos')){
     assert.ok(opts.headers.Authorization.startsWith('Bearer '));
     const tokenPayload=JSON.parse(Buffer.from(opts.headers.Authorization.slice(7).split('.')[1],'base64url').toString('utf8'));
@@ -104,5 +105,17 @@ try{
   await call('/api/possebon/logout',{});
   await call('/api/possebon/login',{login:'teste',password:'segredo_apenas_para_teste',unit_id:3});
   assert.equal(bridge.status().knowledge.ready,true,'Reutiliza cache seguro da mesma unidade');
+  await call('/api/possebon/logout',{});
+  await call('/api/possebon/login',{login:'usuario_comum',password:'segredo_apenas_para_teste',unit_id:3});
+  assert.equal(bridge.status().can_manage_ai,false);
+  assert.deepEqual(await bridge.findEvidence('Regra do RDO'),[],
+    'Usuário sem permissão não recebe trechos de código ou regras, mesmo que cache exista');
+  for(const route of ['/api/possebon/study','/api/possebon/overview']){
+    let code;
+    await bridge.handle({method:route.endsWith('study')?'POST':'GET'}, {},
+      new URL(route,'http://127.0.0.1:4891'),(_res,status)=>{code=status;},async()=>({}));
+    assert.equal(code,403,'Brain administrativo deve ficar protegido: '+route);
+  }
+
   console.log('HOLO Brain: login por unidade, estudo, leitura e cache isolado OK');
 }finally{await rm(temp,{recursive:true,force:true});}
