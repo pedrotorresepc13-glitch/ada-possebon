@@ -280,5 +280,5 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
       send(res,404,{ok:false,error:'Rota HOLO/POSSEBON inexistente.'});return true;
     }catch(e){bad(e);return true;}
   }
-  return {handle,findEvidence,status:publicStatus,activeCollaborators};
+  return {handle,findEvidence,status:publicStatus,activeCollaborators,knowledgeOverview:overview};
 }
