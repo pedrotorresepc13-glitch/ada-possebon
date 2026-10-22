@@ -39,7 +39,7 @@ const fakeFetch=async(uri,opts)=>{
 const bridge=createHoloPossebon({localDir:temp,fetchImpl:fakeFetch});
 async function call(route,payload){
   let result,code;
-  await bridge.handle({method:route==='/api/possebon/status'?'GET':'POST'}, {}, new URL(route,'http://127.0.0.1:4891'),
+  await bridge.handle({method:['/api/possebon/status','/api/possebon/overview'].includes(route)?'GET':'POST'}, {}, new URL(route,'http://127.0.0.1:4891'),
     (_res,status,obj)=>{code=status;result=obj;},async()=>payload);
   assert.equal(code,200,result?.error||'HTTP '+code);
   return result;
@@ -64,6 +64,11 @@ try{
   await settled();
   assert.equal(bridge.status().knowledge.ready,true);
   assert.equal(bridge.status().knowledge.count,2);
+  const overview=await call('/api/possebon/overview',{});
+  assert.equal(overview.total,2);
+  assert.equal(overview.areas.geral.count,2);
+  assert.equal(overview.areas.operacoes.count,1,'RDO associado a Operações pela fonte real');
+  assert.equal(overview.operationalConnected,false,'O catálogo não é métrica operacional');
   assert.ok((await bridge.findEvidence('regra do RDO')).some(x=>x.title==='Regra do RDO'));
   const filepath=path.join(temp,'conhecimento-possebon','user-21-unit-3.jsonl');
   const saved=await readFile(filepath,'utf8');
