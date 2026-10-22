@@ -206,3 +206,56 @@ body {
 @media (prefers-reduced-motion:reduce) {
   .metric:hover {transform:none}
 }
+
+
+/* HOLO Command Center: conhecimento verificável e conversa sem sobreposições. */
+.workspace{grid-template-columns:clamp(205px,14.7vw,235px) minmax(370px,1fr) clamp(370px,27vw,440px)}
+.insights{display:flex;flex-direction:column;gap:0;height:calc(100dvh - 76px);min-height:0;overflow:hidden;padding:0;background:linear-gradient(165deg,rgba(5,25,30,.98),rgba(7,14,23,.98))}
+.intel-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;border-bottom:1px solid rgba(110,235,218,.20);background:#07151b}
+.intel-tabs button{padding:12px 7px;border:1px solid transparent;background:transparent;color:#a2bfba;border-radius:11px;font-size:12px;font-weight:700}
+.intel-tabs button[aria-selected=true]{background:linear-gradient(110deg,#163c42,#102e3a);color:#e6fff7;border-color:#377e79;box-shadow:inset 0 1px #6dfff024}
+#insights-summary{padding:23px 19px 26px;min-height:0;overflow-y:auto;scrollbar-color:#345e65 transparent}
+#holo-companion-slot{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.insights [hidden]{display:none!important}
+#brain-summary{padding:14px 15px;margin:14px 0 17px;background:#0c2b33;border:1px solid #2d6c6b;border-radius:13px}
+#brain-summary .brain-state{font-size:12px;color:#aaffdf;display:block}
+#brain-summary p{margin:8px 0 5px;font-size:12px;line-height:1.6;color:#d1eae6}
+#brain-summary small{color:#91b0b4;font-size:10px;line-height:1.4}
+.insights .panel-header h2{font-size:22px;letter-spacing:-.025em}
+.insights .metrics{margin-top:16px;gap:8px}
+.insights .metric{border-radius:12px;padding:14px 12px;background:linear-gradient(155deg,#10353a,#0c222c)}
+.insights .metric strong{font-size:19px;overflow-wrap:anywhere}
+.insights .chart-box{margin-top:15px;padding:15px;background:#091e28}
+.insights .bar-row span:first-child{width:112px}
+.brain-examples{display:grid;gap:8px;margin-top:18px}
+.brain-examples .section-label{margin:0 0 3px}
+.knowledge-example{display:flex;flex-direction:column;gap:6px;padding:12px 13px;border-radius:11px;border:1px solid #24484a;background:rgba(12,44,50,.55)}
+.knowledge-example strong{font-size:12px;color:#e0f8f2;font-weight:600;overflow-wrap:anywhere}
+.knowledge-example small{font-size:10px;color:#90bdbb;overflow-wrap:anywhere}
+.scope-note{margin:19px 0 0;padding:12px;border-radius:10px;border:1px solid #3c4b4f;color:#a4c0c1;font-size:11px;line-height:1.55}
+.demo-flag.brain-ready{border-color:#398f83;color:#a5f5da;background:#153b35}
+#area-list{gap:7px}
+.area-button{font-size:12px;padding:12px;letter-spacing:.01em}
+.scene-head h1{max-width:680px;font-size:clamp(24px,2.4vw,38px);line-height:1.15}
+.scene-head p{font-size:12px;line-height:1.65}
+.sidebar{padding:24px 15px}
+.privacy{opacity:.9}
+@media(max-width:1150px){.workspace{grid-template-columns:185px minmax(260px,1fr) 360px}}
+@media(max-width:850px){
+  .workspace{grid-template-columns:1fr}
+  .insights{height:auto;min-height:590px}
+  #holo-companion-slot{min-height:570px}
+  #insights-summary{max-height:none;overflow:visible}
+  .intel-tabs{position:sticky;top:0;z-index:9}
+  .scene-head h1{font-size:26px}
+  .sidebar{padding:12px 15px}
+}
+@media(max-width:580px){
+  .topbar{gap:9px;flex-wrap:wrap;padding:10px 12px}
+  .brand strong{font-size:12px}
+  .header-actions{flex-wrap:wrap}
+  .header-actions .demo-flag{font-size:9px}
+  .intel-tabs button{font-size:12px}
+  .scene-head h1{font-size:24px}
+  #holo-companion-slot{min-height:610px}
+}
