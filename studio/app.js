@@ -9,7 +9,7 @@ let restored = {};
 try { restored = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch {}
 const state = {
   area:'geral', overview:null, connected:false, enterpriseUnit:null,
-  company:typeof restored.company === 'string' ? restored.company : 'Empresa Exemplo',
+  company:'POSSEBON',
   custom:restored.custom === true, voice:false, provider:restored.provider || 'demo',
   model:null, stream:null, landmark:null, lastFrame:0, gestureEngine:null, gestureGrab:null,
   scene:null, camera:null, renderer:null, group:null, baseCameraZ:12,
@@ -100,28 +100,39 @@ function respond(value) {
 }
 function updateCompany() {
   const connected=state.overview?.ready;
-  const company=connected&&state.company==='Empresa Exemplo'?'POSSEBON':state.company;
+  const company=connected?'POSSEBON':'Aguardando autenticação';
   $('#company-name').textContent=company;
-  $('#company-type').textContent=connected?'POSSEBON Brain · Unidade '+state.enterpriseUnit:
-    state.custom?'Empresa local sem fontes':'Ambiente de demonstração';
-  $('#data-badge').textContent=connected?'BRAIN · '+state.overview.total+' ITENS':
-    state.custom?'SEM FONTE OPERACIONAL':'DADOS DEMONSTRATIVOS';
+  $('#company-type').textContent=connected?'POSSEBON Brain · Unidade '+state.enterpriseUnit:'Entre com seu usuário POSSEBON';
+  $('#data-badge').textContent=connected?'BRAIN · '+state.overview.total+' ITENS':'LOGIN NECESSÁRIO';
   $('#data-badge').classList.toggle('brain-ready',!!connected);
   selectArea(state.area);
 }
 function setupNavigation() {
   const nav=$('#area-list');
-  for(const a of areas) {
-    const b=document.createElement('button');b.className='area-button';
-    b.type='button';b.dataset.area=a.id;
-    b.append(text('span',a.icon,'area-symbol'),text('span',a.name));
-    b.addEventListener('click',()=>selectArea(a.id,true));nav.append(b);
+  function renderAreas(){
+    nav.replaceChildren();
+    const available=state.overview?.ready?areas.filter(a=>
+      a.id==='geral'||Number(state.overview.areas?.[a.id]?.count)>0):[];
+    if(!available.length){
+      nav.append(text('p','As áreas aparecerão conforme o Brain autorizado for estudado.','privacy'));
+      return;
+    }
+    for(const a of available){
+      const b=document.createElement('button');b.className='area-button';
+      b.type='button';b.dataset.area=a.id;
+      b.append(text('span',a.icon,'area-symbol'),text('span',a.name));
+      const found=state.overview.areas?.[a.id]?.count||0;
+      b.append(text('small',found.toLocaleString('pt-BR'),'area-count'));
+      b.addEventListener('click',()=>selectArea(a.id,true));nav.append(b);
+    }
   }
+  renderAreas();
   updateCompany();
   window.addEventListener('holo:knowledge-updated',ev=>{
     state.overview=ev.detail?.overview?.ready?ev.detail.overview:null;
     state.connected=!!ev.detail?.connected;
     state.enterpriseUnit=ev.detail?.unit_id||null;
+    renderAreas();
     updateCompany();
   });
   // O chat único controla o mesmo mapa 3D.
