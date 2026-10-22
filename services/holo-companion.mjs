@@ -212,6 +212,10 @@ const server=http.createServer(async(req,res)=>{
   if(req.headers.origin&&!new Set(['http://localhost:'+port,'http://127.0.0.1:'+port]).has(req.headers.origin))return error(res,403,'Origem não autorizada');
   const url=new URL(req.url||'/', 'http://127.0.0.1:'+port);
   try {
+    // Evitar troca de identidade durante resposta longa do Ollama.
+    if(active && req.method==='POST' &&
+      ['/api/possebon/login','/api/possebon/logout'].includes(url.pathname))
+      return error(res,409,'Aguarde a consulta atual terminar antes de mudar a sessão.');
     if(await possebon.handle(req,res,url,result,body))return;
     // Não basta esconder botões: bloquear os endpoints de dados sem sessão.
     await syncIdentity();
