@@ -32,7 +32,9 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     if(session && Date.now()>=session.expiresAt && !task)clearSession();
     return {ok:true,connected:!!session,unit_id:session?.unitId||null,user_id:session?.userId||null,user_name:session?.userName||null,
       can_manage_ai:session?.canManageAI===true,
-      expires_at:session?.expiresAt||null,remote,progress:{...progress},knowledge:{...cached}};
+      expires_at:session?.expiresAt||null,remote,progress:{...progress},
+      knowledge:session?.canManageAI===true?{...cached}:
+        {ready:false,count:0,unitId:null,userId:null,completedAt:null,byNamespace:{}}};
   }
   function clearSession(){
     session=null;
@@ -94,7 +96,8 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     await loadExisting();
     progress={running:false,done:false,phase:'conectado',count:cached.count,expected:0,namespace:'',error:null};
     return {ok:true,connected:true,unit_id:session.unitId,user_name:session.userName,can_manage_ai:session.canManageAI===true,expires_at:session.expiresAt,
-      knowledge:{...cached}};
+      knowledge:session.canManageAI===true?{...cached}:
+        {ready:false,count:0,unitId:null,userId:null,completedAt:null,byNamespace:{}}};
   }
   // Decodifica somente o ID para nomear o cache. A autenticação real é verificada no servidor POSSEBON.
   function parseUserId(token){
