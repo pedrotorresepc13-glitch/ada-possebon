@@ -1,0 +1,28 @@
+name: HOLO · Quadro e consultas seguras
+on:
+  push:
+    branches: [feature/possebon-whiteboard-auth-v1]
+  pull_request:
+    paths:
+      - 'studio/**'
+      - 'services/holo-*.mjs'
+      - 'tests/holo-*.test.mjs'
+      - 'index.html'
+      - '.github/workflows/holo-whiteboard.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          for f in studio/whiteboard.js studio/auth-gate.js studio/export-xlsx.mjs studio/companion.js studio/app.js services/holo-companion.mjs services/holo-operational-intent.mjs services/holo-possebon.mjs; do
+            node --check "$f"
+          done
+      - name: Test operational routing and Excel export
+        run: |
+          node tests/holo-operational-intent.test.mjs
+          node tests/holo-export-xlsx.test.mjs
