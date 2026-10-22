@@ -19,6 +19,7 @@ jobs:
           node --check services/holo-companion.mjs
           node --check services/holo-possebon.mjs
           node --check services/holo-operational-intent.mjs
+          node --check services/holo-knowledge-answer.mjs
           node --input-type=module --check < studio/brain-onboarding.js
           node --input-type=module --check < studio/knowledge-dashboard.js
           node --check tests/holo-possebon.test.mjs
@@ -33,6 +34,8 @@ jobs:
         run: node tests/holo-possebon.test.mjs
       - name: Testar roteamento deterministico de metricas operacionais
         run: node tests/holo-operational-intent.test.mjs
+      - name: Testar resumo real do conhecimento estudado
+        run: node tests/holo-knowledge-answer.test.mjs
       - name: Confirmar arquivos do deploy
         run: |
           test -s index.html
