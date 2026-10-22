@@ -58,6 +58,7 @@ body{background:#f4f7fb;color:var(--ink)}
   .workspace{display:block}
   .report-center{display:block!important}
   .wb-viewport{display:block;overflow:visible;height:auto;background:#fff}
-  .wb-stage{transform:none!important}
-  .wb-card{break-inside:avoid;box-shadow:none;border:1px solid #bbb}
+  .wb-stage{transform:none!important;width:auto;height:auto;display:block}
+  .wb-card{position:static!important;width:100%;max-width:none;margin:12px 0;
+    break-inside:avoid;box-shadow:none;border:1px solid #bbb}
 }
