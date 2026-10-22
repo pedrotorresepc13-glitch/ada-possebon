@@ -80,8 +80,7 @@ async function brainContext(question){
   const entries=Array.isArray(data?.items)?data.items:Array.isArray(data?.context)?data.context:[];
   return {items:entries.slice(0,8).map(x=>({titulo:truncate(x.title||x.namespace,120),conteudo:truncate(x.content||'',1700),fonte:truncate(x.source_ref||'',150)})),state:'consultado'};
 }
-async function answer(question,context,view){
-  const holoEvidence=await possebon.findEvidence(question);
+async function answer(question,context,view,holoEvidence){
   let notes=memory.notes.slice(-12).map(x=>'- [NÃO VALIDADA] '+x.text).join('\n');
   const evidence=context.items.map(x=>'- '+x.titulo+' ('+x.fonte+'): '+x.conteudo).join('\n');
   const localEvidence=holoEvidence.map(x=>'- ['+x.namespace+'; '+x.source_ref+'; id='+x.id+
@@ -117,10 +116,19 @@ async function answer(question,context,view){
     if(!r.ok)throw new Error('Provedor externo indisponível (HTTP '+r.status+')');
     const data=await r.json();return truncate(data?.choices?.[0]?.message?.content,6000).trim();
   }
-  const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:serialise({model,messages,stream:false}),signal:AbortSignal.timeout(90000)});
-  if(!r.ok)throw new Error('Ollama indisponível (HTTP '+r.status+'). Confira o modelo instalado.');
+  let r;
+  try{
+    r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:serialise({model,messages,stream:false}),signal:AbortSignal.timeout(90000)});
+  }catch(e){
+    throw new Error(e?.name==='TimeoutError'?
+      'O Ollama demorou mais de 90 segundos para responder. Verifique a memoria disponivel.' :
+      'O servidor Ollama nao esta acessivel na porta 11434. Inicie "ollama serve" e mantenha-o aberto.');
+  }
+  if(!r.ok)throw new Error(r.status===404?
+    'Modelo '+model+' nao encontrado no Ollama. Verifique com "ollama list".':
+    'Ollama indisponivel (HTTP '+r.status+').');
   const data=await r.json();return truncate(data?.message?.content,6000).trim();
 }
 async function listDocs(){
@@ -175,9 +183,21 @@ const server=http.createServer(async(req,res)=>{
     if(await possebon.handle(req,res,url,result,body))return;
     if(req.method==='GET'&&url.pathname==='/api/health'){
       const holoState=possebon.status();
+      let ollamaConnected=false,modelInstalled=false;
+      if(provider==='local'){
+        try{
+          const probe=await fetch('http://127.0.0.1:11434/api/tags',{signal:AbortSignal.timeout(1500)});
+          if(probe.ok){
+            ollamaConnected=true;
+            const tags=await probe.json();
+            modelInstalled=Array.isArray(tags.models)&&tags.models.some(m=>m.name===model||m.model===model);
+          }
+        }catch{}
+      }
       return result(res,200,{ok:true,mode:'local',provider,model,
         brainConfigured:connected||holoState.knowledge.ready,
         possebonConnected:holoState.connected,possebonKnowledgeCount:holoState.knowledge.count,
+        ollamaConnected:provider==='local'?ollamaConnected:null,modelInstalled:provider==='local'?modelInstalled:null,
         documentsConfigured:Boolean(docsDir),historyCount:memory.history.length,notesCount:memory.notes.length});
     }
     if(req.method==='GET'&&url.pathname==='/api/history')return result(res,200,{ok:true,history:memory.history.slice(-30)});
@@ -207,11 +227,14 @@ const server=http.createServer(async(req,res)=>{
         try{ctx=await brainContext(question);}catch(e){ctx.state='indisponivel';console.warn('Brain:',e.message);}
         const area=Object.hasOwn(sceneAreas,data?.area)?data.area:'geral';
         const navigation=Object.hasOwn(sceneAreas,data?.navigation)?data.navigation:null;
-        const response=await answer(question,ctx,{area,navigation,demoMode:data?.demoMode===true});
+        const localEvidence=await possebon.findEvidence(question);
+        const response=await answer(question,ctx,{area,navigation,demoMode:data?.demoMode===true},localEvidence);
         if(!response)throw new Error('A IA retornou resposta vazia');
         memory.history.push({role:'user',text:question,at:new Date().toISOString()},{role:'assistant',text:response,at:new Date().toISOString()});
         memory.history=memory.history.slice(-36);await persist();
-        return result(res,200,{ok:true,answer:response,provider,brain:ctx.state,sources:ctx.items.map(x=>x.fonte).filter(Boolean)});
+        return result(res,200,{ok:true,answer:response,provider,
+          brain:localEvidence.length?'catalogo_local':ctx.state,
+          sources:[...localEvidence.map(x=>x.source_ref),...ctx.items.map(x=>x.fonte)].filter(Boolean).slice(0,8)});
       } finally{active=false;}
     }
     if(req.method==='GET')return await serveStatic(res,url);
