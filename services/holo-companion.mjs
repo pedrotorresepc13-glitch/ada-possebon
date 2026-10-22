@@ -3,6 +3,7 @@
 import http from 'node:http';
 import {createHoloPossebon} from './holo-possebon.mjs';
 import {operationalIntent} from './holo-operational-intent.mjs';
+import {isKnowledgeInventoryQuestion,summarizeKnowledge} from './holo-knowledge-answer.mjs';
 import {readFile, writeFile, mkdir, readdir, lstat, realpath} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {homedir} from 'node:os';
@@ -213,6 +214,8 @@ const server=http.createServer(async(req,res)=>{
       return result(res,200,{ok:true,mode:'local',provider,model,
         brainConfigured:connected||holoState.knowledge.ready,
         possebonConnected:holoState.connected,possebonKnowledgeCount:holoState.knowledge.count,
+        connectorCapabilities:{activeCollaborators:typeof possebon.activeCollaborators==='function',
+          knowledgeOverview:typeof possebon.knowledgeOverview==='function'},
         ollamaConnected:provider==='local'?ollamaConnected:null,modelInstalled:provider==='local'?modelInstalled:null,
         documentsConfigured:Boolean(docsDir),historyCount:memory.history.length,notesCount:memory.notes.length});
     }
@@ -239,6 +242,21 @@ const server=http.createServer(async(req,res)=>{
       }
       active=true;
       try{
+        if(isKnowledgeInventoryQuestion(question)){
+          const status=possebon.status();
+          let overview=null;
+          if(status.connected && typeof possebon.knowledgeOverview==='function'){
+            try{overview=await possebon.knowledgeOverview();}
+            catch(e){console.warn('HOLO: resumo do Brain indisponível:',e.message);}
+          }
+          const response=summarizeKnowledge(status,overview);
+          memory.history.push({role:'user',text:question,at:new Date().toISOString()},
+            {role:'assistant',text:response,at:new Date().toISOString()});
+          memory.history=memory.history.slice(-36);await persist();
+          const sources=overview?.ready?['POSSEBON Brain (unit_id='+status.unit_id+')']:[];
+          return result(res,200,{ok:true,answer:response,provider:'catalogo_brain',
+            brain:overview?.ready?'catalogo_local':'catalogo_indisponivel',sources});
+        }
         const intent=operationalIntent(question);
         if(intent?.name==='colaboradores_ativos'){
           const status=possebon.status();
