@@ -37,6 +37,13 @@ let memory={history:[],notes:[]};
 let saveChain=Promise.resolve();
 const truncate=(x,max)=>String(x||'').slice(0,max);
 const serialise=(obj)=>JSON.stringify(obj);
+// Perfil conservador para computadores com GPU de 4 GB. Pode ser ajustado via variáveis de ambiente.
+function boundedEnvInt(name,defaultValue,min,max){
+  const value=Number(process.env[name]);
+  return Number.isSafeInteger(value)&&value>=min&&value<=max?value:defaultValue;
+}
+const localCtx=boundedEnvInt('HOLO_OLLAMA_NUM_CTX',2048,1024,8192);
+const localPredict=boundedEnvInt('HOLO_OLLAMA_NUM_PREDICT',192,32,1024);
 
 function result(res,status,obj) {
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -82,10 +89,14 @@ async function brainContext(question){
   return {items:entries.slice(0,8).map(x=>({titulo:truncate(x.title||x.namespace,120),conteudo:truncate(x.content||'',1700),fonte:truncate(x.source_ref||'',150)})),state:'consultado'};
 }
 async function answer(question,context,view,holoEvidence){
-  let notes=memory.notes.slice(-12).map(x=>'- [NÃO VALIDADA] '+x.text).join('\n');
-  const evidence=context.items.map(x=>'- '+x.titulo+' ('+x.fonte+'): '+x.conteudo).join('\n');
-  const localEvidence=holoEvidence.map(x=>'- ['+x.namespace+'; '+x.source_ref+'; id='+x.id+
-    '] '+x.title+': '+String(x.content||'').slice(0,1700)).join('\n');
+  // Recuperação externa completa permanece no índice; o prompt recebe somente trechos curtos.
+  // Evita enviar 15 fontes + 10 mensagens longas (dezenas de milhares de caracteres) ao Llama 3B.
+  const notes=memory.notes.slice(-2).map(x=>'- [NÃO VALIDADA] '+truncate(x.text,180)).join('\n');
+  const evidence=context.items.slice(0,3).map(x=>'- '+truncate(x.titulo,90)+
+    ' ('+truncate(x.fonte,100)+'): '+truncate(x.conteudo,500)).join('\n');
+  const localEvidence=holoEvidence.slice(0,4).map(x=>'- ['+truncate(x.namespace,45)+'; '+
+    truncate(x.source_ref,110)+'; id='+x.id+'] '+truncate(x.title,90)+
+    ': '+truncate(x.content,550)).join('\n');
   const area=sceneAreas[view.area]||sceneAreas.geral;
   const screenContext='TELA HOLO: área selecionada = '+area[0]+'. Finalidade: '+area[1]+'. '+
     (view.navigation===view.area?'O cliente já abriu essa área no mapa 3D; confirme essa navegação sem alegar ter consultado sistemas externos. ':'')+
@@ -104,7 +115,9 @@ async function answer(question,context,view,holoEvidence){
     (localEvidence||'Nenhum resultado relevante do estudo inicial.')+
     '\nCONTEXTO ADICIONAL DO BRAIN:\n'+(evidence||'Sem resultados autorizados.')+
     '\nNOTAS LOCAIS NÃO VALIDADAS:\n'+(notes||'Nenhuma.');
-  const history=memory.history.slice(-10).map(x=>({role:x.role==='assistant'?'assistant':'user',content:truncate(x.text,2500)}));
+  const history=memory.history.slice(-4).map(x=>({
+    role:x.role==='assistant'?'assistant':'user',content:truncate(x.text,320)
+  }));
   const messages=[{role:'system',content:system},...history,{role:'user',content:question}];
   if(provider==='api'){
     if(!externalToken)throw new Error('HOLO_API_KEY não configurada');
@@ -121,10 +134,12 @@ async function answer(question,context,view,holoEvidence){
   try{
     r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:serialise({model,messages,stream:false}),signal:AbortSignal.timeout(90000)});
+      body:serialise({model,messages,stream:false,options:{
+        num_ctx:localCtx,num_predict:localPredict,temperature:0.2
+      }}),signal:AbortSignal.timeout(90000)});
   }catch(e){
     throw new Error(e?.name==='TimeoutError'?
-      'O Ollama demorou mais de 90 segundos para responder. Verifique a memoria disponivel.' :
+      'O Ollama demorou mais de 90 segundos. Execute "ollama ps" para verificar se o modelo está na GPU ou CPU. O HOLO agora usa contexto reduzido.' :
       'O servidor Ollama nao esta acessivel na porta 11434. Inicie "ollama serve" e mantenha-o aberto.');
   }
   if(!r.ok)throw new Error(r.status===404?
