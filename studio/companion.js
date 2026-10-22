@@ -6,7 +6,7 @@ host.innerHTML=[
 '<button id="hc-launch" class="hc-launch" type="button" aria-expanded="false"><span class="hc-orb">✦</span><span>HOLO <small>Assistente</small></span></button>',
 '<section id="hc-panel" class="hc-panel" hidden aria-label="Conversa com HOLO">',
 '<header class="hc-header"><span class="hc-orb" id="hc-orb">✦</span><span><strong>HOLO · Assistente empresarial</strong><small id="hc-status">Verificando serviço local...</small></span><button id="hc-min" aria-label="Minimizar" type="button">−</button></header>',
-'<div id="hc-feed" class="hc-feed" role="log" aria-live="polite"><p class="hc-line">Sou a HOLO. Posso consultar o conhecimento catalogado no POSSEBON Brain da unidade autorizada e navegar pelo mapa. Pergunte sobre regras, módulos e processos.</p></div>',
+'<div id="hc-feed" class="hc-feed" role="log" aria-live="polite"><p class="hc-line">Posso consultar o conhecimento catalogado no POSSEBON Brain da unidade autorizada e navegar pelo mapa. Pergunte sobre regras, módulos e processos.</p></div>',
 '<form id="hc-form" class="hc-form"><input id="hc-input" maxlength="2000" placeholder="Pergunte sobre a empresa..." autocomplete="off" required aria-label="Digite sua pergunta"><button type="submit" id="hc-send" aria-label="Enviar">➜</button></form>',
 '<div class="hc-tools"><button id="hc-mic" type="button">🎙 Falar</button><button id="hc-voice" type="button" aria-pressed="true">🔊 Voz ativa</button><button id="hc-auto" type="button" aria-pressed="false">↻ Contínua</button><button id="hc-docs" type="button">▣ Arquivos</button></div>',
 '<p class="hc-foot" id="hc-foot">A voz do navegador pode utilizar serviços externos. Não compartilhe dados confidenciais sem verificar a configuração.</p>',
