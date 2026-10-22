@@ -234,6 +234,28 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     return result;
   }
 
+  // Métrica operacional sob demanda. Não é extraída do Brain nem salva em cache.
+  async function activeCollaborators(){
+    const current=checkSession();
+    const metric=await remoteJson('/api/app/holo/operacional/colaboradores/ativos',{
+      token:current.token,timeout:15000
+    });
+    if(Number(metric.unit_id)!==current.unitId ||
+       !Number.isSafeInteger(Number(metric.pessoas_ativas)) ||
+       Number(metric.pessoas_ativas)<0 ||
+       metric.fonte!=='possebon_app.colaborador' ||
+       !/^\d{4}-\d{2}-\d{2}$/.test(String(metric.data_referencia))){
+      throw Error('A API devolveu uma métrica incompatível com a unidade ou fonte autenticada.');
+    }
+    return {
+      unit_id:current.unitId, data_referencia:metric.data_referencia,
+      pessoas_ativas:Number(metric.pessoas_ativas),
+      vinculos_ativos:Number(metric.vinculos_ativos)||0,
+      fonte:metric.fonte, filtros:Array.isArray(metric.filtros)?metric.filtros:[],
+      readOnly:true
+    };
+  }
+
   async function handle(req,res,url,send,readBody){
     if(!url.pathname.startsWith('/api/possebon/'))return false;
     function bad(e){
@@ -244,6 +266,7 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     try{
       if(req.method==='GET'&&url.pathname==='/api/possebon/status'){send(res,200,publicStatus());return true;}
       if(req.method==='GET'&&url.pathname==='/api/possebon/overview'){send(res,200,{ok:true,...await overview()});return true;}
+      if(req.method==='GET'&&url.pathname==='/api/possebon/operacional/colaboradores/ativos'){send(res,200,{ok:true,...await activeCollaborators()});return true;}
       if(req.method==='POST'&&url.pathname==='/api/possebon/login'){
         const input=await readBody(req);send(res,200,await login(input));return true;
       }
@@ -257,5 +280,5 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
       send(res,404,{ok:false,error:'Rota HOLO/POSSEBON inexistente.'});return true;
     }catch(e){bad(e);return true;}
   }
-  return {handle,findEvidence,status:publicStatus};
+  return {handle,findEvidence,status:publicStatus,activeCollaborators};
 }
