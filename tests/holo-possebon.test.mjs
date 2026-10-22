@@ -7,7 +7,7 @@ import os from 'node:os';
 import {createHoloPossebon} from '../services/holo-possebon.mjs';
 const temp=await mkdtemp(path.join(os.tmpdir(),'holo-possebon-test-'));
 let tokenCalls=0;
-const fakeJwt=(id)=>'e30.'+Buffer.from(JSON.stringify({userid:id})).toString('base64url')+'.simulado';
+const fakeJwt=(id,unitId)=>'e30.'+Buffer.from(JSON.stringify({userid:id,unit_id:unitId})).toString('base64url')+'.simulado';
 const fakeFetch=async(uri,opts)=>{
   const u=new URL(uri);
   assert.equal(u.protocol,'https:');
@@ -18,7 +18,17 @@ const fakeFetch=async(uri,opts)=>{
     assert.equal(opts.method,'POST');
     assert.equal(input.password,'segredo_apenas_para_teste');
     if(!input.unit_id) response={requires_unit_selection:true,units:[{id:3,name:'EPC13'},{id:4,name:'Outra unidade'}]};
-    else response={access_token:fakeJwt(21),unit_id:input.unit_id,user_name:'Usuario Teste',expires_in:1800};
+    else response={access_token:fakeJwt(21,input.unit_id),unit_id:input.unit_id,user_name:'Usuario Teste',expires_in:1800};
+  }else if(u.pathname.endsWith('/operacional/colaboradores/ativos')){
+    assert.ok(opts.headers.Authorization.startsWith('Bearer '));
+    const tokenPayload=JSON.parse(Buffer.from(opts.headers.Authorization.slice(7).split('.')[1],'base64url').toString('utf8'));
+    assert.equal(tokenPayload.userid,21);
+    const unit=u.searchParams.get('unit_id');
+    assert.equal(unit,null,'A unidade não pode ser passada na query');
+    const tokenUnit=JSON.parse(Buffer.from(opts.headers.Authorization.slice(7).split('.')[1],'base64url').toString('utf8')).unit_id;
+    response={unit_id:tokenUnit||3,pessoas_ativas:tokenUnit===4?7:17,
+      vinculos_ativos:tokenUnit===4?8:18,data_referencia:'2026-10-21',
+      fonte:'possebon_app.colaborador',filtros:['status=A']};
   }else if(u.pathname.endsWith('/brain/status')){
     assert.ok(opts.headers.Authorization.startsWith('Bearer '));
     tokenCalls++;
@@ -39,7 +49,7 @@ const fakeFetch=async(uri,opts)=>{
 const bridge=createHoloPossebon({localDir:temp,fetchImpl:fakeFetch});
 async function call(route,payload){
   let result,code;
-  await bridge.handle({method:['/api/possebon/status','/api/possebon/overview'].includes(route)?'GET':'POST'}, {}, new URL(route,'http://127.0.0.1:4891'),
+  await bridge.handle({method:['/api/possebon/status','/api/possebon/overview','/api/possebon/operacional/colaboradores/ativos'].includes(route)?'GET':'POST'}, {}, new URL(route,'http://127.0.0.1:4891'),
     (_res,status,obj)=>{code=status;result=obj;},async()=>payload);
   assert.equal(code,200,result?.error||'HTTP '+code);
   return result;
@@ -59,6 +69,11 @@ try{
   const first=await call('/api/possebon/login',{login:'teste',password:'segredo_apenas_para_teste',unit_id:3});
   assert.equal(first.connected,true);
   assert.equal(bridge.status().unit_id,3);
+  const live=await call('/api/possebon/operacional/colaboradores/ativos',{});
+  assert.equal(live.pessoas_ativas,17);
+  assert.equal(live.vinculos_ativos,18);
+  assert.equal(live.unit_id,3);
+  assert.equal(live.fonte,'possebon_app.colaborador');
   assert.equal(bridge.status().knowledge.ready,false);
   await call('/api/possebon/study',{});
   await settled();
@@ -81,6 +96,9 @@ try{
   assert.deepEqual(await bridge.findEvidence('regra do RDO'),[]);
   const next=await call('/api/possebon/login',{login:'teste',password:'segredo_apenas_para_teste',unit_id:4});
   assert.equal(next.connected,true);
+  const liveOther=await call('/api/possebon/operacional/colaboradores/ativos',{});
+  assert.equal(liveOther.unit_id,4);
+  assert.equal(liveOther.pessoas_ativas,7,'Unidade 4 não herda contagem da EPC13');
   assert.equal(bridge.status().knowledge.ready,false,'Outra unidade não herda índice EPC13');
   assert.deepEqual(await bridge.findEvidence('RDO'),[]);
   await call('/api/possebon/logout',{});
