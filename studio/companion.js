@@ -6,17 +6,20 @@ host.innerHTML=[
 '<button id="hc-launch" class="hc-launch" type="button" aria-expanded="false"><span class="hc-orb">✦</span><span>HOLO <small>Assistente</small></span></button>',
 '<section id="hc-panel" class="hc-panel" hidden aria-label="Conversa com HOLO">',
 '<header class="hc-header"><span class="hc-orb" id="hc-orb">✦</span><span><strong>HOLO · Assistente empresarial</strong><small id="hc-status">Verificando serviço local...</small></span><button id="hc-min" aria-label="Minimizar" type="button">−</button></header>',
-'<div id="hc-feed" class="hc-feed" role="log" aria-live="polite"><p class="hc-line">Olá! Posso conversar com você. Para conhecer a POSSEBON, configure o Brain no servidor local.</p></div>',
+'<div id="hc-feed" class="hc-feed" role="log" aria-live="polite"><p class="hc-line">Sou a HOLO. Posso consultar o conhecimento catalogado no POSSEBON Brain da unidade autorizada e navegar pelo mapa. Pergunte sobre regras, módulos e processos.</p></div>',
 '<form id="hc-form" class="hc-form"><input id="hc-input" maxlength="2000" placeholder="Pergunte sobre a empresa..." autocomplete="off" required aria-label="Digite sua pergunta"><button type="submit" id="hc-send" aria-label="Enviar">➜</button></form>',
 '<div class="hc-tools"><button id="hc-mic" type="button">🎙 Falar</button><button id="hc-voice" type="button" aria-pressed="true">🔊 Voz ativa</button><button id="hc-auto" type="button" aria-pressed="false">↻ Contínua</button><button id="hc-docs" type="button">▣ Arquivos</button></div>',
 '<p class="hc-foot" id="hc-foot">A voz do navegador pode utilizar serviços externos. Não compartilhe dados confidenciais sem verificar a configuração.</p>',
 '</section>',
 '<div id="hc-reader" class="hc-reader" hidden role="dialog" aria-label="Visualizador de arquivos"><div id="hc-reader-head" class="hc-reader-head"><strong id="hc-reader-title">Biblioteca</strong><button id="hc-reader-close" type="button" aria-label="Fechar">✕</button></div><div id="hc-reader-content" class="hc-reader-content"></div></div>'
 ].join('');
-document.body.append(host);
+(document.querySelector('#holo-companion-slot')||document.body).append(host);
+// O painel pertence à aba Conversar com HOLO, não fica sobrepondo o mapa.
+host.classList.add('hc-docked');
+host.querySelector('#hc-panel').hidden=false;
 const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/studio/companion.css';document.head.append(sheet);
 const $=id=>host.querySelector('#'+id);
-let expanded=false,voice=true,continuous=false,recognition=null,busy=false,speaking=false,alive=false;
+let expanded=true,voice=true,continuous=false,recognition=null,busy=false,speaking=false,alive=false;
 function line(s,who='assistant'){
   const p=document.createElement('p');p.className='hc-line '+(who==='user'?'hc-user':'hc-ai');p.textContent=String(s);
   $('hc-feed').append(p);$('hc-feed').scrollTop=$('hc-feed').scrollHeight;
@@ -40,7 +43,9 @@ async function json(url,options={}){
 async function health(){
   try{
     const h=await json('/api/health');alive=true;
-    status((h.provider==='api'?'API externa':'IA local')+' · Brain '+(h.brainConfigured?'configurado':'não conectado'));
+    status((h.provider==='api'?'API externa':'IA local')+' · '+(h.possebonKnowledgeCount?
+      h.possebonKnowledgeCount+' itens do Brain':'Brain não estudado')+
+      (h.ollamaConnected===false?' · Ollama desligado':''));
     $('hc-foot').textContent='Modelo: '+h.model+' · Memória: '+h.historyCount+' mensagens, '+h.notesCount+' notas. Voz depende do navegador.';
     const history=await json('/api/history');
     if(history.history?.length){$('hc-feed').replaceChildren();for(const entry of history.history)line(entry.text,entry.role);}
@@ -75,7 +80,7 @@ function listen(){
   try{mic.start();status('Escutando...');}catch{recognition=null;line('Falha ao iniciar microfone.');}
 }
 $('hc-launch').addEventListener('click',()=>{expanded=!expanded;$('hc-panel').hidden=!expanded;$('hc-launch').setAttribute('aria-expanded',String(expanded));if(expanded){$('hc-input').focus();void health();}else stopMic();});
-$('hc-min').addEventListener('click',()=>$('hc-launch').click());
+$('hc-min').addEventListener('click',()=>window.dispatchEvent(new Event('holo:show-knowledge')));
 $('hc-form').addEventListener('submit',e=>{e.preventDefault();const message=$('hc-input').value;$('hc-input').value='';void ask(message);});
 $('hc-mic').addEventListener('click',()=>{if(recognition){stopMic();status('Microfone parado');}else listen();});
 $('hc-voice').addEventListener('click',()=>{voice=!voice;$('hc-voice').setAttribute('aria-pressed',String(voice));$('hc-voice').textContent=voice?'🔊 Voz ativa':'🔇 Voz desligada';if(!voice&&'speechSynthesis'in window)speechSynthesis.cancel();});
@@ -101,5 +106,12 @@ $('hc-reader-head').addEventListener('pointerdown',e=>{if(e.target.closest('butt
 $('hc-reader-head').addEventListener('pointermove',e=>{if(!drag)return;const pane=$('hc-reader');pane.style.left=Math.max(0,Math.min(innerWidth-120,drag.left+e.clientX-drag.x))+'px';pane.style.top=Math.max(0,Math.min(innerHeight-60,drag.top+e.clientY-drag.y))+'px';pane.style.right='auto';});
 $('hc-reader-head').addEventListener('pointerup',()=>drag=null);
 $('hc-reader-head').addEventListener('pointercancel',()=>drag=null);
+window.addEventListener('holo:assistant-notice',event=>{
+  const note=String(event.detail?.message||'').trim();if(note)line(note);
+});
+window.addEventListener('holo:ask',event=>{
+  const message=String(event.detail?.message||'').trim();
+  if(message){window.dispatchEvent(new Event('holo:chat-open'));void ask(message);}
+});
 window.addEventListener('pagehide',()=>{stopMic();if('speechSynthesis'in window)speechSynthesis.cancel();});
 void health();
