@@ -30,7 +30,8 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
 
   function publicStatus(){
     if(session && Date.now()>=session.expiresAt && !task)clearSession();
-    return {ok:true,connected:!!session,unit_id:session?.unitId||null,user_name:session?.userName||null,
+    return {ok:true,connected:!!session,unit_id:session?.unitId||null,user_id:session?.userId||null,user_name:session?.userName||null,
+      can_manage_ai:session?.canManageAI===true,
       expires_at:session?.expiresAt||null,remote,progress:{...progress},knowledge:{...cached}};
   }
   function clearSession(){
@@ -85,6 +86,8 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
     // Em memória APENAS. NÃO gravar JWT, login ou senha em JSON/arquivos.
     session={token:response.access_token,unitId:Number(response.unit_id),
       userId:parseUserId(response.access_token),userName:short(response.user_name,160),
+      // Exclusivamente permissão afirmativa emitida pela API POSSEBON autenticada.
+      canManageAI:response.can_manage_ai===true,
       expiresAt:Date.now()+Math.max(1,Number(response.expires_in||1800))*1000};
     if(!session.userId){clearSession();throw Error('Sessão recebida sem identificação de usuário.');}
     await mkdir(folder,{recursive:true,mode:0o700});
