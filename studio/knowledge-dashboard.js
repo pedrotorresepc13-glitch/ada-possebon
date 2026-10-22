@@ -6,6 +6,7 @@ const assistantTab=$$('#intel-tab-assistant');
 const summaryPanel=$$('#insights-summary');
 const assistantPanel=$$('#holo-companion-slot');
 let lastOverview=null,lastUnit=null,lastCompleted=null;
+let operational=null,operationalUnit=null,operationalCheckedAt=0;
 function switchTab(tab,focus=false){
   const talking=tab==='assistant';
   summaryPanel.hidden=talking;
@@ -36,6 +37,13 @@ function renderSummary(status,overview){
       safeText(status.progress.count||0)+' de '+safeText(status.progress.expected||'?')+' itens lidos.' :
       status.progress?.error||'Abra Conectar POSSEBON e autorize a unidade.';
   summary.append(detail);
+  if(ready && overview.operational?.pessoas_ativas!==undefined){
+    const op=document.createElement('p');
+    op.textContent='Colaboradores ativos (unidade '+status.unit_id+'): '+
+      overview.operational.pessoas_ativas.toLocaleString('pt-BR')+
+      ' · consulta operacional validada, não calculada pelo Brain.';
+    summary.append(op);
+  }
   if(ready){
     const time=document.createElement('small');
     time.textContent='Último estudo local: '+(overview.completedAt?
@@ -69,6 +77,23 @@ async function refresh(){
       }else overview=lastOverview;
     }else{
       lastOverview=null;lastUnit=null;lastCompleted=null;
+    }
+    if(!state.connected){
+      operational=null;operationalUnit=null;operationalCheckedAt=0;
+    }else if(!operationalCheckedAt || operationalUnit!==state.unit_id || Date.now()-operationalCheckedAt>60000){
+      operationalCheckedAt=Date.now();
+      operationalUnit=state.unit_id;
+      operational=null;
+      try{
+        const metric=await get('/api/possebon/operacional/colaboradores/ativos');
+        if(metric.unit_id===state.unit_id && metric.fonte==='possebon_app.colaborador' &&
+            Number.isSafeInteger(metric.pessoas_ativas) && metric.pessoas_ativas>=0){
+          operational=metric;
+        }
+      }catch{}
+    }
+    if(overview?.ready && operational && operational.unit_id===state.unit_id){
+      overview={...overview,operational};
     }
     renderSummary(state,overview);
   }catch(err){
