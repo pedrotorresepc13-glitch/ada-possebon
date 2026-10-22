@@ -13,7 +13,7 @@
 <header class="topbar">
   <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong>HOLO <em>ENTERPRISE</em></strong><small>Inteligência empresarial visual · protótipo</small></div></div>
   <div class="header-actions">
-    <span class="demo-flag" id="data-badge">DADOS FICTÍCIOS</span>
+    <span class="demo-flag" id="data-badge">FONTE NÃO VERIFICADA</span>
     <button id="btn-company" class="secondary">Empresa</button>
     <button id="btn-present" class="primary">Apresentar ⛶</button>
   </div>
@@ -31,7 +31,7 @@
     </div>
   </aside>
   <section class="center" aria-label="Mapa interativo">
-    <div class="scene-head"><span class="eyebrow">MAPA DE CONHECIMENTO</span><h1 id="scene-title">Sua empresa em outra dimensão.</h1><p>Selecione uma área. Faça perguntas por texto, voz ou gestos.</p></div>
+    <div class="scene-head"><span class="eyebrow">HOLO · CENTRO DE INTELIGÊNCIA</span><h1 id="scene-title">Explore o conhecimento da sua empresa.</h1><p>Selecione uma área do mapa ou converse com a HOLO no painel lateral.</p></div>
     <div class="scene-wrap" id="scene-wrap">
       <canvas id="scene" aria-label="Mapa tridimensional interativo das áreas da empresa"></canvas>
       <div class="scene-note">PINÇA: PEGAR E MOVER · DUAS MÃOS: ZOOM E GIRO · ✌: RESTAURAR</div>
@@ -46,26 +46,29 @@
       <span id="camera-status" class="status" role="status">Câmera desligada</span>
     </div>
   </section>
-  <aside class="insights">
-    <div class="panel-header"><span class="eyebrow">EXPLORAÇÃO</span><h2 id="selected-title">Visão geral</h2><p id="selected-description">Indicadores ilustrativos de uma empresa fictícia.</p></div>
-    <div class="metrics" id="metrics"></div>
-    <div class="chart-box"><div class="section-label">DISTRIBUIÇÃO ILUSTRATIVA</div><div id="bars"></div></div>
-    <div class="assistant-area">
-      <div class="section-label">ASSISTENTE EMPRESARIAL</div>
-      <div class="assistant-log" id="assistant-log" role="log" aria-live="polite">
-        <p class="ai-message">Olá! Sou a HOLO. Você pode abrir áreas do mapa por texto, gestos ou voz. Com o modelo local ativado, também converso sobre cada área. Os indicadores são ilustrativos até uma conexão empresarial autorizada.</p>
-      </div>
-      <form id="command-form" class="command-form">
-        <label for="command-input" class="sr-only">Pergunte sobre a empresa</label>
-        <input id="command-input" name="command" autocomplete="off" placeholder="Ex.: mostre compras, pessoas ou segurança" required>
-        <button class="primary" title="Enviar pergunta" aria-label="Enviar pergunta">➜</button>
-      </form>
-      <div class="voice-actions">
-        <button id="btn-mic" class="secondary">🎙 Falar</button>
-        <button id="btn-tts" class="secondary" aria-pressed="false">🔈 Voz desligada</button>
-      </div>
-      <p class="disclaimer">A IA local está disponível quando o Companion e o Ollama estiverem ligados. Os indicadores da demonstração não representam informações reais da empresa.</p>
+  <aside class="insights" aria-label="Inteligência empresarial e assistente HOLO">
+    <div class="intel-tabs" role="tablist" aria-label="Painel lateral">
+      <button id="intel-tab-knowledge" type="button" role="tab" aria-selected="true" aria-controls="insights-summary">Conhecimento</button>
+      <button id="intel-tab-assistant" type="button" role="tab" aria-selected="false" aria-controls="holo-companion-slot">Conversar com HOLO</button>
     </div>
+    <section id="insights-summary" role="tabpanel" aria-labelledby="intel-tab-knowledge">
+      <div class="panel-header">
+        <span class="eyebrow">CONHECIMENTO EMPRESARIAL</span>
+        <h2 id="selected-title">Visão geral</h2>
+        <p id="selected-description">Carregando contexto de conhecimento.</p>
+      </div>
+      <div id="brain-summary" class="brain-summary" aria-live="polite">
+        Conecte o POSSEBON para carregar os conhecimentos da unidade autorizada.
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="chart-box">
+        <div class="section-label" id="chart-label">FONTES DE CONHECIMENTO</div>
+        <div id="bars"></div>
+      </div>
+      <div id="brain-examples" class="brain-examples"></div>
+      <p class="scope-note">O Brain contém estrutura, código, regras e metadados. Indicadores operacionais exigem APIs próprias de leitura.</p>
+    </section>
+    <section id="holo-companion-slot" role="tabpanel" aria-labelledby="intel-tab-assistant" hidden></section>
   </aside>
 </main>
 </div>
@@ -89,6 +92,7 @@
 <script type="module" src="/studio/app.js"></script>
 <!-- Assistente local independente da cena HOLO original. -->
 <script type="module" src="/studio/companion.js"></script>
+<script type="module" src="/studio/knowledge-dashboard.js"></script>
 <!-- Conexao ao POSSEBON Brain e estudo inicial em segundo plano. -->
 <script type="module" src="/studio/brain-onboarding.js"></script>
 </body>
