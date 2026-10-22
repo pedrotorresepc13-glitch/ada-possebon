@@ -72,29 +72,25 @@ try{
   assert.equal((await fetch(base+'/vendor/hand_landmarker.task')).status,200);
   assert.equal((await fetch(base+'/services/holo-companion.mjs')).status,404);
   assert.equal((await fetch(base+'/api/health',{headers:{Origin:'https://site-nao-autorizado.test'}})).status,403);
-  const d=await(await fetch(base+'/api/documents')).json();
-  assert.equal(d.configured,false);
-  assert.deepEqual(d.files,[]);
+  // Sem login POSSEBON, endpoints de dados devem ser BLOQUEADOS.
+  for(const route of ['/api/documents','/api/history','/api/document?name=x.txt']){
+    const r=await fetch(base+route);assert.equal(r.status,401,route);
+  }
   const note=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({message:'HOLO, lembre que esta é uma nota de teste'})});
-  assert.equal(note.status,200);
-  const memo=await note.json();
-  assert.equal(memo.provider,'memory');
-  assert.equal(memo.brain,'nao_consultado');
+  assert.equal(note.status,401,'chat sem autenticação deve ser bloqueado');
   const again=await(await fetch(base+'/api/health')).json();
-  assert.equal(again.notesCount,1);
+  assert.equal(again.notesCount,0,'nenhuma nota pode ser salva sem usuário');
   const liveWithoutAccess=await fetch(base+'/api/chat',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({message:'quantas pessoas temos na epc 13 ativas hoje?'})});
-  assert.equal(liveWithoutAccess.status,200);
+  assert.equal(liveWithoutAccess.status,401,'contagem real exige login');
   const missing=await liveWithoutAccess.json();
-  assert.equal(missing.provider,'consulta_operacional');
-  assert.equal(missing.brain,'consulta_indisponivel');
-  assert.deepEqual(missing.sources,[]);
-  assert.match(missing.answer,/Não consigo confirmar/);
-  assert.doesNotMatch(missing.answer,/A EPC13 tem [0-9]+/);
-  const invalid=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"message":""}'});
-  assert.equal(invalid.status,400);
+  assert.equal(missing.ok,false);
+  assert.match(missing.error,/POSSEBON/);
+  const invalid=await fetch(base+'/api/chat',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:'{"message":""}'});
+  assert.equal(invalid.status,401,'validar credenciais antes do payload');
   console.log('OK: Companion, arquivos estáticos, memória local, origem e isolamento de rotas.');
 }finally{
   child.kill('SIGTERM');
