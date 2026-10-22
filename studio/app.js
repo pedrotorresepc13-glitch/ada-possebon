@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import {areas, helpText, requestedNavigationId} from './demo.js';
+import {areas} from './demo.js';
 import {createGestureEngine} from './gesture-engine.js';
 
 // Prototipo frontend: sem tokens, endpoints externos ou dados empresariais reais.
@@ -8,7 +8,8 @@ const key = 'holo-enterprise-prototipo-v1';
 let restored = {};
 try { restored = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch {}
 const state = {
-  area:'geral', company:typeof restored.company === 'string' ? restored.company : 'Empresa Exemplo',
+  area:'geral', overview:null, connected:false, enterpriseUnit:null,
+  company:typeof restored.company === 'string' ? restored.company : 'Empresa Exemplo',
   custom:restored.custom === true, voice:false, provider:restored.provider || 'demo',
   model:null, stream:null, landmark:null, lastFrame:0, gestureEngine:null, gestureGrab:null,
   scene:null, camera:null, renderer:null, group:null, baseCameraZ:12,
@@ -22,30 +23,56 @@ function setStatus(t) { $('#camera-status').textContent=t; }
 function text(tag, value, cls) {
   const e=document.createElement(tag); if(cls)e.className=cls; e.textContent=value; return e;
 }
-function formatArea(a) { return state.custom ? {
-  ...a,description:a.description+' Os indicadores reais desta empresa ainda não estão conectados.',
-  stats:[['Fonte de dados','Pendente'],['Indicadores','Sem fonte'],['Motor de IA',state.provider==='local'?'Local selecionado':state.provider==='api'?'API selecionada':'Demonstração'],['Conexões','0']],
-  bars:[],summary:'Sua empresa ainda não possui dados. Configure conexões de forma segura no backend antes de consultar informações reais.'
-} : a; }
+function formatArea(a) {
+  const overview=state.overview;
+  if(overview?.ready){
+    const group=overview.areas?.[a.id]||{count:0,namespaces:{},examples:[]};
+    const bars=Object.entries(group.namespaces||{})
+      .filter(([_,v])=>Number(v)>0).sort((a,b)=>b[1]-a[1]).slice(0,7);
+    return {...a,
+      description:'Conhecimento catalogado sobre '+a.name+' na unidade '+(state.enterpriseUnit||overview.unit_id)+
+        '. Os itens listados são regras, estruturas e metadados, não números de produção.',
+      stats:[['Itens associados',String(group.count||0)],['Total no Brain',String(overview.total||0)],
+        ['Categorias',String(Object.keys(group.namespaces||{}).length)],['Indicadores operacionais','Sem API']],
+      bars,examples:group.examples||[],
+      summary:'Fontes reais do Brain disponíveis para consulta.'
+    };
+  }
+  return state.custom?{
+    ...a,description:'Aguardando conexão ao Brain. Os indicadores operacionais não foram autorizados.',
+    stats:[['Brain','Não conectado'],['Indicadores','Sem fonte'],['IA','Local'],['Conexões','0']],
+    bars:[],examples:[],summary:'Conecte o POSSEBON para iniciar o estudo do Brain.'
+  }:a;
+}
 function selectArea(id, announce=false) {
   const previous=state.area;
   const a=areas.find(x=>x.id===id) || areas[0]; state.area=a.id;
   const shown=formatArea(a);
   $('#selected-title').textContent=a.name;
   $('#selected-description').textContent=shown.description;
-  $('#scene-title').textContent=a.id==='geral'?'Sua empresa em outra dimensão.':'Explorando '+a.name.toLowerCase()+'.';
+  $('#scene-title').textContent=a.id==='geral'?'Explore o conhecimento da sua empresa.':'Área de '+a.name.toLowerCase()+'.';
   const metrics=$('#metrics');metrics.replaceChildren();
   for(const [name,value] of shown.stats) {
     const card=text('div','', 'metric'); card.append(text('strong',value), text('small',name));metrics.append(card);
   }
+  $('#chart-label').textContent=state.overview?.ready?'FONTES CATALOGADAS NO BRAIN':'DISTRIBUIÇÃO DEMONSTRATIVA';
   const bars=$('#bars');bars.replaceChildren();
-  if(!shown.bars.length) bars.append(text('p','Nenhum indicador disponível.','disclaimer'));
+  if(!shown.bars.length) bars.append(text('p',state.overview?.ready?'Nenhuma fonte identificada nesta área.':'Ainda não há indicadores conectados.','disclaimer'));
   else {
     const max=Math.max(1,...shown.bars.map(x=>x[1]));
     for(const [label,value] of shown.bars) {
       const row=text('div','','bar-row');const rail=text('div','','bar-rail');
       const fill=text('div','','bar-fill');fill.style.width=Math.max(4,(value/max)*100)+'%';
       rail.append(fill);row.append(text('span',label),rail,text('b',String(value)));bars.append(row);
+    }
+  }
+  const examples=$('#brain-examples');examples.replaceChildren();
+  if(state.overview?.ready && shown.examples?.length){
+    examples.append(text('div','FONTES RELACIONADAS','section-label'));
+    for(const item of shown.examples){
+      const el=text('div','','knowledge-example');
+      el.append(text('strong',item.title),text('small',item.namespace+' · '+(item.source||'Fonte Brain')));
+      examples.append(el);
     }
   }
   for(const b of document.querySelectorAll('.area-button')) {
@@ -60,101 +87,22 @@ function selectArea(id, announce=false) {
   // Gestos e cliques repetidos não devem inundar a conversa com avisos iguais.
   // No modo de empresa sem conexões, a seleção apenas atualiza a interface.
   // Não emitir o mesmo aviso a cada gesto; pedidos no chat têm resposta própria.
-  if(announce && previous!==a.id && !state.custom) respond(shown.summary);
+  if(announce && previous!==a.id && !state.custom && !state.overview?.ready) respond(shown.summary);
+  window.dispatchEvent(new CustomEvent('holo:area-changed',{detail:{id:a.id}}));
 }
 function respond(value) {
-  const log=$('#assistant-log'); log.append(text('p',value,'ai-message'));log.scrollTop=log.scrollHeight;
-  if(state.voice && window.speechSynthesis) {
-    const u=new SpeechSynthesisUtterance(value);u.lang='pt-BR';u.rate=1;
-    const match=speechSynthesis.getVoices().find(v=>v.lang.toLowerCase()==='pt-br');
-    if(match)u.voice=match;
-    speechSynthesis.cancel();speechSynthesis.speak(u);
-  }
-}
-function ask(question) {
-  const input=question.trim();if(!input)return;
-  const log=$('#assistant-log'); log.append(text('p',input,'user-message'));log.scrollTop=log.scrollHeight;
-  const navigation=requestedNavigationId(input);
-  if(navigation) {
-    const selected=areas.find(a=>a.id===navigation);
-    selectArea(navigation,false);
-    if(state.provider!=='demo'){
-      respond('Abrindo '+selected.name+' no mapa 3D.');
-      void askModel(input,navigation);
-    } else respond('Área '+selected.name+' aberta. '+formatArea(selected).summary);
-    return;
-  }
-  if(state.provider!=='demo') { void askModel(input); return; }
-  const q=input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const destinations={
-    pessoas:['pessoa','colaborador','equipe','rh','treinamento','funcionario'],
-    compras:['compra','material','fornecedor','solicitacao','suprimento'],
-    seguranca:['seguranca','inspecao','auditoria','acidente','plano de acao','ronda'],
-    operacoes:['operacao','projeto','atividade','obra','producao'],
-    geral:['visao geral','painel geral','inicio','tudo','panorama']
-  };
-  if(q.includes('apresenta') || q.includes('tela cheia') || q.includes('telao')) {
-    respond('Você pode entrar no modo de apresentação pelo botão Apresentar. Nesse modo os indicadores seguem sendo apenas demonstrativos.');
-    return;
-  }
-  if(q.includes('ajuda')||q.includes('comando')){respond(helpText);return;}
-  if(q.includes('modelo')||q.includes('conectar ia')){openSettings('ia');respond('Configure o tipo de modelo no painel. As opções local e API ainda precisam de um serviço backend para responder.');return;}
-  const id=Object.keys(destinations).find(k=>destinations[k].some(w=>q.includes(w)));
-  if(id) {selectArea(id);respond(formatArea(areas.find(a=>a.id===id)).summary);return;}
-  if(q.includes('resumo')||q.includes('relatorio')) {
-    respond(state.custom?'Esta empresa ainda não possui fontes de dados autorizadas. Não posso produzir um relatório real.':'Resumo ilustrativo: 128 pessoas, 42 solicitações de compras, 11 planos de segurança e 8 projetos. Todos os números são inventados para o protótipo.');
-    return;
-  }
-  respond('Esta primeira versão utiliza comandos de demonstração, não um modelo de IA. '+helpText);
-}
-async function askModel(prompt, navigation=null) {
-  if(!['localhost','127.0.0.1'].includes(location.hostname) || location.port !== '4891') {
-    respond('A IA local funciona no HOLO instalado em http://127.0.0.1:4891/. Esta prévia pública não tem acesso ao modelo do seu computador.');
-    return;
-  }
-  try {
-    const healthReply=await fetch('/api/health', {headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000)});
-    if(!healthReply.ok || !healthReply.headers.get('content-type')?.includes('application/json')) {
-      throw new Error('O serviço HOLO Companion não está ativo. Abra o HOLO pelo arquivo Iniciar-HOLO.cmd em vez de um servidor estático.');
-    }
-    const health=await healthReply.json();
-    if(!health.ok || health.mode!=='local') {
-      throw new Error('O servidor atual não é o HOLO Companion.');
-    }
-    // O provedor é definido no servidor: a seleção visual não pode trocar
-    // silenciosamente de modelo local para API externa (nem vice-versa).
-    if(health.provider!==state.provider) {
-      respond('O servidor está configurado para '+(health.provider==='api'?'API externa':'IA local')+
-        ', mas você selecionou '+(state.provider==='api'?'API externa':'IA local')+
-        '. Ajuste a opção Motor de IA e reenvie a pergunta. O provedor real é configurado no servidor.');
-      return;
-    }
-    respond(health.brainConfigured
-      ? 'Consultando a IA e o catálogo do POSSEBON Brain (somente leitura).'
-      : 'Consultando a IA local. O catálogo empresarial POSSEBON Brain ainda não está conectado.');
-    const reply=await fetch('/api/chat',{
-      method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
-      body:JSON.stringify({message:prompt,area:state.area,navigation, demoMode:!state.custom}),
-      signal:AbortSignal.timeout(105000)
-    });
-    if(!reply.headers.get('content-type')?.includes('application/json')) {
-      throw new Error('O serviço respondeu em formato inesperado. Confirme que o HOLO Companion está rodando na porta 4891.');
-    }
-    const data=await reply.json();
-    if(!reply.ok)throw new Error(data.error||('HTTP '+reply.status));
-    respond(data.answer);
-    if(data.brain==='indisponivel') {
-      respond('Aviso: não consegui consultar o POSSEBON Brain nesta pergunta. Esta resposta não deve ser tratada como informação empresarial confirmada.');
-    }
-  } catch(err) {
-    respond('Falha ao conversar com a IA: '+String(err?.message||'Falha de comunicação')+
-      '. Verifique o endereço http://127.0.0.1:4891/api/health e se o Ollama está iniciado.');
-  }
+  // Comunicação interna do mapa com o ÚNICO chat da HOLO.
+  window.dispatchEvent(new CustomEvent('holo:assistant-notice',{detail:{message:String(value)}}));
 }
 function updateCompany() {
-  $('#company-name').textContent=state.company;
-  $('#company-type').textContent=state.custom?'Empresa local sem conexões':'Ambiente de demonstração';
-  $('#data-badge').textContent=state.custom?'SEM FONTE DE DADOS':'DADOS FICTÍCIOS';
+  const connected=state.overview?.ready;
+  const company=connected&&state.company==='Empresa Exemplo'?'POSSEBON':state.company;
+  $('#company-name').textContent=company;
+  $('#company-type').textContent=connected?'POSSEBON Brain · Unidade '+state.enterpriseUnit:
+    state.custom?'Empresa local sem fontes':'Ambiente de demonstração';
+  $('#data-badge').textContent=connected?'BRAIN · '+state.overview.total+' ITENS':
+    state.custom?'SEM FONTE OPERACIONAL':'DADOS DEMONSTRATIVOS';
+  $('#data-badge').classList.toggle('brain-ready',!!connected);
   selectArea(state.area);
 }
 function setupNavigation() {
@@ -166,12 +114,15 @@ function setupNavigation() {
     b.addEventListener('click',()=>selectArea(a.id,true));nav.append(b);
   }
   updateCompany();
-  // O painel flutuante e o assistente principal controlam o mesmo mapa 3D.
+  window.addEventListener('holo:knowledge-updated',ev=>{
+    state.overview=ev.detail?.overview?.ready?ev.detail.overview:null;
+    state.connected=!!ev.detail?.connected;
+    state.enterpriseUnit=ev.detail?.unit_id||null;
+    updateCompany();
+  });
+  // O chat único controla o mesmo mapa 3D.
   window.addEventListener('holo:navigate-area',event=>{
     if(areas.some(a=>a.id===event.detail?.id))selectArea(event.detail.id,false);
-  });
-  $('#command-form').addEventListener('submit',ev=>{
-    ev.preventDefault();ask($('#command-input').value);$('#command-input').value='';
   });
   $('#btn-company').addEventListener('click',()=>$('#modal-company').showModal());
   $('#company-form').addEventListener('submit',ev=>{
@@ -195,12 +146,6 @@ function setupNavigation() {
   });
   $('#btn-reset').addEventListener('click',()=>{
     resetScene(true);
-  });
-  $('#btn-mic').addEventListener('click',listen);
-  $('#btn-tts').addEventListener('click',()=>{
-    state.voice=!state.voice;$('#btn-tts').textContent=state.voice?'🔊 Voz ligada':'🔈 Voz desligada';
-    $('#btn-tts').setAttribute('aria-pressed',String(state.voice));
-    if(!state.voice&&window.speechSynthesis)speechSynthesis.cancel();
   });
   $('#btn-gestures').addEventListener('click',toggleGestures);
   $('#btn-immersive').addEventListener('click',()=>{
@@ -239,16 +184,6 @@ function openSettings(mode) {
     host.append(text('p','Provedor selecionado: '+state.provider+'. Dados empresariais reais: ainda requerem fonte autorizada.','disclaimer'));
   }
   if(!$('#modal-settings').open) $('#modal-settings').showModal();
-}
-function listen() {
-  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!Speech){respond('Reconhecimento de voz indisponível neste navegador. Use o campo de texto.');return;}
-  const rec=new Speech();rec.lang='pt-BR';rec.interimResults=false;rec.maxAlternatives=1;
-  $('#btn-mic').textContent='🎙 Ouvindo…';
-  rec.onresult=e=>{const spoken=e.results[0][0].transcript;ask(spoken);};
-  rec.onerror=e=>respond('Não foi possível reconhecer a fala ('+e.error+').');
-  rec.onend=()=>{$('#btn-mic').textContent='🎙 Falar';};
-  try{rec.start();}catch{respond('Não foi possível iniciar o microfone.');}
 }
 function labelSprite(label) {
   const c=document.createElement('canvas');c.width=512;c.height=96;
