@@ -54,6 +54,11 @@ try{
   assert.match(html,/holo-companion-slot/,'Conversa única precisa de uma aba dedicada');
   const serverCode=await readFile(path.join(root,'services/holo-companion.mjs'),'utf8');
   assert.match(serverCode,/operacoes:\['Operações'/,'Servidor deve entender contexto da area Operações');
+  // Protege computadores de entrada contra regressão de prompts enormes.
+  assert.match(serverCode,/memory\.history\.slice\(-4\)/,'Enviar somente histórico recente');
+  assert.match(serverCode,/holoEvidence\.slice\(0,4\)/,'Limitar conhecimento enviado ao modelo');
+  assert.match(serverCode,/num_ctx:localCtx,num_predict:localPredict/,'Limitar contexto e geração do Ollama');
+  assert.match(serverCode,/2048,1024,8192/,'Perfil conservador inicial para 4 GB de VRAM');
   assert.match(companion,/fetch\(url/,'O único chat deve chamar o Companion');
   assert.doesNotMatch(dashboard,/127\.0\.0\.1:4892\/api\/assist/,'Nao usar o endpoint legado que exige outro servidor');
   const health=await(await fetch(base+'/api/health')).json();
