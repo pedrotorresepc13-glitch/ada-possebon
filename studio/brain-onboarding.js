@@ -43,15 +43,19 @@ function draw(state){
   const connected=!!state.connected;
   node('hb-login').hidden=connected;
   node('hb-study').hidden=!connected;
+  node('hb-refresh').hidden=!state.can_manage_ai;
   node('hb-connection').textContent='Servidor POSSEBON: '+(state.remote||'não configurado')+
      (connected?' · Sessão temporária ativa':' · Aguarda autenticação');
   const pg=state.progress||{};
   const count=Number(pg.count)||0,expected=Number(pg.expected)||0;
   node('hb-meter-fill').style.width=Math.round(expected>0?Math.min(100,count/expected*100):0)+'%';
-  node('hb-total').textContent=(pg.running?count:Number(state.knowledge?.count)||0).toLocaleString('pt-BR')+' itens '+(pg.running?'lidos':'catalogados');
+  node('hb-total').textContent=state.can_manage_ai?
+    (pg.running?count:Number(state.knowledge?.count)||0).toLocaleString('pt-BR')+' itens '+(pg.running?'lidos':'catalogados'):
+    'Catálogo reservado ao administrador';
   if(connected){
     node('hb-identity').textContent=(state.user_name||'Usuário POSSEBON')+' · Unidade '+state.unit_id;
-    node('hb-progress').textContent=pg.running?
+    node('hb-progress').textContent=!state.can_manage_ai?
+      'Sessão operacional ativa. Consulte o POSSEBON pelo quadro dentro do seu escopo.':pg.running?
       'Estudando '+(pg.namespace||'catálogo')+'... '+count.toLocaleString('pt-BR')+' de '+expected.toLocaleString('pt-BR')+' itens previstos.':
       (pg.error?'Estudo interrompido: '+pg.error:
         (state.knowledge?.ready?
@@ -97,7 +101,7 @@ node('hb-form').addEventListener('submit',async e=>{
     }else{
       clearCredentials();node('hb-unit-row').hidden=true;
       await status();message('Autenticação concluída. O token fica somente na memória do serviço local.');
-      if(!data.knowledge?.ready)void beginStudy();
+      if(data.can_manage_ai===true && !data.knowledge?.ready)void beginStudy();
     }
   }catch(err){message(err.message,true);}
   finally{loading=false;node('hb-connect').disabled=false;}
