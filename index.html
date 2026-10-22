@@ -7,14 +7,17 @@
 <meta name="description" content="Holo Enterprise: protótipo de inteligência empresarial visual em português.">
 <title>HOLO Enterprise — Inteligência Visual</title>
 <link rel="stylesheet" href="/studio/style.css">
+<link rel="stylesheet" href="/studio/whiteboard.css">
 </head>
 <body>
 <div class="app">
 <header class="topbar">
-  <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong>HOLO <em>ENTERPRISE</em></strong><small>Inteligência empresarial visual · protótipo</small></div></div>
+  <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong><span data-holo-name>HOLO</span> <em>ENTERPRISE</em></strong><small>Inteligência empresarial visual · protótipo</small></div></div>
   <div class="header-actions">
     <span class="demo-flag" id="data-badge">FONTE NÃO VERIFICADA</span>
     <button id="btn-company" class="secondary">Empresa</button>
+    <button id="btn-assistant-name" class="secondary" type="button" hidden>Alterar nome</button>
+    <button id="btn-exit" class="secondary" type="button" hidden>Sair</button>
     <button id="btn-present" class="primary">Apresentar ⛶</button>
   </div>
 </header>
@@ -25,12 +28,28 @@
     <div class="section-label space-top">MAPA DE ÁREAS</div>
     <nav id="area-list" aria-label="Navegação pelas áreas"></nav>
     <div class="sidebar-bottom">
+      <button id="btn-neural" class="wide secondary" type="button" hidden>◈ Rede neural (admin)</button>
       <button id="btn-connect" class="wide secondary">⛓ Conexões de dados</button>
       <button id="btn-source" class="wide secondary">◈ Motor de IA</button>
       <p class="privacy">Nenhum dado real da POSSEBON está conectado. A câmera é opcional e é processada no navegador.</p>
     </div>
   </aside>
-  <section class="center" aria-label="Mapa interativo">
+  <section class="center report-center" id="report-board" aria-label="Quadro branco de consultas">
+    <div class="wb-head">
+      <div><span class="wb-eyebrow">POSSEBON · PAINEL DE CONSULTAS</span><h1>Quadro de inteligência</h1><p>Respostas verificadas, indicadores e painéis criados a partir de consultas autorizadas.</p></div>
+      <div class="wb-actions">
+        <button id="wb-export" type="button" title="CSV compatível com Excel">Exportar CSV</button>
+        <button id="wb-print" type="button" title="Imprimir ou salvar como PDF">Exportar PDF</button>
+        <button id="wb-clear" type="button">Limpar quadro</button>
+      </div>
+    </div>
+    <div class="wb-viewport" id="wb-viewport">
+      <div id="wb-stage" class="wb-stage"></div>
+      <div id="wb-empty" class="wb-empty"><strong>Seu quadro está pronto.</strong><p>Faça uma pergunta pelo assistente. Cada resultado será organizado aqui, com indicadores e fontes. Dados não confirmados não viram gráficos.</p></div>
+    </div>
+    <div class="wb-foot"><button id="wb-zoom-out" type="button" aria-label="Diminuir zoom">−</button><span id="wb-zoom">100%</span><button id="wb-zoom-in" type="button" aria-label="Aumentar zoom">+</button><button id="wb-fit" type="button">Centralizar</button><span>Arraste os painéis pelo título para reorganizar.</span></div>
+  </section>
+  <section class="center" id="neural-map" aria-label="Rede neural administrativa" hidden>
     <div class="scene-head"><span class="eyebrow">HOLO · CENTRO DE INTELIGÊNCIA</span><h1 id="scene-title">Explore o conhecimento da sua empresa.</h1><p>Selecione uma área do mapa ou converse com a HOLO no painel lateral.</p></div>
     <div class="scene-wrap" id="scene-wrap">
       <canvas id="scene" aria-label="Mapa tridimensional interativo das áreas da empresa"></canvas>
@@ -95,5 +114,7 @@
 <script type="module" src="/studio/knowledge-dashboard.js"></script>
 <!-- Conexao ao POSSEBON Brain e estudo inicial em segundo plano. -->
 <script type="module" src="/studio/brain-onboarding.js"></script>
+<script type="module" src="/studio/whiteboard.js"></script>
+<script type="module" src="/studio/auth-gate.js"></script>
 </body>
 </html>
