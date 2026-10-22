@@ -51,7 +51,7 @@
     <div class="wb-foot"><button id="wb-zoom-out" type="button" aria-label="Diminuir zoom">−</button><span id="wb-zoom">100%</span><button id="wb-zoom-in" type="button" aria-label="Aumentar zoom">+</button><button id="wb-fit" type="button">Centralizar</button><span>Arraste os painéis pelo título para reorganizar.</span></div>
   </section>
   <section class="center" id="neural-map" aria-label="Rede neural administrativa" hidden>
-    <div class="scene-head"><span class="eyebrow">HOLO · CENTRO DE INTELIGÊNCIA</span><h1 id="scene-title">Explore o conhecimento da sua empresa.</h1><p>Selecione uma área do mapa ou converse com a HOLO no painel lateral.</p></div>
+    <div class="scene-head"><span class="eyebrow"><span data-holo-name>HOLO</span> · CENTRO DE INTELIGÊNCIA</span><h1 id="scene-title">Explore o conhecimento da sua empresa.</h1><p>Selecione uma área do mapa ou converse com o assistente no painel lateral.</p></div>
     <div class="scene-wrap" id="scene-wrap">
       <canvas id="scene" aria-label="Mapa tridimensional interativo das áreas da empresa"></canvas>
       <div class="scene-note">PINÇA: PEGAR E MOVER · DUAS MÃOS: ZOOM E GIRO · ✌: RESTAURAR</div>
@@ -69,7 +69,7 @@
   <aside class="insights" aria-label="Inteligência empresarial e assistente HOLO">
     <div class="intel-tabs" role="tablist" aria-label="Painel lateral">
       <button id="intel-tab-knowledge" type="button" role="tab" aria-selected="true" aria-controls="insights-summary">Conhecimento</button>
-      <button id="intel-tab-assistant" type="button" role="tab" aria-selected="false" aria-controls="holo-companion-slot">Conversar com HOLO</button>
+      <button id="intel-tab-assistant" type="button" role="tab" aria-selected="false" aria-controls="holo-companion-slot">Conversar com <span data-holo-name>HOLO</span></button>
     </div>
     <section id="insights-summary" role="tabpanel" aria-labelledby="intel-tab-knowledge">
       <div class="panel-header">
