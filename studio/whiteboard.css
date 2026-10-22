@@ -1,0 +1,63 @@
+/* Identidade de trabalho alinhada ao POSSEBON: base clara, azul institucional e detalhes discretos. */
+:root{color-scheme:light;--bg:#f4f7fb;--panel:#fff;--panel2:#edf4fa;--line:#d7e3ee;--ink:#17334c;--sub:#647e91;--mint:#167eb5;--blue:#116eac}
+body{background:#f4f7fb;color:var(--ink)}
+.topbar{background:#fff;border-color:#dae5ee}
+.brand-mark,.brand em{color:#1878b4;text-shadow:none}
+.brand small{color:#687f92}
+.workspace{background:#f5f8fc}
+.sidebar,.insights{background:#fff;border-color:#dce6f0}
+.section-label,.eyebrow{color:#276f9d}
+.company-box{background:#eff6fb;border-color:#d0e0ed}
+.company-box span{color:#3175a2}
+.area-button{color:#395b71}
+.area-button.active{background:#e4f2fb;color:#14527c;border-color:#bed9ec;box-shadow:inset 3px 0 #2679b0}
+.area-button:hover{background:#edf4f9;color:#245e84}
+.primary{background:#176ea9;color:#fff}
+.primary:hover{background:#115d92}
+.secondary{background:#eff5fa;color:#285b7f;border-color:#d5e3ee}
+.secondary:hover,.secondary.active{background:#dceaf5;color:#194d75}
+.demo-flag{color:#266587;border-color:#a3c8df}
+.privacy,.disclaimer,.status{color:#667d8f}
+[hidden]{display:none!important}
+.center.report-center{background:#f3f7fa;min-width:0;min-height:0;display:flex;flex-direction:column}
+.wb-head{padding:23px 26px 15px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid #e0eaf2;background:#fff}
+.wb-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;color:#287ba8}
+.wb-head h1{font-size:23px;letter-spacing:-.025em;margin:5px 0;color:#163b57}
+.wb-head p{margin:0;color:#667f90;font-size:12px}
+.wb-actions{display:flex;flex-wrap:wrap;gap:7px}
+.wb-actions button,.wb-foot button{background:#f3f8fc;color:#235b81;border:1px solid #d4e3ef;border-radius:8px;padding:9px 11px;font-weight:650;font-size:12px}
+.wb-actions button:hover,.wb-foot button:hover{background:#e1eef8}
+.wb-viewport{position:relative;flex:1;overflow:auto;min-height:360px;background-color:#f7fafc;background-image:radial-gradient(#cedfec 1.1px,transparent 1.1px);background-size:23px 23px}
+.wb-stage{width:2600px;height:1800px;transform-origin:top left;position:relative}
+.wb-empty{position:absolute;top:62px;left:50px;max-width:440px;padding:30px;border:1px dashed #b7d0e2;border-radius:16px;background:#ffffffd9;box-shadow:0 12px 40px #213e5710}
+.wb-empty strong{display:block;font-size:18px;margin-bottom:8px}
+.wb-empty p{font-size:13px;line-height:1.6;color:#55738c}
+.wb-card{position:absolute;width:365px;max-width:365px;background:#fff;border:1px solid #d6e4ee;box-shadow:0 12px 40px #22425b1c;border-radius:14px;overflow:hidden;color:#173750}
+.wb-card-head{display:flex;align-items:center;gap:10px;background:#eef6fb;border-bottom:1px solid #d9e9f1;padding:12px 15px;cursor:grab;touch-action:none}
+.wb-card-head:active{cursor:grabbing}
+.wb-card-head strong{font-size:13px}
+.wb-card-handle{color:#8dafc2;font-weight:900;letter-spacing:2px}
+.wb-question{margin:14px 16px 10px;font-size:11px;color:#55738a;line-height:1.5}
+.wb-answer{white-space:pre-wrap;line-height:1.55;color:#24475e;font-size:13px;padding:0 16px 14px;margin:0;max-height:260px;overflow:auto}
+.wb-metrics{padding:5px 14px 13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.wb-metric{padding:12px;border-radius:10px;border:1px solid #d9eaf3;background:#f4f9fd}
+.wb-metric span{font-size:11px;display:block;color:#647f93;min-height:31px}
+.wb-metric strong{font-size:23px;color:#12699c;font-variant-numeric:tabular-nums}
+.wb-source{padding:11px 15px;font-size:10px;color:#607c90;background:#f8fafc;border-top:1px solid #e2eaf0;overflow-wrap:anywhere}
+.wb-foot{display:flex;gap:9px;align-items:center;padding:10px 25px;background:#fff;border-top:1px solid #e2ebf2}
+.wb-foot span{font-size:12px;color:#647f92}
+#wb-zoom{font-size:12px;font-variant-numeric:tabular-nums;color:#315f7a;min-width:35px;text-align:center}
+.insights .panel-header,.insights .chart-box,.metric{background:#fff;color:#17334c}
+.insights .chart-box,.metric{border-color:#d8e5ed}
+.insights .panel-header p,.metric small{color:#627e91}
+.insights .intel-tabs{background:#f7fbff}
+@media(max-width:950px){.wb-head{padding:16px}.wb-head h1{font-size:19px}.wb-viewport{min-height:420px}}
+@media print{
+  body{background:white}
+  .topbar,.sidebar,.insights,.wb-head,.wb-foot,.wb-empty{display:none!important}
+  .workspace{display:block}
+  .report-center{display:block!important}
+  .wb-viewport{display:block;overflow:visible;height:auto;background:#fff}
+  .wb-stage{transform:none!important}
+  .wb-card{break-inside:avoid;box-shadow:none;border:1px solid #bbb}
+}
