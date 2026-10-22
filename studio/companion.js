@@ -60,7 +60,7 @@ async function ask(message){
     line('Abrindo '+(areas.find(a=>a.id===navigation)?.name||'área')+' no mapa holográfico.');
   }
   const area=navigation||document.querySelector('.area-button[aria-current="page"]')?.dataset.area||'geral';
-  const demoMode=document.querySelector('#data-badge')?.textContent==='DADOS FICTÍCIOS';
+  const demoMode=document.querySelector('#data-badge')?.textContent==='DADOS DEMONSTRATIVOS';
   try{
     const response=await json('/api/chat',{method:'POST',body:JSON.stringify({message,area,navigation,demoMode})});
     line(response.answer);status('IA '+response.provider+' · Brain '+(response.brain||'não consultado'));
