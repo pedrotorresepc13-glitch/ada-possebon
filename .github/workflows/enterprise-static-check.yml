@@ -19,6 +19,7 @@ jobs:
           node --check services/holo-companion.mjs
           node --check services/holo-possebon.mjs
           node --input-type=module --check < studio/brain-onboarding.js
+          node --input-type=module --check < studio/knowledge-dashboard.js
           node --check tests/holo-possebon.test.mjs
           node --input-type=module --check < studio/companion.js
           node --check tests/companion.test.mjs
