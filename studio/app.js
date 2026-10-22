@@ -29,11 +29,15 @@ function formatArea(a) {
     const group=overview.areas?.[a.id]||{count:0,namespaces:{},examples:[]};
     const bars=Object.entries(group.namespaces||{})
       .filter(([_,v])=>Number(v)>0).sort((a,b)=>b[1]-a[1]).slice(0,7);
+    const activeMetric=(a.id==='pessoas'||a.id==='geral') && overview.operational &&
+      overview.operational.unit_id===overview.unit_id?overview.operational:null;
     return {...a,
       description:'Conhecimento catalogado sobre '+a.name+' na unidade '+(state.enterpriseUnit||overview.unit_id)+
-        '. Os itens listados são regras, estruturas e metadados, não números de produção.',
+        '. Itens do Brain são metadados, não registros operacionais. Indicadores identificados como validados vêm de consulta específica.',
       stats:[['Itens associados',String(group.count||0)],['Total no Brain',String(overview.total||0)],
-        ['Categorias',String(Object.keys(group.namespaces||{}).length)],['Indicadores operacionais','Sem API']],
+        ['Categorias',String(Object.keys(group.namespaces||{}).length)],
+        activeMetric?['Colaboradores ativos · consulta real',activeMetric.pessoas_ativas.toLocaleString('pt-BR')]:
+          ['Indicadores operacionais','Sem consulta']],
       bars,examples:group.examples||[],
       summary:'Fontes reais do Brain disponíveis para consulta.'
     };
