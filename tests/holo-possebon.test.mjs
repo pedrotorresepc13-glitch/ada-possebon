@@ -67,7 +67,7 @@ try{
   const overview=await call('/api/possebon/overview',{});
   assert.equal(overview.total,2);
   assert.equal(overview.areas.geral.count,2);
-  assert.equal(overview.areas.operacoes.count,1,'RDO associado a Operações pela fonte real');
+  assert.equal(overview.areas.operacoes.count,2,'Regra e schema RDO associados a Operações pela fonte real');
   assert.equal(overview.operationalConnected,false,'O catálogo não é métrica operacional');
   assert.ok((await bridge.findEvidence('regra do RDO')).some(x=>x.title==='Regra do RDO'));
   const filepath=path.join(temp,'conhecimento-possebon','user-21-unit-3.jsonl');
