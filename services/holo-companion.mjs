@@ -2,6 +2,7 @@
 // Não importe os códigos do MAD Builder nem exponha tokens no navegador.
 import http from 'node:http';
 import {createHoloPossebon} from './holo-possebon.mjs';
+import {operationalIntent} from './holo-operational-intent.mjs';
 import {readFile, writeFile, mkdir, readdir, lstat, realpath} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {homedir} from 'node:os';
@@ -223,6 +224,43 @@ const server=http.createServer(async(req,res)=>{
       }
       active=true;
       try{
+        const intent=operationalIntent(question);
+        if(intent?.name==='colaboradores_ativos'){
+          const status=possebon.status();
+          let response='', metric=null;
+          if(!status.connected){
+            response='Não consigo confirmar quantos colaboradores estão ativos: a sessão da HOLO no POSSEBON não está conectada. Conecte-se à unidade desejada e tente novamente.';
+          }else if(intent.requestedUnit!==null && intent.requestedUnit!==status.unit_id){
+            response='Você solicitou a EPC13 (unidade 3), mas a sessão da HOLO está na unidade '+status.unit_id+'. Selecione a EPC13 na conexão POSSEBON para consultar seus dados.';
+          }else{
+            try{
+              metric=await possebon.activeCollaborators();
+              const label=metric.unit_id===3?'EPC13':'unidade '+metric.unit_id;
+              response='Em '+metric.data_referencia+', a '+label+' tem '+metric.pessoas_ativas.toLocaleString('pt-BR')+
+                ' pessoas distintas com vínculo de colaborador ativo ('+metric.vinculos_ativos.toLocaleString('pt-BR')+
+                ' vínculos). Fonte: POSSEBON Web, tabela colaborador, unidade '+metric.unit_id+
+                '. Critérios: status A, não excluído e sem data de desligamento. Consulta de leitura realizada agora.';
+            }catch(err){
+              const code=Number(err?.httpStatus)||0;
+              if(code===404){
+                response='Ainda não posso confirmar esse número: a rota de consulta de colaboradores ativos não foi publicada no POSSEBON Web. O Brain conhece a estrutura, mas não contém a contagem atual.';
+              }else if(code===403){
+                response='A consulta ao número de colaboradores ativos foi negada. É necessário acesso ao programa ColaboradorList na unidade autorizada; não vou inventar a contagem.';
+              }else if(code===401){
+                response='A sessão POSSEBON expirou ou foi recusada. Conecte novamente a HOLO e refaça a pergunta.';
+              }else{
+                response='Não consegui consultar o número de colaboradores ativos no POSSEBON Web ('+
+                  truncate(err?.message||'erro de comunicação',150)+'). Não há número confirmado.';
+              }
+            }
+          }
+          memory.history.push({role:'user',text:question,at:new Date().toISOString()},
+            {role:'assistant',text:response,at:new Date().toISOString()});
+          memory.history=memory.history.slice(-36);await persist();
+          return result(res,200,{ok:true,answer:response,provider:'consulta_operacional',
+            brain:metric?'consulta_validada':'consulta_indisponivel',
+            sources:metric?['possebon_app.colaborador (unit_id='+metric.unit_id+')']:[]});
+        }
         let ctx={items:[],state:'nao_configurado'};
         try{ctx=await brainContext(question);}catch(e){ctx.state='indisponivel';console.warn('Brain:',e.message);}
         const area=Object.hasOwn(sceneAreas,data?.area)?data.area:'geral';
