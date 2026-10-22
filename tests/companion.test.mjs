@@ -78,6 +78,16 @@ try{
   assert.equal(memo.brain,'nao_consultado');
   const again=await(await fetch(base+'/api/health')).json();
   assert.equal(again.notesCount,1);
+  const liveWithoutAccess=await fetch(base+'/api/chat',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message:'quantas pessoas temos na epc 13 ativas hoje?'})});
+  assert.equal(liveWithoutAccess.status,200);
+  const missing=await liveWithoutAccess.json();
+  assert.equal(missing.provider,'consulta_operacional');
+  assert.equal(missing.brain,'consulta_indisponivel');
+  assert.deepEqual(missing.sources,[]);
+  assert.match(missing.answer,/Não consigo confirmar/);
+  assert.doesNotMatch(missing.answer,/A EPC13 tem [0-9]+/);
   const invalid=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"message":""}'});
   assert.equal(invalid.status,400);
   console.log('OK: Companion, arquivos estáticos, memória local, origem e isolamento de rotas.');
