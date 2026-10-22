@@ -67,8 +67,11 @@ async function refresh(){
   inFlight=true;
   try{
     const state=await get('/api/possebon/status');
+    const admin=state.can_manage_ai===true;
+    summaryTab.hidden=!admin;
+    if(!admin)switchTab('assistant');
     let overview=null;
-    if(state.knowledge?.ready){
+    if(admin&&state.knowledge?.ready){
       const changed=!lastOverview||lastUnit!==state.unit_id||
          lastCompleted!==state.knowledge.completedAt;
       if(changed){
@@ -78,7 +81,7 @@ async function refresh(){
     }else{
       lastOverview=null;lastUnit=null;lastCompleted=null;
     }
-    if(!state.connected){
+    if(!state.connected||!admin){
       operational=null;operationalUnit=null;operationalCheckedAt=0;
     }else if(!operationalCheckedAt || operationalUnit!==state.unit_id || Date.now()-operationalCheckedAt>60000){
       operationalCheckedAt=Date.now();
