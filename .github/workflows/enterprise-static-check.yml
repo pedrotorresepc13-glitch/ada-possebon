@@ -18,6 +18,7 @@ jobs:
           node --check services/assistant-server.mjs
           node --check services/holo-companion.mjs
           node --check services/holo-possebon.mjs
+          node --check services/holo-operational-intent.mjs
           node --input-type=module --check < studio/brain-onboarding.js
           node --input-type=module --check < studio/knowledge-dashboard.js
           node --check tests/holo-possebon.test.mjs
@@ -30,6 +31,8 @@ jobs:
         run: node tests/companion.test.mjs
       - name: Testar onboarding do POSSEBON Brain sem rede externa
         run: node tests/holo-possebon.test.mjs
+      - name: Testar roteamento deterministico de metricas operacionais
+        run: node tests/holo-operational-intent.test.mjs
       - name: Confirmar arquivos do deploy
         run: |
           test -s index.html
