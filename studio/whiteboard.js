@@ -91,8 +91,13 @@ function exportCsv(){
   const a=document.createElement('a');a.href=url;a.download='quadro-consultas-possebon.csv';
   document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-el('wb-clear').addEventListener('click',()=>{
+function clearBoard(){
   cards.length=0;count=0;board.replaceChildren();el('wb-empty').hidden=false;
+}
+el('wb-clear').addEventListener('click',clearBoard);
+window.addEventListener('holo:auth-changed',event=>{
+  // Não compartilhar resultados entre usuários/unidades no mesmo navegador.
+  if(!event.detail?.connected || event.detail?.identityChanged)clearBoard();
 });
 el('wb-export').addEventListener('click',()=>{
   const url=URL.createObjectURL(createXlsx(buildRows()));
