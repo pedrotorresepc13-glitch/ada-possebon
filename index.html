@@ -15,7 +15,7 @@
   <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong><span data-holo-name>HOLO</span> <em>ENTERPRISE</em></strong><small>Inteligência empresarial visual · protótipo</small></div></div>
   <div class="header-actions">
     <span class="demo-flag" id="data-badge">FONTE NÃO VERIFICADA</span>
-    <button id="btn-company" class="secondary">Empresa</button>
+    <button id="btn-company" class="secondary" hidden>Empresa</button>
     <button id="btn-assistant-name" class="secondary" type="button" hidden>Alterar nome</button>
     <button id="btn-exit" class="secondary" type="button" hidden>Sair</button>
     <button id="btn-present" class="primary">Apresentar ⛶</button>
@@ -38,7 +38,8 @@
     <div class="wb-head">
       <div><span class="wb-eyebrow">POSSEBON · PAINEL DE CONSULTAS</span><h1>Quadro de inteligência</h1><p>Respostas verificadas, indicadores e painéis criados a partir de consultas autorizadas.</p></div>
       <div class="wb-actions">
-        <button id="wb-export" type="button" title="CSV compatível com Excel">Exportar CSV</button>
+        <button id="wb-export" type="button" title="Planilha Excel">Excel (.xlsx)</button>
+        <button id="wb-export-csv" type="button" title="CSV para outras ferramentas">CSV</button>
         <button id="wb-print" type="button" title="Imprimir ou salvar como PDF">Exportar PDF</button>
         <button id="wb-clear" type="button">Limpar quadro</button>
       </div>
