@@ -37,3 +37,27 @@
 #holo-companion .hc-file{background:#12304b;border:1px solid #346c7a;color:#e4faff;border-radius:10px;padding:11px;text-align:left}
 @media(max-width:750px){#holo-companion .hc-launch{right:12px;bottom:11px}#holo-companion .hc-panel{right:8px;bottom:78px}#holo-companion .hc-reader{left:4vw;top:12vh;width:92vw;height:73vh}}
 @media(prefers-reduced-motion:reduce){#holo-companion .hc-orb{animation:none!important}}
+
+
+/* Apenas UM assistente: conversa encaixada no painel lateral. */
+.insights #holo-companion{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;z-index:auto}
+.insights #holo-companion .hc-launch{display:none!important}
+.insights #holo-companion .hc-panel{
+  position:relative;right:auto;bottom:auto;top:auto;left:auto;
+  flex:1;min-height:0;width:100%;height:100%;
+  max-width:none;max-height:none;border:0;border-radius:0;
+  box-shadow:none;background:linear-gradient(165deg,rgba(8,30,38,.85),rgba(5,18,29,.94));
+  overflow:hidden;backdrop-filter:none
+}
+.insights #holo-companion .hc-header{padding:17px 16px;background:#0b2931;border-bottom-color:#2c5b60}
+.insights #holo-companion .hc-header strong{font-size:14px}
+.insights #holo-companion .hc-header button{display:none}
+.insights #holo-companion .hc-feed{padding:16px;min-height:160px;scrollbar-color:#356b6c transparent}
+.insights #holo-companion .hc-line{max-width:98%;font-size:12px;line-height:1.65}
+.insights #holo-companion .hc-form{padding:12px 15px;border-top-color:#345b61}
+.insights #holo-companion .hc-form input{font-size:13px}
+.insights #holo-companion .hc-tools{padding:0 15px 12px;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.insights #holo-companion .hc-tools button{padding:10px 3px;font-size:10px;line-height:1.4}
+.insights #holo-companion .hc-foot{padding:1px 15px 15px;font-size:10px}
+@media(max-width:1100px){.insights #holo-companion .hc-tools{grid-template-columns:1fr 1fr}}
+@media(max-width:850px){.insights #holo-companion .hc-panel{min-height:570px}}
