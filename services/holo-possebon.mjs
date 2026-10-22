@@ -29,6 +29,7 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
   const remote=targetUrl();
 
   function publicStatus(){
+    if(session && Date.now()>=session.expiresAt && !task)clearSession();
     return {ok:true,connected:!!session,unit_id:session?.unitId||null,user_name:session?.userName||null,
       expires_at:session?.expiresAt||null,remote,progress:{...progress},knowledge:{...cached}};
   }
@@ -171,12 +172,13 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
   }
   async function findEvidence(question){
     if(!session||!cached.ready||Date.now()>=session.expiresAt)return [];
-    const words=[...new Set(short(question,1200).toLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9_]{4,}/g)||[])].filter(w=>!new Set([
+    const normalized=short(question,1200).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const summaryQuery=/(o que (voce )?(aprendeu|conhece|estudou)|resum[ao]|quais regras|conhecimento (do|sobre)|sobre (o )?possebon)/.test(normalized);
+    const words=[...new Set(normalized.match(/[a-z0-9_]{4,}/g)||[])].filter(w=>!new Set([
         'para','sobre','como','quais','porque','entao','essa','esse','aqui','dessa','voce','hoje',
         'mais','mostre','mostrar','abrir','quero','preciso','possebon','holo','sistema'
       ]).has(w)).slice(0,16);
-    if(!words.length)return [];
+    if(!words.length && !summaryQuery)return [];
     const results=[];
     const input=readline.createInterface({input:createReadStream(cachePath(),{encoding:'utf8'}),crlfDelay:Infinity});
     for await(const line of input){
@@ -185,7 +187,7 @@ export function createHoloPossebon({localDir,fetchImpl=fetch}){
       const title=(item.title+' '+item.knowledge_key).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const body=String(item.content||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const score=words.reduce((n,w)=>n+(title.includes(w)?8:0)+(body.includes(w)?1:0),0)+
-        (item.namespace==='rule'?1:0);
+        (summaryQuery && item.namespace==='rule'?20:0);
       if(score>0){
         results.push({score,item});
         results.sort((a,b)=>b.score-a.score);
