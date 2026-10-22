@@ -1,3 +1,4 @@
+import {createXlsx} from './export-xlsx.mjs';
 // Quadro visual: mostra somente respostas verificadas e deixa explícita a falta de fonte.
 // Não gera métricas a partir de texto livre do modelo.
 const el=id=>document.getElementById(id);
@@ -71,7 +72,7 @@ window.addEventListener('holo:answer',event=>{
   const data=event.detail||{};
   makeCard(data);
 });
-function exportCsv(){
+function buildRows(){
   const rows=[['Pergunta','Painel','Indicador','Valor','Resposta','Fonte']];
   for(const item of cards){
     if(item.visual){
@@ -80,6 +81,10 @@ function exportCsv(){
       ]);
     }else rows.push([item.question,'Resposta','','',item.answer||'',item.sources.join('; ')]);
   }
+  return rows;
+}
+function exportCsv(){
+  const rows=buildRows();
   const csv='\uFEFF'+rows.map(row=>row.map(val=>'"'+String(val??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -89,7 +94,12 @@ function exportCsv(){
 el('wb-clear').addEventListener('click',()=>{
   cards.length=0;count=0;board.replaceChildren();el('wb-empty').hidden=false;
 });
-el('wb-export').addEventListener('click',exportCsv);
+el('wb-export').addEventListener('click',()=>{
+  const url=URL.createObjectURL(createXlsx(buildRows()));
+  const a=document.createElement('a');a.href=url;a.download='quadro-consultas-possebon.xlsx';
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+el('wb-export-csv').addEventListener('click',exportCsv);
 el('wb-print').addEventListener('click',()=>window.print());
 el('wb-zoom-in').addEventListener('click',()=>setZoom(zoom+0.1));
 el('wb-zoom-out').addEventListener('click',()=>setZoom(zoom-0.1));
