@@ -7,6 +7,8 @@ export function operationalIntent(question){
   const active=/\b(?:ativo|ativos|ativa|ativas|trabalhando|contratado|contratados|efetivo)\b/.test(q);
   const quantity=/\b(?:quanto|quantos|quantas|quantidade|numero|numeros|total|temos|existem|contagem|ha)\b/.test(q);
   if(staff&&active&&quantity)return {name:'colaboradores_ativos',requestedUnit};
+  if(staff && /\b(?:quem|nomes?|listar|listagem|quais|relacao)\b/.test(q))
+    return {name:'consulta_nao_integrada',requestedUnit,subject:'Nomes de colaboradores'};
   if(/\b(?:refeitorio|catraca|acessos? ao restaurante)\b/.test(q) &&
      /\b(?:quantos|quantas|quantidade|acesso|entraram|entrou|frequentaram|hoje|ontem|mes)\b/.test(q))
     return {name:'consulta_nao_integrada',requestedUnit,subject:'Acessos ao refeitório'};
