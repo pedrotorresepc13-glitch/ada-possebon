@@ -23,6 +23,8 @@ function updateName(){
   const name=currentName();
   document.title=name+' · POSSEBON';
   for(const node of document.querySelectorAll('[data-holo-name]'))node.textContent=name;
+  const intro=document.getElementById('hb-title');
+  if(intro)intro.textContent=name+' · Conhecimento POSSEBON';
   window.dispatchEvent(new CustomEvent('holo:name-changed',{detail:{name}}));
 }
 updateName();
