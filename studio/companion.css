@@ -61,3 +61,19 @@
 .insights #holo-companion .hc-foot{padding:1px 15px 15px;font-size:10px}
 @media(max-width:1100px){.insights #holo-companion .hc-tools{grid-template-columns:1fr 1fr}}
 @media(max-width:850px){.insights #holo-companion .hc-panel{min-height:570px}}
+
+/* Identidade POSSEBON clara para o painel lateral; respostas extensas ficam no quadro. */
+.insights #holo-companion{color:#24445b}
+.insights #holo-companion .hc-panel{background:#fff;color:#284d64}
+.insights #holo-companion .hc-header{background:#edf5fb;border-bottom-color:#d8e5ef}
+.insights #holo-companion .hc-header strong{color:#194d72}
+.insights #holo-companion .hc-header small{color:#688699}
+.insights #holo-companion .hc-orb{border:1px solid #bfdce9;background:#e0eef8;color:#1b70a4;box-shadow:none;animation:none}
+.insights #holo-companion .hc-line{background:#f2f7fb;color:#294b65}
+.insights #holo-companion .hc-line.hc-user{background:#e0edf8;color:#1d5c84}
+.insights #holo-companion .hc-form{border-top-color:#e1e9f0}
+.insights #holo-companion .hc-form input{border-color:#c9dce9;background:#f8fbfe;color:#20475f}
+.insights #holo-companion .hc-form button{background:#196fa8;color:white}
+.insights #holo-companion .hc-tools button{background:#edf5fb;border-color:#d0e0ec;color:#245b7b}
+.insights #holo-companion .hc-tools button[aria-pressed="true"]{border-color:#4590ba;color:#126398}
+.insights #holo-companion .hc-foot{color:#71899b}
