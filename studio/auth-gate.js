@@ -65,6 +65,7 @@ async function check(){
     if(!response.ok)throw Error('HTTP '+response.status);
     const s=await response.json();
     const wasConnected=!!authState?.connected;
+    const before=authState?.connected?(authState.user_id+'-'+authState.unit_id):'';
     authState=s;
     const connected=!!s.connected;
     gate.hidden=connected;
@@ -74,10 +75,14 @@ async function check(){
     if(rename)rename.hidden=!connected||s.can_manage_ai!==true;
     if(exit)exit.hidden=!connected;
     if(!connected)showNeural(false);
-    if(wasConnected!==connected)window.dispatchEvent(new CustomEvent('holo:auth-changed',{detail:{connected}}));
+    const after=connected?(s.user_id+'-'+s.unit_id):'';
+    if(wasConnected!==connected || before!==after)
+      window.dispatchEvent(new CustomEvent('holo:auth-changed',{detail:{connected,identityChanged:before!==after}}));
     window.dispatchEvent(new CustomEvent('holo:auth-status',{detail:s}));
   }catch{
+    const wasConnected=!!authState?.connected;
     authState=null;gate.hidden=false;showNeural(false);
+    if(wasConnected)window.dispatchEvent(new CustomEvent('holo:auth-changed',{detail:{connected:false,identityChanged:true}}));
     gate.querySelector('#hag-state').textContent='HOLO Companion não está acessível. Inicie o serviço local e tente novamente.';
   }finally{busy=false;}
 }
