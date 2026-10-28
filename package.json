@@ -1,0 +1,41 @@
+{
+  "name": "ada-possebon",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ADA POSSEBON — inteligência empresarial independente, incorporável ao POSSEBON Web.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @ada/api",
+    "dev:worker": "npm run dev -w @ada/worker",
+    "dev:web": "npm run dev -w @ada/web",
+    "db:migrate": "npm run migrate -w @ada/api",
+    "db:rollback": "npm run migrate:down -w @ada/api",
+    "db:seed:demo": "npm run seed:demo -w @ada/api",
+    "dev:ticket": "npm run dev:ticket -w @ada/api",
+    "openapi": "npm run openapi -w @ada/api",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm run build -w @ada/web && npm run build -w @ada/api && npm run build -w @ada/worker",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:secrets"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@ada/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/cycle.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/worker.ts",
+    "start": "node dist/worker.mjs",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@ada/api": "0.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "tsx": "^4.23.15"
+  }
+}

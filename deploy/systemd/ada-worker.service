@@ -1,0 +1,34 @@
+[Unit]
+Description=ADA POSSEBON — worker (monitores determinísticos, eventos, fila de conhecimento)
+After=network-online.target postgresql.service ada-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ada
+Group=ada
+WorkingDirectory=/opt/ada/current
+Environment=NODE_ENV=production
+Environment=ADA_ROOT=/opt/ada/current
+EnvironmentFile=/etc/ada/ada.env
+ExecStart=/usr/bin/node /opt/ada/current/apps/worker/dist/worker.mjs
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadOnlyPaths=/opt/ada
+CapabilityBoundingSet=
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info:
+  title: POSSEBON Web — contrato de integração com a ADA (PROPOSTO, não implantado)
+  version: 1.0.0
+  description: |
+    Contrato que o POSSEBON Web precisa oferecer para a ADA. A ADA já implementa o lado cliente
+    (apps/api/src/identity.ts — PossebonIdentityProvider/parseIdentityPayload) e a validação do ticket
+    (apps/api/src/services/session.ts — exchangeTicket). Proposta PHP: integration/possebon-web/.
+paths:
+  /api/ada/v1/identity:
+    get:
+      summary: Identidade e permissões autoritativas de um usuário (servidor-servidor)
+      security: [{ adaServiceToken: [] }]
+      parameters:
+        - { name: system_user_id, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Identidade resolvida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Identity' }
+              example:
+                system_user_id: 123
+                login: maria.silva
+                name: Maria Silva
+                active: true
+                units: [{ id: 4, name: EPC13 }]
+                groups: [{ id: 17, name: Gerentes EPC13 }]
+                programs: [{ controller: EfetivoList, actions: ['*'] }, { controller: AdaGestor, actions: ['*'] }]
+                manager_unit_ids: [4]
+                permissions_version: 9f2c1a0b7d3e4f51
+        '401': { description: Token técnico inválido }
+        '404': { description: Usuário inexistente }
+components:
+  securitySchemes:
+    adaServiceToken: { type: http, scheme: bearer, description: Token técnico EXCLUSIVO da ADA (POSSEBON guarda apenas o SHA-256). }
+  schemas:
+    Identity:
+      type: object
+      required: [system_user_id, login, name, active, units, groups, programs, manager_unit_ids, permissions_version]
+      properties:
+        system_user_id: { type: integer }
+        login: { type: string }
+        name: { type: string }
+        active: { type: boolean, description: "system_users.active = 'Y'" }
+        units: { type: array, items: { type: object, properties: { id: { type: integer }, name: { type: string } } }, description: system_user_unit }
+        groups: { type: array, items: { type: object, properties: { id: { type: integer }, name: { type: string } } }, description: system_user_group }
+        programs:
+          type: array
+          description: system_group_program (com actions) ∪ system_user_program
+          items: { type: object, properties: { controller: { type: string }, actions: { type: array, items: { type: string } } } }
+        manager_unit_ids: { type: array, items: { type: integer }, description: Unidades com escopo gerencial (regra de negócio a confirmar) }
+        permissions_version: { type: string, description: Muda quando qualquer permissão muda (invalida cache da ADA) }
+    SsoTicket:
+      description: |
+        JWS compacto HS256 (ou EdDSA) emitido pelo POSSEBON para o usuário da SESSÃO, enviado por POST de
+        formulário (nunca na URL) para /ada/api/ada/session/exchange. Validade máxima 60 s; uso único por jti.
+      type: object
+      required: [iss, aud, sub, unit_id, jti, iat, exp]
+      properties:
+        iss: { const: possebon-web }
+        aud: { const: ada-possebon }
+        sub: { type: string, description: system_user_id }
+        unit_id: { type: integer, description: Unidade ativa na sessão do POSSEBON }
+        jti: { type: string, minLength: 16 }
+        iat: { type: integer }
+        exp: { type: integer, description: "≤ iat + 60" }

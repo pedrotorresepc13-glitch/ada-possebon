@@ -1,0 +1,39 @@
+name: ADA POSSEBON — CI
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Testes (unidade + integração com PostgreSQL/PGlite)
+        run: npm test
+      - name: Build (web, api, worker)
+        run: npm run build
+      - name: Varredura de segredos
+        run: npm run check:secrets
+      - name: Auditoria de dependências de produção (alta/crítica)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Smoke HTTP com o build real
+        run: |
+          cp .env.example .env
+          ADA_ROOT="$PWD" node --env-file=.env apps/api/dist/server.mjs &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4800/ada/healthz && break; sleep 1; done
+          node scripts/smoke.mjs
