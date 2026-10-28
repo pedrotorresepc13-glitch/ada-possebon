@@ -16,7 +16,8 @@
     "migrate:down": "tsx --env-file-if-exists=../../.env src/cli/migrate.ts down",
     "seed:demo": "tsx --env-file-if-exists=../../.env src/cli/seed-demo.ts",
     "dev:ticket": "tsx --env-file-if-exists=../../.env src/cli/dev-ticket.ts",
-    "openapi": "tsx src/cli/openapi.ts"
+    "openapi": "tsx src/cli/openapi.ts",
+    "knowledge:bootstrap": "tsx --env-file-if-exists=../../.env src/cli/bootstrap-public-knowledge.ts"
   },
   "dependencies": {
     "@ada/contracts": "0.1.0",
