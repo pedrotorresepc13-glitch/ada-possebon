@@ -25,6 +25,10 @@ jobs:
         run: npm run typecheck
       - name: Testes (unidade + integração com PostgreSQL/PGlite)
         run: npm test
+      - name: Validar conhecimento publico e reimportacao idempotente (PGlite)
+        run: |
+          ADA_DB_DRIVER=pglite ADA_PGLITE_DIR=.data/knowledge-ci ADA_DEMO_DATA=0 ADA_DEV_LOGIN=0 npm run knowledge:bootstrap
+          ADA_DB_DRIVER=pglite ADA_PGLITE_DIR=.data/knowledge-ci ADA_DEMO_DATA=0 ADA_DEV_LOGIN=0 npm run knowledge:bootstrap | grep '"unchanged": 9'
       - name: Build (web, api, worker)
         run: npm run build
       - name: Varredura de segredos
