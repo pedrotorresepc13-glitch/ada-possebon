@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-10-28",
+  "trust": "public_curated",
+  "approvedSourcesOnly": true,
+  "description": "Fatos públicos curados e parafraseados, com proveniência, revisão humana e sem dados operacionais internos.",
+  "records": [
+    {
+      "id": "possebon-empresa",
+      "title": "POSSEBON Engenharia — histórico e identidade institucional",
+      "domain": "institucional",
+      "sourceUrl": "https://possebon.com.br/empresa/",
+      "content": "A POSSEBON Engenharia, identificada no site como Alfredo A. Possebon Filho & Cia Ltda., informa início das atividades em 31 de julho de 1981, com sede em Curitiba (PR). Atua em engenharia, construção, montagem e manutenção industrial, com filial de produção em Araucária (PR). A empresa declara que presta serviços à Petrobras e subsidiárias desde 1984. Esta é uma descrição institucional autodeclarada, não uma confirmação independente de cada contrato. Não inferir quantidade atual de funcionários, faturamento, organograma ou situação operacional."
+    },
+    {
+      "id": "possebon-competencias",
+      "title": "POSSEBON — serviços e certificações declarados",
+      "domain": "institucional",
+      "sourceUrl": "https://possebon.com.br/servicos/",
+      "content": "A POSSEBON descreve como áreas de atuação: construção civil (terraplenagem, fundações, estruturas de concreto, drenagem, edificações industriais); elétrica e instrumentação; fabricação de tubulações, estruturas e equipamentos; montagem eletromecânica; comissionamento, pré-operação e partida de unidades industriais; manutenção industrial, oleodutos e gasodutos. No site a empresa informa certificações ISO 9001, 14001 e 45001. A vigência e o escopo de certificados devem ser confirmados nos documentos oficiais antes de uma afirmação normativa ou contratual."
+    },
+    {
+      "id": "possebon-canais-app",
+      "title": "Canais institucionais POSSEBON identificados no APP oficial",
+      "domain": "institucional",
+      "sourceUrl": "https://github.com/pedrotorresepc13-glitch/possebon/blob/possebon/lib/screens/home_screen.dart",
+      "content": "O APP POSSEBON registra estes canais sob 'Siga a POSSEBON': site https://possebon.com.br/ ; LinkedIn https://br.linkedin.com/company/possebonengenhariaeservicos ; Instagram https://www.instagram.com/possebonengenhariaeservicos ; Facebook https://www.facebook.com/possebonengenhariaeservicos . Site de contato https://possebon.com.br/contato/ e canal de denúncia https://possebon.com.br/canal-de-denuncia/ . Links de redes sociais são referências para consulta futura, não autorização para acessar contas privadas, mensagens ou conteúdos que exijam login. Fonte interna de código acessada apenas para identificar links publicados no aplicativo."
+    },
+    {
+      "id": "epc13-consorcio-contrato",
+      "title": "Consórcio EPC13 — empresas integrantes, contrato e escopo divulgado",
+      "domain": "epc13",
+      "sourceUrl": "https://possebon.com.br/petrobras-formaliza-contrato-com-o-consorcio-possebon-upe-cpl-epc-13-para-avanco-do-complexo-de-energias-boaventura/",
+      "content": "Segundo notícia institucional da POSSEBON publicada em 16 de outubro de 2025, em 3 de outubro de 2025 a Petrobras formalizou contrato com o CONSÓRCIO POSSEBON/UPE/CPL – EPC-13. Integrantes informadas: Alfredo A. Possebon Filho & Cia Ltda., Universal Process Equipamentos Industriais Ltda. (UPE) e CPL Construtora. Escopo divulgado: engenharia, fornecimento de equipamentos, montagem e operação assistida das unidades ETA e ETDI do Complexo de Energias Boaventura, localizado em Itaboraí (RJ). Não confundir EPC13 com outro consórcio da POSSEBON. Essa notícia não comprova andamento, medições, produtividade, cronograma real, entrega ou eventuais aditivos; esses fatos dependem dos contratos e do POSSEBON Web operacional."
+    },
+    {
+      "id": "petrobras-boaventura",
+      "title": "Petrobras — Complexo de Energias Boaventura e UPGNs",
+      "domain": "petrobras",
+      "sourceUrl": "https://petrobras.com.br/quem-somos/complexo-boaventura",
+      "content": "Conforme página institucional da Petrobras, o Complexo de Energias Boaventura fica em Itaboraí (RJ) e integra empreendimentos de gás natural, processamento, produtos energéticos e projetos de diversificação. A Petrobras informa capacidade das UPGNs de 21 milhões de m³ de gás natural por dia e descreve projetos complementares, como produtos de menor teor de enxofre, lubrificantes e uso de água de reúso. Distinguir capacidade nominal de produção efetiva; projetos anunciados e datas de construção podem mudar e devem ser datados. Não declarar que todas as unidades já entraram em operação sem fonte atualizada."
+    },
+    {
+      "id": "possebon-rnest",
+      "title": "POSSEBON — obras divulgadas na Refinaria Abreu e Lima (RNEST)",
+      "domain": "obras",
+      "sourceUrl": "https://possebon.com.br/obras-em-andamento/",
+      "content": "Na página institucional 'Obras em andamento' consultada em 28/10/2026, a POSSEBON divulga escopos relacionados à Refinaria Abreu e Lima (RNEST), em Pernambuco. Entre eles constam serviços de conclusão da U-93 (abatimento de emissões SNOx), incluindo engenharia, construção civil, montagem eletromecânica, comissionamento e partida assistida, e serviços na U-68 de manuseio de coque. A página pode estar desatualizada; 'em andamento' é categoria do site, não comprovação de execução nesta data. Validar situação no contrato e sistema operacional antes de fazer alertas de prazo."
+    },
+    {
+      "id": "possebon-ccpc",
+      "title": "Consórcio CCPC — entrega do Pátio de Coque Trem I divulgada em 2026",
+      "domain": "obras",
+      "sourceUrl": "https://possebon.com.br/consorcio-ccpc-entrega-importante-obra-no-setor-de-energia/",
+      "content": "A POSSEBON informou em notícia datada de 27/05/2026 que o Consórcio CCPC, composto por Conenge-SC e POSSEBON Engenharia, concluiu a entrega de Pátio de Coque — Trem I em refinaria do Nordeste, com sistemas comissionados e testados. Consórcio CCPC e Consórcio EPC13 são entidades diferentes e seus contratos e resultados não podem ser confundidos. O relato é institucional e deve ser apresentado como tal."
+    },
+    {
+      "id": "petrobras-refino",
+      "title": "Petrobras — contexto de refino, refinarias e projetos",
+      "domain": "petrobras",
+      "sourceUrl": "https://petrobras.com.br/quem-somos/refino",
+      "content": "A Petrobras apresenta sua rede de refino e o Complexo Boaventura no portal institucional. Siglas relevantes: RNEST (Refinaria Abreu e Lima), REDUC (Refinaria Duque de Caxias), REPAR (Refinaria Presidente Getúlio Vargas), REPLAN (Refinaria de Paulínia), REVAP (Refinaria Henrique Lage), REGAP, RPBC, RECAP, REFAP e LUBNOR. Projetos incluem adequação de refinarias, aumento de conversão, diesel de baixo enxofre, lubrificantes e eficiência energética. Planos e projeções são cenários públicos da Petrobras, não medições da POSSEBON ou obrigações contratuais da EPC13. A ADA deve conhecer os conceitos, mas consultar fontes recentes para status de cada obra."
+    },
+    {
+      "id": "epc13-terminologia",
+      "title": "ADA — relacionamento entre empresa, consórcio, cliente e sistema",
+      "domain": "epc13",
+      "sourceUrl": "https://possebon.com.br/petrobras-formaliza-contrato-com-o-consorcio-possebon-upe-cpl-epc-13-para-avanco-do-complexo-de-energias-boaventura/",
+      "content": "Distinções para respostas: POSSEBON Engenharia é uma empresa; o Consórcio POSSEBON/UPE/CPL – EPC13 é um agrupamento empresarial específico contratado para escopo divulgado pela POSSEBON no Complexo Boaventura; Petrobras é a cliente desse contrato; Boaventura é um empreendimento industrial da Petrobras em Itaboraí. A unidade EPC13 no POSSEBON Web é um contexto operacional de dados internos e não deve ser equiparada automaticamente a toda a companhia ou a outras unidades. Conhecimento público explica as entidades, mas usuários, efetivo, documentos, OS, metas e andamento devem vir somente de fontes autorizadas do POSSEBON Web."
+    }
+  ]
+}
