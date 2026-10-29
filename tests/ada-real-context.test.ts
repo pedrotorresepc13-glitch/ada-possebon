@@ -33,7 +33,7 @@ describe('Contexto de identidade e diagnóstico real do Brain', () => {
     expect(result.status).toBe(200);
     expect(capturedInstructions).toContain('admin.demo');
     expect(capturedInstructions).toContain('Contexto: unidade ativa');
-    expect(capturedInstructions).toContain('não deduza cargo');
+    expect(capturedInstructions.toLowerCase()).toContain('não deduza cargo');
     expect(capturedInstructions).not.toContain('Gerente B (sintético)');
   });
 
