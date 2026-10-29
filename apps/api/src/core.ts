@@ -16,6 +16,7 @@ import { EmailService } from './services/email.ts';
 import { ChatService } from './services/chat.ts';
 import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
+import { AiSettingsService } from './services/ai-settings.ts';
 
 /** Dependências compartilhadas pela API e pelo worker. */
 export interface Deps {
@@ -38,6 +39,7 @@ export interface Deps {
   email: EmailService;
   chat: ChatService;
   admin: AdminService;
+  aiSettings: AiSettingsService;
 }
 
 export interface DepsOverrides {
@@ -82,6 +84,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.brain = new PossebonBrainClient(config.brain, config.possebon.serviceToken);
   d.email = new EmailService(d);
   d.chat = new ChatService(d);
+  d.aiSettings = new AiSettingsService(d, Boolean(o.ai));
   d.admin = new AdminService(d);
   return d;
 }
