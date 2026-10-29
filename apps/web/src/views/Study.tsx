@@ -11,6 +11,7 @@ interface StudyStatus {
   brainState: string;
   brainSources: { id: string; namespace: string; title: string; sourceType: string; observedAt: string | null }[];
   indexedDocuments: number;
+  knowledgeDocuments: { title: string; source: string; url: string | null; domain: string | null; observedAt: string }[];
   operationalMetrics: number;
   limitations: string[];
   error: string | null;
@@ -95,6 +96,21 @@ export function StudyView() {
             : <ul className="list">{data.brainSources.map((s) => (
               <li className="list-item" key={s.namespace + ':' + s.id}>
                 <div><strong>{s.title}</strong><div className="muted small">{s.namespace} · {s.sourceType} · {s.observedAt || 'sem data de atualização'}</div></div>
+              </li>
+            ))}</ul>}
+        </section>}
+
+        {data && <section className="card">
+          <h2>Documentos que a ADA consegue consultar</h2>
+          <p className="muted small">Fontes efetivamente indexadas e permitidas para o seu usuário e a unidade atual. Isso é diferente das referências do Brain, que são contadas separadamente.</p>
+          {!data.knowledgeDocuments?.length ? <p className="muted">Nenhum documento disponível para esta sessão.</p>
+            : <ul className="list">{data.knowledgeDocuments.map((doc, i) => (
+              <li className="list-item" key={doc.title + i}>
+                <div>
+                  <strong>{doc.title}</strong>
+                  <div className="muted small">{doc.source} · {doc.domain || 'geral'} · referência {new Date(doc.observedAt).toLocaleDateString('pt-BR')}</div>
+                  {doc.url && <a href={doc.url} target="_blank" rel="noreferrer noopener">Abrir fonte original</a>}
+                </div>
               </li>
             ))}</ul>}
         </section>}
