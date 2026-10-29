@@ -257,6 +257,8 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- conhecimento e catálogo */
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
+  route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
+  route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
     const enabled = await d.catalog.enabledSourceIds();
     const { canUseMetric, queryUnitScope } = await import('@ada/domain');
