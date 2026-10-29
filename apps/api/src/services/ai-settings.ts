@@ -114,7 +114,7 @@ export class AiSettingsService {
     await this.reload();
     if (!this.d.ai.configured) throw invalid('Cadastre uma chave e um modelo antes de testar.');
     let ok = false;
-    let message = '';
+    let message: string;
     try {
       const result = await this.d.ai.run({
         instructions: 'Responda apenas com a palavra OK.',
