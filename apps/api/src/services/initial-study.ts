@@ -68,9 +68,12 @@ export class InitialStudyService {
     let brainState: StudyReport['brainState'] = !brainAllowed ? 'not_permitted' : !this.d.brain.configured ? 'not_configured' : 'available';
     const brainHits: BrainHit[] = [];
     if (brainState === 'available') {
+      // A busca legada do Brain usa plainto_tsquery('simple'), que combina
+      // os termos com AND: frases longas e genéricas costumam retornar zero.
+      // Consultas CURTAS por domínio, sempre respeitando os filtros da API.
       const queries = [
-        'Arquitetura, módulos, processos, regras e funcionalidades do POSSEBON Web',
-        'Estrutura organizacional, unidades, pessoas, treinamentos e fluxos de trabalho do POSSEBON'
+        'pessoa', 'colaborador', 'treinamento', 'equipe', 'permissao',
+        'rdo', 'material', 'procurement', 'integracao', 'unidade'
       ];
       try {
         for (const query of queries) {
