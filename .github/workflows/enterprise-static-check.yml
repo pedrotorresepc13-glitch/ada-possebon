@@ -25,6 +25,8 @@ jobs:
         run: npm run typecheck
       - name: Testes (unidade + integração com PostgreSQL/PGlite)
         run: npm test
+      - name: PHP lint - endpoint Brain readonly
+        run: php -l integration/possebon-web/App/custom/AdaBrainApiTrait.php
       - name: Build (web, api, worker)
         run: npm run build
       - name: Varredura de segredos
