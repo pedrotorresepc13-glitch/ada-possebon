@@ -93,22 +93,6 @@ export class AdminService {
     return { ok, message };
   }
 
-  aiSettings() {
-    const c = this.d.config.ai;
-    return {
-      provider: this.d.ai.name,
-      configured: this.d.ai.configured,
-      model: c.model ?? null,
-      apiKeyPresent: Boolean(c.apiKey),
-      baseUrlHost: new URL(c.baseUrl).host,
-      timeoutMs: c.timeoutMs,
-      maxOutputTokens: c.maxOutputTokens,
-      dailyRequestsPerUser: c.dailyRequestsPerUser,
-      chatPerMinute: c.chatPerMinute,
-      fallback: 'interpretador determinístico (sem IA)',
-      note: 'Chaves e modelo são definidos apenas no servidor (variáveis de ambiente/cofre). Nunca pela interface.'
-    };
-  }
 
   policies(ctx: AuthContext) {
     return {
