@@ -266,6 +266,7 @@ interface AiConfigView {
   model: string;
   apiKeyPresent: boolean;
   keySource: string;
+  secureKeyStorage: boolean;
   timeoutMs: number;
   maxOutputTokens: number;
   dailyRequestsPerUser: number;
@@ -320,6 +321,7 @@ function Ai() {
             <span className="small muted">Credencial: {s.data.apiKeyPresent ? 'presente (' + s.data.keySource + ')' : 'ausente'} · Endpoint: {s.data.endpoint}</span>
           </div>
         )}
+        {s.data && !s.data.secureKeyStorage && <div className="error-box">Antes de cadastrar uma chave real, configure ADA_ENCRYPTION_KEY no servidor da ADA. Sem essa chave exclusiva, o armazenamento seguro de credenciais não estará habilitado.</div>}
         {message && <div className="note-box" role="status">{message}</div>}
         <form className="grid" onSubmit={(e) => {
           e.preventDefault();
