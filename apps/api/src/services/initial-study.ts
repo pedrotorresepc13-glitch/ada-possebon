@@ -3,6 +3,7 @@ import type { AuthContext } from '@ada/contracts';
 import type { Deps } from '../core.ts';
 import { audit } from '../audit.ts';
 import type { BrainHit } from './brain.ts';
+import { PUBLIC_KNOWLEDGE_REVISION } from './public-knowledge.ts';
 
 interface StudyReport {
   authorizedPrograms: string[];
@@ -36,7 +37,7 @@ export class InitialStudyService {
   private fingerprint(ctx: AuthContext): string {
     const allowed = Object.keys(ctx.programs).sort();
     return createHash('sha256').update(JSON.stringify({
-      version: ctx.permissionsVersion, programs: allowed,
+      version: ctx.permissionsVersion, curatedPublicKnowledge: PUBLIC_KNOWLEDGE_REVISION, programs: allowed,
       unit: ctx.activeUnitId, units: [...ctx.allowedUnitIds].sort()
     })).digest('hex');
   }
