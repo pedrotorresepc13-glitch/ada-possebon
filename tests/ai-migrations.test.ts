@@ -74,12 +74,12 @@ describe('chat com IA: ferramentas sempre passam pela autorização do servidor'
 describe('migrations', () => {
   it('up → down → up em banco limpo; checksum protege migration aplicada', async () => {
     const db = await createPglite();
-    expect(await migrateUp(db)).toEqual(['0001_ada_init', '0002_ada_ai_settings']);
+    expect(await migrateUp(db)).toEqual(['0001_ada_init', '0002_ada_ai_settings', '0003_user_initial_study']);
     expect(await migrateUp(db)).toEqual([]);
-    expect(await migrateDown(db, 2)).toEqual(['0002_ada_ai_settings', '0001_ada_init']);
+    expect(await migrateDown(db, 3)).toEqual(['0003_user_initial_study', '0002_ada_ai_settings', '0001_ada_init']);
     const gone = await db.query(`SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ada'`);
     expect(gone.rowCount).toBe(0);
-    expect(await migrateUp(db)).toEqual(['0001_ada_init', '0002_ada_ai_settings']);
+    expect(await migrateUp(db)).toEqual(['0001_ada_init', '0002_ada_ai_settings', '0003_user_initial_study']);
     await db.query(`UPDATE ada_migrations.applied SET checksum = 'adulterado'`);
     await expect(migrateUp(db)).rejects.toThrow(/checksum/);
     await db.close();
