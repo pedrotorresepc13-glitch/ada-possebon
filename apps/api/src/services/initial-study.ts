@@ -120,6 +120,8 @@ export class InitialStudyService {
     const existing = await this.row(ctx);
     const updated = existing && new Date(existing.updated_at).getTime();
     const age = updated ? this.d.now().getTime() - updated : Infinity;
+    // Não inundar o Brain nem o banco se a origem estiver temporariamente indisponível.
+    if (!force && existing?.permission_fingerprint === fingerprint && existing.state === 'error' && age < 15 * 60_000) return;
     if (!force && existing?.permission_fingerprint === fingerprint && age < (existing.state === 'partial' ? 3600_000 : 86400_000)
       && (existing.state === 'ready' || existing.state === 'partial')) return;
 
