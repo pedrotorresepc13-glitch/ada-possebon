@@ -27,7 +27,8 @@
     "test:watch": "vitest",
     "build": "npm run build -w @ada/web && npm run build -w @ada/api && npm run build -w @ada/worker",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "ci": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:secrets"
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:secrets",
+    "brain:import-inventory": "npm run brain:import-inventory -w @ada/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
