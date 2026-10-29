@@ -34,6 +34,8 @@ jobs:
           php -l integration/possebon-web/App/custom/AdaBrainApiTrait.php
           php -l integration/possebon-web/App/controller/AdaApiController.php
           php -l integration/possebon-web/App/control/AdaEmbedView.php
+      - name: Validar instalador com backup e bloqueio SHA
+        run: bash -n scripts/ada-sso-install.sh
       - name: Build (web, api, worker)
         run: npm run build
       - name: Varredura de segredos
