@@ -40,7 +40,7 @@ O script Linux bloqueia se `app/routes/api.php` diferir do snapshot de 28/10 (SH
 - `TSession::getValue('logged')` verdadeiro, `userid` e `userunitid` positivos, unidade na lista `userunitids`.
 - O login do POSSEBON Web continua gerenciando senha/2FA.
 - Um ticket SSO de 60 segundos assinado pelo servidor, limitado a um `jti` de uso único.
-- O acesso requer `AdaAcesso` ou `AdaAdministracao` presente nos programas do MAD Builder.
+- O acesso requer `AdaEmbedView` ou `AdaAdministracao` presente nos programas do MAD Builder.
 - A identidade para cada sessão da ADA é revalidada em `permission`; unidade não autorizada e usuário inativo são recusados pela ADA.
 - Ações por grupo: `system_program.actions` (objetos JSON) ∩ `system_group_program.actions` (lista de nomes), com concedentes por programa direto em `system_user_program`. Valores ausentes não viram `*`.
 - O escopo `AdaGestor` vale apenas como marca de papel gerencial e **não** dá acesso irrestrito aos dados operacionais.
