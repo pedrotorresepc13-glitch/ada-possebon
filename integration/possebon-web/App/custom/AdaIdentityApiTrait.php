@@ -21,11 +21,12 @@ trait AdaIdentityApiTrait
             if (!AdaIntegrationService::serviceTokenValid($bearer)) {
                 return (new Response())->json(['status' => 'error', 'error' => 'Não autorizado.'], 401);
             }
-            $userId = (int) $request->get('system_user_id');
-            if ($userId <= 0) {
+            $userId = filter_var($request->get('system_user_id'), FILTER_VALIDATE_INT);
+            if (!$userId || $userId < 1) {
                 return (new Response())->json(['status' => 'error', 'error' => 'system_user_id inválido.'], 422);
             }
-            TTransaction::open('permission'); // conexão das tabelas system_* (validar nome no baseline)
+            TTransaction::open('permission');
+            TTransaction::get()->exec('SET TRANSACTION READ ONLY');
             $payload = AdaIntegrationService::resolveIdentity(TTransaction::get(), $userId);
             TTransaction::close();
             if (!$payload) {
@@ -35,7 +36,7 @@ trait AdaIdentityApiTrait
         } catch (Throwable $e) {
             if (TTransaction::get()) TTransaction::rollback();
             error_log('ADA identity - ' . $e->getMessage());
-            return (new Response())->json(['status' => 'error', 'error' => 'Falha ao resolver identidade.'], 500);
+            return (new Response())->json(['status' => 'error', 'error' => 'Falha ao resolver identidade.'], 503);
         }
     }
 }
