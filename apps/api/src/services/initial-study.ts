@@ -167,6 +167,9 @@ export class InitialStudyService {
     const report: StudyReport | null = row?.report_enc && match
       ? JSON.parse(this.d.cipher.decrypt(row.report_enc)) as StudyReport
       : null;
+    // Índice vivo de fontes autorizadas: a contagem de documentos não substitui
+    // a capacidade de explicar quais documentos a ADA realmente conhece.
+    const knowledgeOverview = await this.d.knowledge.overview(ctx, 16);
     return {
       state: this.running.has(this.key(ctx)) || !match ? 'running' : row?.state ?? 'running',
       started: Boolean(row),
@@ -176,7 +179,11 @@ export class InitialStudyService {
       authorizedPrograms: report?.authorizedPrograms ?? [],
       brainState: report?.brainState ?? 'pending',
       brainSources: report?.brainHits.map(({ id, namespace, title, sourceType, observedAt }) => ({ id, namespace, title, sourceType, observedAt })) ?? [],
-      indexedDocuments: report?.indexedDocuments ?? 0,
+      indexedDocuments: knowledgeOverview.total,
+      knowledgeDocuments: knowledgeOverview.documents.map((doc) => ({
+        title: doc.title, source: doc.source, url: doc.uri,
+        domain: doc.domain, observedAt: doc.observedAt
+      })),
       operationalMetrics: report?.operationalMetrics ?? 0,
       limitations: report?.limitations ?? ['Levantamento inicial em andamento.'],
       error: match && row?.state === 'error' ? row.last_error : null
