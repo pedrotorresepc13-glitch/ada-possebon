@@ -39,6 +39,7 @@ const EnvSchema = z.object({
   ADA_SSO_MAX_AGE_SECONDS: z.coerce.number().int().min(10).max(300).default(60),
   POSSEBON_IDENTITY_URL: z.string().optional(),
   POSSEBON_SERVICE_TOKEN: z.string().optional(),
+  POSSEBON_BRAIN_CONTEXT_URL: z.string().optional(),
   ADA_ADMIN_PROGRAM: z.string().default('AdaAdministracao'),
   ADA_MANAGER_PROGRAM: z.string().default('AdaGestor'),
   ADA_CROSSUNIT_PROGRAM: z.string().default('AdaConsolidarUnidades'),
@@ -75,6 +76,7 @@ export interface AdaConfig {
   session: { ttlHours: number; idleMinutes: number; cookieSecure: boolean; sameSite: 'Lax' | 'Strict' | 'None' };
   sso: { issuer: string; audience: string; hs256Secret?: string; ed25519PublicKey?: string; maxAgeSeconds: number };
   possebon: { identityUrl?: string; serviceToken?: string };
+  brain: { contextUrl?: string };
   programs: { admin: string; manager: string; crossUnit: string; access?: string };
   permissionTtlSeconds: number;
   cacheTtlSeconds: number;
@@ -149,6 +151,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
       maxAgeSeconds: e.ADA_SSO_MAX_AGE_SECONDS
     },
     possebon: { identityUrl: e.POSSEBON_IDENTITY_URL, serviceToken: e.POSSEBON_SERVICE_TOKEN },
+    brain: { contextUrl: e.POSSEBON_BRAIN_CONTEXT_URL },
     programs: { admin: e.ADA_ADMIN_PROGRAM, manager: e.ADA_MANAGER_PROGRAM, crossUnit: e.ADA_CROSSUNIT_PROGRAM, access: e.ADA_ACCESS_PROGRAM },
     permissionTtlSeconds: e.ADA_PERMISSION_TTL_SECONDS,
     cacheTtlSeconds: e.ADA_CACHE_TTL_SECONDS,
