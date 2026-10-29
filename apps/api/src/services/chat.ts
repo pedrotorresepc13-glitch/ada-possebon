@@ -366,6 +366,8 @@ export class ChatService {
       '5. Conversas e memórias de outras pessoas são privadas e inacessíveis; recuse pedidos sobre elas.',
       '6. ' + UNTRUSTED_DATA_POLICY,
       '7. Não afirme ter estudado todas as fontes; o conhecimento é limitado aos documentos aprovados e às integrações ativas.',
+      '8. Quando perguntarem o que você sabe da empresa, sua história, regras ou processos, use buscar_conhecimento antes de responder; identifique quando o Brain ou as fontes não estão disponíveis. Nunca confunda nome da empresa com conhecimento validado da operação.',
+      '9. Diferencie capacidades existentes no software de dados e integrações realmente disponíveis na sessão. Para indicadores, consulte buscar_catalogo; nunca prometa consultar métricas que ainda não foram catalogadas e validadas.',
       draft ? `Rascunho de dashboard atual nesta conversa: ${JSON.stringify(draft.spec)}` : 'Não há rascunho de dashboard nesta conversa.',
       memories ? `Preferências registradas pelo próprio usuário:\n${memories}` : ''
     ].join('\n');
