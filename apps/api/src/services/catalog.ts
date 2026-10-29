@@ -137,10 +137,24 @@ export class CatalogService {
       );
     }
     for (const c of KNOWN_CONNECTORS) {
-      const status = c.id === 'possebon.identity' ? this.d.identity.status() : 'nao_configurado';
+      // Configurado não é sinônimo de validado. Preservar "ativo" apenas se
+      // um teste anterior confirmou a conexão; invalidar se a configuração sumiu.
+      const status = c.id === 'possebon.identity'
+        ? this.d.identity.status()
+        : c.id === 'possebon.brain'
+          ? (this.d.brain.configured ? 'configurado_nao_validado' : 'nao_configurado')
+          : 'nao_configurado';
       await q.query(
         `INSERT INTO ada.source_connector (id, kind, label, status, allowed_operations) VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (id) DO UPDATE SET status = CASE WHEN ada.source_connector.id = 'possebon.identity' THEN EXCLUDED.status ELSE ada.source_connector.status END`,
+         ON CONFLICT (id) DO UPDATE SET status = CASE
+           WHEN ada.source_connector.id IN ('possebon.identity', 'possebon.brain') THEN
+             CASE
+               WHEN EXCLUDED.status = 'nao_configurado' THEN 'nao_configurado'
+               WHEN ada.source_connector.status = 'ativo' THEN 'ativo'
+               ELSE EXCLUDED.status
+             END
+           ELSE ada.source_connector.status
+         END`,
         [c.id, c.kind, c.label, status, c.operations]
       );
     }
