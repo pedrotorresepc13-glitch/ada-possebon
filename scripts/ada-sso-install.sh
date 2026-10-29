@@ -4,6 +4,7 @@ umask 077
 cd /var/www/html/possebon_app
 archive="$1"
 mode="$2"
+trap 'rm -f "$archive"' EXIT
 expected='56fd9ca8bdd8c1949502970a21fa331d5d00d0705dd93b7d0dacab1d6b7a430d'
 current="$(sha256sum app/routes/api.php | cut -d' ' -f1)"
 if [ "$current" != "$expected" ]; then
@@ -19,7 +20,7 @@ for dir in app/routes app/custom app/controller app/control; do
   if [ ! -w "$dir" ]; then echo "BLOQUEADO: $dir sem permissao." >&2; exit 2; fi
 done
 tmp="$(mktemp -d /tmp/ada-sso-stage-XXXXXX)"
-trap 'rm -rf "$tmp"' EXIT
+trap 'rm -rf "$tmp"; rm -f "$archive"' EXIT
 tar -xzf "$archive" -C "$tmp" --no-same-owner
 for file in $files; do
   test -f "$tmp/$file"
