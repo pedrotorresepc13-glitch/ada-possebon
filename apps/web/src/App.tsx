@@ -7,6 +7,7 @@ import { DashboardsView, DashboardView } from './views/Dashboards.tsx';
 import { MonitorsView } from './views/Monitors.tsx';
 import { NotificationsView } from './views/Notifications.tsx';
 import { MemoryView } from './views/Memory.tsx';
+import { StudyView } from './views/Study.tsx';
 
 const AdminView = lazy(() => import('./views/Admin.tsx'));
 
@@ -74,7 +75,8 @@ const NAV = [
   ['/dashboards', 'Meus dashboards', '▦'],
   ['/acompanhamentos', 'Acompanhamentos', '◎'],
   ['/notificacoes', 'Notificações', '🔔'],
-  ['/memoria', 'Memória e preferências', '⚙']
+  ['/memoria', 'Memória e preferências', '⚙'],
+  ['/estudo', 'O que a ADA aprendeu', '◈']
 ] as const;
 
 export function App() {
@@ -159,6 +161,7 @@ export function App() {
   else if (path === '/acompanhamentos') view = <MonitorsView />;
   else if (path === '/notificacoes') view = <NotificationsView />;
   else if (path === '/memoria') view = <MemoryView />;
+  else if (path === '/estudo') view = <StudyView />;
   else if (path.startsWith('/admin') && me.isAdmin) view = <Suspense fallback={<div className="content"><div className="skeleton" style={{ height: 200 }} /></div>}><AdminView /></Suspense>;
   else view = <div className="content"><div className="empty"><strong>Página não encontrada</strong>Verifique o endereço ou use o menu.</div></div>;
 
