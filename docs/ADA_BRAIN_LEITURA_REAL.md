@@ -60,3 +60,17 @@ A partir dos arquivos corrigidos de SSO (validar sempre com ZIP/backend vivo):
 Esta etapa oferece **conhecimento técnico do sistema**, não equivale a conhecer cronogramas, efetivo, documentos, previsões ou contratos atualizados. Para esses dados, serão necessários novos adaptadores determinísticos autorizados no POSSEBON Web, sempre com regra de negócio e filtragem por unidade.
 
 A integração não substitui o POSSEBON Brain nem sincroniza automaticamente todo seu conteúdo para a ADA: consulta em tempo real, mediante necessidade do usuário.
+
+## Alimentação local com o inventário real do ZIP (sem dados pessoais)
+
+O ZIP de auditoria entregue na conversa contém o arquivo `ADA_BRAIN_METADADOS_INTERNOS.json`, gerado do backend atualizado de 28/10/2026. **Este JSON é interno/restrito e nunca deve ser enviado ao GitHub.** Não passe o ZIP original de 24 MB à IA: ele pode conter configuração sensível.
+
+Com a API local parada (PGlite), coloque **somente** esse JSON sanitizado numa pasta local fora do Git ou na pasta `diagnostico` ignorada pelo Git. Execute na pasta da ADA:
+
+```powershell
+npm.cmd run brain:import-inventory -- "C:\\caminho\\ADA_BRAIN_METADADOS_INTERNOS.json"
+```
+
+O importador valida assinatura lógica do formato `ADA-tech-inventory-v1`, a classificação `interno-restrito` e exclusões declaradas (senhas, tokens, credenciais, registros pessoais, conteúdo dos arquivos). Cria **4 documentos temáticos**: modelos/tabelas, telas por área, rotas declaradas e componentes customizados. Cada documento é fragmentado e indexado em FTS português; possui status `indexado`, sensibilidade `restrito` e `required_programs=['AdaAdministracao']`. A execução é idempotente por checksum. A visibilidade é filtrada a cada consulta, inclusive no chat.
+
+A aprovação da importação de metadados não concede acesso ao POSSEBON Brain vivo: são fontes independentes e com controles separados. O importador não consulta o banco operacional nem altera a produção.
