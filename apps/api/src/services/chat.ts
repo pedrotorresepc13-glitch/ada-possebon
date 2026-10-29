@@ -354,6 +354,7 @@ export class ChatService {
     const memories = (await this.d.conversations.listMemories(ctx)).slice(0, 20).map((m) => '- ' + m.content).join('\n');
     const unitName = ctx.units.find((u) => u.id === ctx.activeUnitId)?.name ?? `Unidade ${ctx.activeUnitId}`;
     const draft = draftOf(conv);
+    const initialStudy = await this.d.study.promptContext(ctx);
     const instructions = [
       'Você é a ADA, assistente de inteligência empresarial do POSSEBON. Responda sempre em português do Brasil, de forma objetiva.',
       `Identidade confirmada pelo POSSEBON Web: nome "${ctx.displayName}", login "${ctx.login}", identificador de usuário ${ctx.systemUserId}. Identidade de sessão autoritativa; não diga que desconhece o nome quando for perguntado. Não deduza cargo, função ou vínculo empregatício a partir do nome ou dos grupos.`,
@@ -369,7 +370,8 @@ export class ChatService {
       '8. Quando perguntarem o que você sabe da empresa, sua história, regras ou processos, use buscar_conhecimento antes de responder; identifique quando o Brain ou as fontes não estão disponíveis. Nunca confunda nome da empresa com conhecimento validado da operação.',
       '9. Diferencie capacidades existentes no software de dados e integrações realmente disponíveis na sessão. Para indicadores, consulte buscar_catalogo; nunca prometa consultar métricas que ainda não foram catalogadas e validadas.',
       draft ? `Rascunho de dashboard atual nesta conversa: ${JSON.stringify(draft.spec)}` : 'Não há rascunho de dashboard nesta conversa.',
-      memories ? `Preferências registradas pelo próprio usuário:\n${memories}` : ''
+      memories ? `Preferências registradas pelo próprio usuário:\n${memories}` : '',
+      initialStudy
     ].join('\n');
     const started = Date.now();
     let status = 'ok';
