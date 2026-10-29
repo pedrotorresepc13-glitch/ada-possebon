@@ -64,7 +64,7 @@ final class AdaIntegrationService
         }
         $programs = TSession::getValue('programs');
         if (!is_array($programs) ||
-            (!isset($programs['AdaAcesso']) && !isset($programs['AdaAdministracao']))) {
+            (!isset($programs['AdaEmbedView']) && !isset($programs['AdaAdministracao']))) {
             throw new RuntimeException('Usuario sem permissao para ADA.');
         }
         $cfg = self::config();
