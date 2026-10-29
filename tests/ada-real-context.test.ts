@@ -32,7 +32,7 @@ describe('Contexto de identidade e diagnóstico real do Brain', () => {
     const result = await user.post('/chat', { message: 'Quem sou eu?' });
     expect(result.status).toBe(200);
     expect(capturedInstructions).toContain('admin.demo');
-    expect(capturedInstructions).toContain('Unidade Norte');
+    expect(capturedInstructions).toContain('Contexto: unidade ativa');
     expect(capturedInstructions).toContain('não deduza cargo');
     expect(capturedInstructions).not.toContain('Gerente B (sintético)');
   });
