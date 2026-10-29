@@ -260,12 +260,126 @@ function Email() {
   );
 }
 
+interface AiConfigView {
+  provider: string;
+  configured: boolean;
+  model: string;
+  apiKeyPresent: boolean;
+  keySource: string;
+  timeoutMs: number;
+  maxOutputTokens: number;
+  dailyRequestsPerUser: number;
+  chatPerMinute: number;
+  endpoint: string;
+  lastUpdatedAt: string | null;
+  note: string;
+}
+
 function Ai() {
-  const s = useLoad<Record<string, unknown>>('/admin/ai');
+  const s = useLoad<AiConfigView>('/admin/ai');
   const u = useLoad<Record<string, unknown>[]>('/admin/ai/usage');
+  const [model, setModel] = useState('gpt-5-mini');
+  const [apiKey, setApiKey] = useState('');
+  const [timeoutMs, setTimeoutMs] = useState(45000);
+  const [maxOutputTokens, setMaxOutputTokens] = useState(1500);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!s.data) return;
+    setModel(s.data.model);
+    setTimeoutMs(s.data.timeoutMs);
+    setMaxOutputTokens(s.data.maxOutputTokens);
+    setApiKey('');
+  }, [s.data]);
+
+  const run = async (fn: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      await fn();
+      setApiKey('');
+      setMessage(success);
+      s.reload();
+    } catch (e) {
+      setMessage('Erro: ' + (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="grid">
-      <section className="card"><h3>Configuração (somente leitura)</h3>{s.data && <Kv obj={s.data} />}</section>
+      <section className="card">
+        <h3>Provedor de inteligência artificial</h3>
+        <p className="muted small">Chave configurada no servidor e cifrada antes de ser salva no banco da ADA. Somente administradores autorizados pelo POSSEBON podem alterar esta configuração.</p>
+        {s.err && <div className="error-box">{s.err}</div>}
+        {s.data && (
+          <div className="row" style={{ marginBottom: 12 }}>
+            <span className={'badge ' + (s.data.configured ? 'good' : 'warn')}>{s.data.configured ? 'IA configurada' : 'IA não configurada'}</span>
+            <span className="small muted">Credencial: {s.data.apiKeyPresent ? 'presente (' + s.data.keySource + ')' : 'ausente'} · Endpoint: {s.data.endpoint}</span>
+          </div>
+        )}
+        {message && <div className="note-box" role="status">{message}</div>}
+        <form className="grid" onSubmit={(e) => {
+          e.preventDefault();
+          void run(
+            () => api('/admin/ai/settings', { method: 'PUT', body: {
+              provider: 'openai', model: model.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+              timeoutMs, maxOutputTokens
+            } }),
+            'Configuração salva. A IA já pode ser usada em novas mensagens.'
+          );
+        }}>
+          <label className="small" htmlFor="ai-provider">Provedor</label>
+          <input className="input" id="ai-provider" value="OpenAI — Responses API" disabled />
+          <label className="small" htmlFor="ai-model">Modelo</label>
+          <input className="input" id="ai-model" value={model} onChange={(e) => setModel(e.target.value)}
+            maxLength={100} placeholder="Ex.: gpt-5-mini" required autoComplete="off" />
+          <label className="small" htmlFor="ai-key">Chave da API (secreta)</label>
+          <input className="input" id="ai-key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+            maxLength={400} minLength={20} placeholder={s.data?.apiKeyPresent ? 'Deixe vazio para manter a chave atual' : 'Cole sua chave da OpenAI'} autoComplete="new-password" />
+          <span className="muted small">A chave nunca será exibida novamente e não ficará guardada no navegador.</span>
+          <div className="row">
+            <div className="grow">
+              <label className="small" htmlFor="ai-timeout">Tempo limite (ms)</label>
+              <input className="input" id="ai-timeout" type="number" min={5000} max={120000} step={1000} required
+                value={timeoutMs} onChange={(e) => setTimeoutMs(Number(e.target.value))} />
+            </div>
+            <div className="grow">
+              <label className="small" htmlFor="ai-tokens">Máximo de tokens de saída</label>
+              <input className="input" id="ai-tokens" type="number" min={64} max={16000} step={1} required
+                value={maxOutputTokens} onChange={(e) => setMaxOutputTokens(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="row">
+            <button className="btn primary" disabled={busy || !s.data}>Salvar configurações</button>
+            <button className="btn" type="button" disabled={busy || !s.data?.configured}
+              onClick={() => void (async () => {
+                setBusy(true); setMessage('');
+                try {
+                  const r = await api<{ ok: boolean; message: string }>('/admin/ai/test', { body: {} });
+                  setMessage((r.ok ? 'OK: ' : 'Falha: ') + r.message);
+                } catch (e) { setMessage('Erro: ' + (e as Error).message); }
+                finally { setBusy(false); }
+              })()}>
+              Testar conexão
+            </button>
+            <button className="btn danger" type="button" disabled={busy || !s.data?.lastUpdatedAt}
+              onClick={() => {
+                if (!window.confirm('Remover a configuração de IA salva na ADA? Uma eventual chave do ambiente continuará sendo utilizada.')) return;
+                void run(() => api('/admin/ai/settings', { method: 'DELETE' }), 'Configuração do cofre removida.');
+              }}>
+              Remover configuração
+            </button>
+          </div>
+        </form>
+        <p className="muted small" style={{ marginTop: 12 }}>{s.data?.note ?? 'Carregando…'} O envio de conversas ao provedor obedece às regras de privacidade e permissões da ADA.</p>
+      </section>
+      <section className="card">
+        <h3>Consumo e limites</h3>
+        {s.data && <Kv obj={{ dailyRequestsPerUser: s.data.dailyRequestsPerUser, chatPerMinute: s.data.chatPerMinute, lastUpdatedAt: s.data.lastUpdatedAt ?? '—' }} />}
+      </section>
       <section className="card">
         <h3>Uso nos últimos 30 dias</h3>
         {!u.data?.length ? <p className="muted">Sem chamadas registradas.</p> : (
