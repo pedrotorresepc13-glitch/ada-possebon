@@ -27,6 +27,7 @@ import { HttpError, invalid } from '../errors.ts';
 import type { ToolSpec } from '../ai/provider.ts';
 import type { ConversationRow, DraftDashboard } from './conversations.ts';
 import type { KnowledgeHit } from './knowledge.ts';
+import type { BrainHit } from './brain.ts';
 import type { Preview } from './monitors.ts';
 
 export interface ChatTurnMeta {
@@ -35,6 +36,7 @@ export interface ChatTurnMeta {
   savedDashboardId?: string;
   monitorProposal?: { definition: RuleDefinition; preview: Preview };
   knowledge?: KnowledgeHit[];
+  brain?: BrainHit[];
   provenance?: WidgetData['provenance'][];
   notes?: string[];
   [k: string]: unknown;
@@ -214,7 +216,16 @@ export class ChatService {
         case 'knowledge_question': {
           const hits = await this.d.knowledge.search(ctx, intent.query);
           meta.knowledge = hits;
-          if (!hits.length) {
+          let brain: BrainHit[] = [];
+          if (this.d.brain.configured) {
+            try {
+              brain = await this.d.brain.search(ctx, intent.query);
+            } catch {
+              (meta.notes ??= []).push('O POSSEBON Brain está indisponível; consultei apenas documentos locais.');
+            }
+          }
+          meta.brain = brain;
+          if (!hits.length && !brain.length) {
             return {
               text: 'Não encontrei dados suficientes nas fontes aprovadas que você pode acessar. Se for um assunto da empresa ainda não cadastrado, a administração pode incluir documentos na base de conhecimento.' +
                 (this.d.ai.configured ? '' : ' (A IA generativa não está configurada neste ambiente; interpreto apenas comandos de dashboards, acompanhamentos e buscas.)'),
@@ -222,7 +233,11 @@ export class ChatService {
             };
           }
           return {
-            text: ['Encontrei estes trechos em documentos aprovados (sem interpretação por IA):', ...hits.slice(0, 4).map((h, i) => `[${i + 1}] ${h.title} — ${h.excerpt.replace(/\s+/g, ' ')} (observado em ${formatDateTime(h.observedAt)})`)].join('\n'),
+            text: [
+              'Encontrei estes trechos em fontes aprovadas (sem interpretação por IA):',
+              ...hits.slice(0, 3).map((h, i) => `[Documento ${i + 1}] ${h.title} — ${h.excerpt.replace(/\s+/g, ' ')} (observado em ${formatDateTime(h.observedAt)})`),
+              ...brain.slice(0, 3).map((h, i) => `[Brain ${i + 1} · unidade ${h.unitId ?? 'global'} · ${h.namespace}] ${h.title} — ${h.excerpt.replace(/\s+/g, ' ')} (fonte: ${h.sourceType}; atualização: ${h.observedAt ?? 'não informada'})`)
+            ].join('\n'),
             meta
           };
         }
@@ -259,7 +274,7 @@ export class ChatService {
   }
 
   private async withAi(ctx: AuthContext, conv: ConversationRow, message: string): Promise<{ text: string; meta: ChatTurnMeta }> {
-    const meta: ChatTurnMeta = { mode: 'openai', provenance: [], knowledge: [] };
+    const meta: ChatTurnMeta = { mode: 'openai', provenance: [], knowledge: [], brain: [] };
     const units = queryUnitScope(ctx);
     const catalog = this.d.catalog.catalog;
     const execute = async (name: string, args: unknown): Promise<unknown> => {
@@ -289,7 +304,26 @@ export class ChatService {
           const a = z.object({ consulta: z.string().max(300) }).parse(args);
           const hits = await this.d.knowledge.search(ctx, a.consulta);
           meta.knowledge!.push(...hits);
-          return { trechos: hits.map((h, i) => ({ ref: i + 1, titulo: h.title, fonte: h.source, observadoEm: h.observedAt, conteudo: wrapUntrusted(h.title, h.excerpt) })), aviso: UNTRUSTED_DATA_POLICY };
+          let brain: BrainHit[] = [];
+          let brainNotice = this.d.brain.configured ? 'Sem resultado do Brain.' : 'Integração Brain não configurada.';
+          if (this.d.brain.configured) {
+            try {
+              brain = await this.d.brain.search(ctx, a.consulta);
+            } catch {
+              brainNotice = 'Brain indisponível nesta consulta; não invente informações sobre ele.';
+            }
+          }
+          meta.brain!.push(...brain);
+          return {
+            trechos: hits.map((h, i) => ({ ref: i + 1, titulo: h.title, fonte: h.source, observadoEm: h.observedAt, conteudo: wrapUntrusted(h.title, h.excerpt) })),
+            brain: brain.map((h, i) => ({
+              ref: i + 1, titulo: h.title, namespace: h.namespace, unidade: h.unitId ?? 'global',
+              autoridade: h.authority, fonte: h.sourceType, atualizadoEm: h.observedAt,
+              conteudo: wrapUntrusted('POSSEBON Brain: ' + h.title, h.excerpt)
+            })),
+            estadoBrain: brainNotice,
+            aviso: UNTRUSTED_DATA_POLICY
+          };
         }
         case 'propor_dashboard': {
           const spec = await this.proposeDashboard(ctx, conv, args);
