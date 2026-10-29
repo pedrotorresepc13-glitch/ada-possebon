@@ -14,6 +14,7 @@ import { ConversationService } from './services/conversations.ts';
 import { KnowledgeService } from './services/knowledge.ts';
 import { EmailService } from './services/email.ts';
 import { ChatService } from './services/chat.ts';
+import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
 
 /** Dependências compartilhadas pela API e pelo worker. */
@@ -33,6 +34,7 @@ export interface Deps {
   notifications: NotificationService;
   conversations: ConversationService;
   knowledge: KnowledgeService;
+  brain: PossebonBrainClient;
   email: EmailService;
   chat: ChatService;
   admin: AdminService;
@@ -77,6 +79,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.notifications = new NotificationService(d);
   d.conversations = new ConversationService(d);
   d.knowledge = new KnowledgeService(d);
+  d.brain = new PossebonBrainClient(config.brain, config.possebon.serviceToken);
   d.email = new EmailService(d);
   d.chat = new ChatService(d);
   d.admin = new AdminService(d);
