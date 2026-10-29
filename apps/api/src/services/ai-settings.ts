@@ -62,6 +62,7 @@ export class AiSettingsService {
       model: row?.model ?? c.model ?? 'gpt-5-mini',
       apiKeyPresent: Boolean(row?.api_key_enc || c.apiKey),
       keySource: row?.api_key_enc ? 'cofre' : c.apiKey ? 'ambiente' : 'ausente',
+      secureKeyStorage: this.d.config.encryptionKeyConfigured,
       timeoutMs: row?.timeout_ms ?? c.timeoutMs,
       maxOutputTokens: row?.max_output_tokens ?? c.maxOutputTokens,
       dailyRequestsPerUser: c.dailyRequestsPerUser,
@@ -78,6 +79,9 @@ export class AiSettingsService {
     if (!p.success) throw invalid('Configuração de IA inválida.', p.error.issues);
     const existing = await this.row();
     const value = p.data;
+    if (value.apiKey && !this.d.config.encryptionKeyConfigured) {
+      throw invalid('Para proteger a chave da API, configure primeiro ADA_ENCRYPTION_KEY (32 bytes aleatórios em base64) no servidor da ADA.');
+    }
     const encrypted = value.apiKey
       ? this.d.cipher.encrypt(value.apiKey)
       : existing?.api_key_enc ?? null;
