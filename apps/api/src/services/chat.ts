@@ -74,6 +74,7 @@ export class ChatService {
   async handle(ctx: AuthContext, body: unknown) {
     const req = ChatRequest.safeParse(body);
     if (!req.success) throw invalid('Mensagem inválida.', req.error.issues);
+    await this.d.aiSettings.reload();
     this.checkRate(ctx.systemUserId);
     const conv = req.data.conversationId
       ? await this.d.conversations.get(ctx, req.data.conversationId)
