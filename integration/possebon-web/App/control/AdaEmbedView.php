@@ -7,6 +7,8 @@
  * para /ada/api/ada/session/exchange com target no iframe → ADA cria sessão própria (cookie HttpOnly)
  * e redireciona para /ada/. O ticket não aparece na URL, no histórico nem em logs de acesso.
  */
+require_once 'app/custom/AdaIntegrationService.php';
+
 class AdaEmbedView extends TPage
 {
     public function __construct()
@@ -28,9 +30,12 @@ class AdaEmbedView extends TPage
   <script>document.getElementById('ada_sso').submit();</script>
 </div>
 HTML;
-            parent::add($html);
-        } catch (Exception $e) {
-            new TMessage('error', 'A ADA não está disponível: ' . $e->getMessage());
+            $container = new TElement('div');
+            $container->add($html);
+            parent::add($container);
+        } catch (Throwable $e) {
+            error_log('ADA embed: ' . get_class($e) . ': ' . $e->getMessage());
+            new TMessage('error', 'A ADA nao esta disponivel ou o usuario nao tem permissao.');
         }
     }
 }
