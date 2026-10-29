@@ -73,6 +73,7 @@ export interface AdaConfig {
   frameAncestors: string;
   db: { driver: 'pg' | 'pglite'; url?: string; pgliteDir: string };
   encryptionKey: Buffer;
+  encryptionKeyConfigured: boolean;
   session: { ttlHours: number; idleMinutes: number; cookieSecure: boolean; sameSite: 'Lax' | 'Strict' | 'None' };
   sso: { issuer: string; audience: string; hs256Secret?: string; ed25519PublicKey?: string; maxAgeSeconds: number };
   possebon: { identityUrl?: string; serviceToken?: string };
@@ -142,6 +143,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
     frameAncestors: normalizeSources(e.ADA_FRAME_ANCESTORS),
     db: { driver, url: e.DATABASE_URL, pgliteDir: path.resolve(REPO_ROOT, e.ADA_PGLITE_DIR) },
     encryptionKey,
+    encryptionKeyConfigured: Boolean(e.ADA_ENCRYPTION_KEY),
     session: { ttlHours: e.ADA_SESSION_TTL_HOURS, idleMinutes: e.ADA_SESSION_IDLE_MINUTES, cookieSecure, sameSite: e.ADA_COOKIE_SAMESITE },
     sso: {
       issuer: e.ADA_SSO_ISSUER,
