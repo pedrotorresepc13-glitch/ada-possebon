@@ -191,11 +191,15 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   app.get(`${api}/session`, async (req) => {
     const auth = await d.sessions.authenticate(req.cookies[COOKIE]);
+    if (auth) await d.aiSettings.reload();
     return auth
       ? { authenticated: true, me: me(auth.ctx, auth.csrfToken) }
       : { authenticated: false, devLogin: config.devLogin, ssoConfigured: Boolean(config.sso.hs256Secret || config.sso.ed25519PublicKey) };
   });
-  route('GET', '/me', 'user', (req, _r, ctx) => me(ctx, req.csrf!));
+  route('GET', '/me', 'user', async (req, _r, ctx) => {
+    await d.aiSettings.reload();
+    return me(ctx, req.csrf!);
+  });
   route('POST', '/session/unit', 'user', async (req, _r, ctx) => {
     const unitId = z.object({ unitId: z.number().int().positive() }).parse(body(req)).unitId;
     const fresh = await d.sessions.switchUnit(ctx, unitId);
@@ -432,7 +436,10 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('POST', '/admin/email/accounts/:id/test', 'admin', (req, _r, ctx) => d.email.test(ctx, params(req).id!));
   route('DELETE', '/admin/email/accounts/:id', 'admin', (req, _r, ctx) => d.email.remove(ctx, params(req).id!));
-  route('GET', '/admin/ai', 'admin', () => d.admin.aiSettings());
+  route('GET', '/admin/ai', 'admin', () => d.aiSettings.read());
+  route('PUT', '/admin/ai/settings', 'admin', (req, _r, ctx) => d.aiSettings.save(ctx, body(req)));
+  route('DELETE', '/admin/ai/settings', 'admin', (_req, _r, ctx) => d.aiSettings.clear(ctx));
+  route('POST', '/admin/ai/test', 'admin', (_req, _r, ctx) => d.aiSettings.test(ctx));
   route('GET', '/admin/ai/usage', 'admin', () => d.admin.usage());
   route('GET', '/admin/policies', 'admin', (_req, _r, ctx) => d.admin.policies(ctx));
   route('GET', '/admin/audit', 'admin', (req) => d.admin.auditLog(Number(query(req).limit ?? 200), query(req).action));
