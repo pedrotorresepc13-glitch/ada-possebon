@@ -29,4 +29,5 @@ export async function prepare(d: Deps, config: AdaConfig): Promise<void> {
     }
   }
   await d.catalog.syncToDb();
+  await d.aiSettings.reload();
 }
