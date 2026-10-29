@@ -173,6 +173,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
     const ticket = z.object({ ticket: z.string().min(20).max(4096) }).parse(body(req)).ticket;
     const s = await d.sessions.exchangeTicket(ticket, req.headers['user-agent']);
     reply.setCookie(COOKIE, s.token, cookieOpts());
+    d.study.schedule(s.ctx);
     if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(`${base}/`);
     return { ok: true };
   });
@@ -203,6 +204,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/session/unit', 'user', async (req, _r, ctx) => {
     const unitId = z.object({ unitId: z.number().int().positive() }).parse(body(req)).unitId;
     const fresh = await d.sessions.switchUnit(ctx, unitId);
+    d.study.schedule(fresh);
     return me(fresh, req.csrf!);
   });
   route('POST', '/session/logout', 'user', async (_req, reply, ctx) => {
@@ -261,7 +263,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- conhecimento e catálogo */
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
-  route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
+  route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
+  route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
+    route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
   route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
     const enabled = await d.catalog.enabledSourceIds();
