@@ -27,6 +27,13 @@ jobs:
         run: npm test
       - name: PHP lint - endpoint Brain readonly
         run: php -l integration/possebon-web/App/custom/AdaBrainApiTrait.php
+      - name: PHP lint - SSO isolado ADA
+        run: |
+          php -l integration/possebon-web/App/custom/AdaIntegrationService.php
+          php -l integration/possebon-web/App/custom/AdaIdentityApiTrait.php
+          php -l integration/possebon-web/App/custom/AdaBrainApiTrait.php
+          php -l integration/possebon-web/App/controller/AdaApiController.php
+          php -l integration/possebon-web/App/control/AdaEmbedView.php
       - name: Build (web, api, worker)
         run: npm run build
       - name: Varredura de segredos
