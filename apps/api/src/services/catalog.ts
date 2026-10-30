@@ -3,7 +3,6 @@ import type { IntegrationStatus, RuleFilter } from '@ada/contracts';
 import {
   buildMetricQuery,
   DEMO_CATALOG,
-  EMPTY_CATALOG,
   REAL_CATALOG,
   type Catalog,
   type MetricDef,
