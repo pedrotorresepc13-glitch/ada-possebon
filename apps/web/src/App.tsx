@@ -33,11 +33,11 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
           <div className="brand-mark" aria-hidden="true">A</div>
           <div>
-            <strong>ADA POSSEBON</strong>
+            <strong>IA POSSEBON</strong>
             <small>Inteligência empresarial</small>
           </div>
         </div>
-        <p>Abra a ADA pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
+        <p>Abra a IA POSSEBON pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
         {!info.ssoConfigured && <p className="note-box small">O SSO com o POSSEBON ainda não está configurado neste ambiente.</p>}
         {info.devLogin && (
           <section style={{ marginTop: 16 }}>
@@ -76,7 +76,7 @@ const NAV = [
   ['/acompanhamentos', 'Acompanhamentos', '◎'],
   ['/notificacoes', 'Notificações', '🔔'],
   ['/memoria', 'Memória e preferências', '⚙'],
-  ['/estudo', 'O que a ADA aprendeu', '◈']
+  ['/estudo', 'O que a IA aprendeu', '◈']
 ] as const;
 
 export function App() {
@@ -172,7 +172,7 @@ export function App() {
           <div className="brand">
             <div className="brand-mark" aria-hidden="true">A</div>
             <div>
-              <strong>ADA</strong>
+              <strong>IA POSSEBON</strong>
               <small>POSSEBON · inteligência empresarial</small>
             </div>
           </div>
@@ -196,7 +196,7 @@ export function App() {
             <>
               <div className="nav-sep" />
               <a href="#" className="nav-item" aria-current={path.startsWith('/admin') ? 'page' : undefined} onClick={(e) => (e.preventDefault(), go('/admin'))}>
-                <span aria-hidden="true">🛡</span>Administração da ADA
+                <span aria-hidden="true">🛡</span>Administração da IA POSSEBON
               </a>
             </>
           )}
