@@ -4,12 +4,14 @@ import {
   buildMetricQuery,
   DEMO_CATALOG,
   EMPTY_CATALOG,
+  REAL_CATALOG,
   type Catalog,
   type MetricDef,
   type SourceDef
 } from '@ada/domain';
 import type { Deps } from '../core.ts';
 import type { Queryable } from '../db.ts';
+import { ReadonlyPostgresConnector } from './readonly-postgres.ts';
 
 export class SourceUnavailableError extends Error {
   constructor(readonly sourceId: string, message: string) {
@@ -98,9 +100,11 @@ const DATA_STATUSES: IntegrationStatus[] = ['ativo', 'demonstracao'];
 export class CatalogService {
   readonly catalog: Catalog;
   private readonly synthetic: SyntheticAdapter;
+  private readonly readonlyPg?: ReadonlyPostgresConnector;
 
   constructor(private readonly d: Deps) {
-    this.catalog = d.config.demoData ? DEMO_CATALOG : EMPTY_CATALOG;
+    this.catalog = d.config.demoData ? DEMO_CATALOG : REAL_CATALOG;
+    if (d.config.possebon.readonlyUrl) this.readonlyPg = new ReadonlyPostgresConnector(d.config.possebon.readonlyUrl);
     this.synthetic = new SyntheticAdapter(d.db);
   }
 
@@ -143,11 +147,13 @@ export class CatalogService {
         ? this.d.identity.status()
         : c.id === 'possebon.brain'
           ? (this.d.brain.configured ? 'configurado_nao_validado' : 'nao_configurado')
-          : 'nao_configurado';
+          : c.id === 'possebon.pg_readonly'
+            ? (this.readonlyPg ? 'configurado_nao_validado' : 'nao_configurado')
+            : 'nao_configurado';
       await q.query(
         `INSERT INTO ada.source_connector (id, kind, label, status, allowed_operations) VALUES ($1,$2,$3,$4,$5)
          ON CONFLICT (id) DO UPDATE SET status = CASE
-           WHEN ada.source_connector.id IN ('possebon.identity', 'possebon.brain') THEN
+           WHEN ada.source_connector.id IN ('possebon.identity', 'possebon.brain', 'possebon.pg_readonly') THEN
              CASE
                WHEN EXCLUDED.status = 'nao_configurado' THEN 'nao_configurado'
                WHEN ada.source_connector.status = 'ativo' THEN 'ativo'
@@ -186,7 +192,13 @@ export class CatalogService {
       throw new SourceUnavailableError(sourceId, `Fonte "${src.label}" indisponível (status: ${st.status}${st.lastError ? ` — ${st.lastError}` : ''}).`);
     }
     if (src.kind === 'synthetic') return this.synthetic;
+    if (src.kind === 'postgres_readonly' && sourceId === 'possebon.pg_readonly' && this.readonlyPg) return this.readonlyPg;
     throw new SourceUnavailableError(sourceId, `Adaptador para "${src.label}" ainda não implementado.`);
+  }
+
+  async checkReadonly(unitId: number): Promise<void> {
+    if (!this.readonlyPg) throw new SourceUnavailableError('possebon.pg_readonly', 'Configure POSSEBON_READONLY_DATABASE_URL com credencial SELECT exclusiva.');
+    await this.readonlyPg.check(unitId);
   }
 
   metric(id: string): MetricDef | undefined {
