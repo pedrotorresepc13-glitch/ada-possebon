@@ -262,7 +262,7 @@ export class ChatService {
         description: 'Consulta valores atuais de UMA métrica catalogada, com permissões do usuário. Retorna dados e proveniência.',
         parameters: js(z.object({ metric: z.string(), groupBy: z.array(z.string()).max(2).optional(), timeRange: TimeRange, timeGrain: z.enum(['day', 'week', 'month']).optional(), filters: z.array(DashboardFilter).max(5).optional() }))
       },
-      { name: 'buscar_conhecimento', description: 'Pesquisa trechos em documentos corporativos indexados e no Brain. Para perguntas amplas sobre o que a ADA sabe, prefira listar_conhecimento.', parameters: js(z.object({ consulta: z.string() })) },
+      { name: 'buscar_conhecimento', description: 'Pesquisa trechos em documentos corporativos indexados e no Brain. Para perguntas amplas sobre o que a IA POSSEBON sabe, prefira listar_conhecimento.', parameters: js(z.object({ consulta: z.string() })) },
       { name: 'listar_conhecimento', description: 'Mostra o catálogo REAL dos documentos estudados que o usuário pode ler na unidade atual, com origem e amostra autorizada. Use para responder sobre conhecimentos, fontes, empresa e o que já foi estudado, mesmo quando a busca textual não encontra termos.', parameters: js(z.object({})) },
       { name: 'propor_dashboard', description: 'Cria/substitui o rascunho de dashboard desta conversa com uma especificação declarativa validada.', parameters: js(DashboardSpec) },
       { name: 'alterar_dashboard', description: 'Aplica operações incrementais ao rascunho atual (trocar gráfico, comparar, filtros, período...).', parameters: js(z.object({ ops: z.array(DashboardPatchOp).min(1).max(10) })) },
@@ -397,7 +397,7 @@ export class ChatService {
       publicContext = `ÍNDICE AUTORIZADO: ${overview.total} documentos; ${overview.documents.length} listados. A ausência de correspondência textual NÃO significa que a ADA não conhece a empresa.\n${index}\n${matching}`;
     }
     const instructions = [
-      'Você é a ADA, assistente de inteligência empresarial do POSSEBON. Responda sempre em português do Brasil, de forma objetiva.',
+      'Você é a IA POSSEBON, assistente de inteligência empresarial do POSSEBON. Responda sempre em português do Brasil, de forma objetiva.',
       `Identidade confirmada pelo POSSEBON Web: nome "${ctx.displayName}", login "${ctx.login}", identificador de usuário ${ctx.systemUserId}. Identidade de sessão autoritativa; não diga que desconhece o nome quando for perguntado. Não deduza cargo, função ou vínculo empregatício a partir do nome ou dos grupos.`,
       `Contexto: unidade ativa "${unitName}" (ID ${ctx.activeUnitId}). Data/hora: ${formatDateTime(this.d.now())} (America/Sao_Paulo). Formate datas DD/MM/AAAA, moeda R$ e números no padrão pt-BR.`,
       'Regras inegociáveis:',
