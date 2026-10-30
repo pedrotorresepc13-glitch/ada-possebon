@@ -17,7 +17,8 @@
     "seed:demo": "tsx --env-file-if-exists=../../.env src/cli/seed-demo.ts",
     "dev:ticket": "tsx --env-file-if-exists=../../.env src/cli/dev-ticket.ts",
     "openapi": "tsx src/cli/openapi.ts",
-    "brain:import-inventory": "tsx --env-file-if-exists=../../.env src/cli/import-internal-inventory.ts"
+    "brain:import-inventory": "tsx --env-file-if-exists=../../.env src/cli/import-internal-inventory.ts",
+    "knowledge:import-epc13": "tsx --env-file-if-exists=../../.env src/cli/import-epc13-corpus.ts"
   },
   "dependencies": {
     "@ada/contracts": "0.1.0",
