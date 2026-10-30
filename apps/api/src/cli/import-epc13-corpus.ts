@@ -14,6 +14,7 @@ import { loadConfig } from '../config.ts';
 import { createDeps } from '../core.ts';
 import { prepare } from '../boot.ts';
 import { importEpc13Corpus } from '../services/epc13-corpus.ts';
+import { syncContractGraph } from '../services/corporate-brain.ts';
 
 const EXPECTED_CORPUS_SHA256 = 'f2add6b6013e3b9f8b151278ee9b63d35b34f7b740139659638170a16f07f8b0';
 const fileName = process.argv[2] ? path.resolve(process.argv[2]) : null;
@@ -38,7 +39,8 @@ try {
   const r = await importEpc13Corpus(deps, fileName, operatorId, {
     progress: (n) => process.stdout.write(`Importação local: ${n} partes verificadas\n`)
   });
-  console.log(JSON.stringify({ success: true, unit: 3, classification: 'restrito',
+  const graph = await syncContractGraph(deps.db, r.sourceId);
+  console.log(JSON.stringify({ graph, success: true, unit: 3, classification: 'restrito',
     documents: r.processed, newDocuments: r.inserted, updated: r.updated, unchanged: r.unchanged,
     searchableChunks: r.chunks, acl: 'AdaAdministracao' }, null, 2));
 } finally {
