@@ -126,7 +126,7 @@ function Knowledge() {
           <input name="url" type="url" className="input grow" placeholder="https://www.site-institucional.com.br/pagina" disabled={!sel} required />
           <button className="btn" disabled={!sel}>Importar URL</button>
         </form>
-        <p className="muted small">Formatos estudados hoje: TXT, MD, CSV, JSON, HTML. PDF/DOCX/XLSX/OCR entram na fila e ficam em erro explícito até o extrator ser instalado. Conteúdo de documentos é tratado como dado, nunca como instrução para a ADA.</p>
+        <p className="muted small">Formatos estudados hoje: TXT, MD, CSV, JSON, HTML. PDF/DOCX/XLSX/OCR entram na fila e ficam em erro explícito até o extrator ser instalado. Conteúdo de documentos é tratado como dado, nunca como instrução para a IA POSSEBON.</p>
       </section>
       <section className="card">
         <div className="row"><h3 className="grow">Fila de estudo</h3>{cov.data?.byStatus.map((s) => <span key={s.status} className="small">{s.status}: <strong>{s.n}</strong></span>)}<button className="btn sm" onClick={refresh}>↻</button></div>
@@ -178,7 +178,7 @@ function Connectors() {
   if (err) return <div className="error-box">{err}</div>;
   return (
     <section className="card">
-      <p className="muted small">Um conector só fornece dados quando está “ativo” (validado) ou “demonstração” (sintético, fora de produção). Integrações sem credencial aparecem como “não configurado” — a ADA não finge conexões.</p>
+      <p className="muted small">Um conector só fornece dados quando está “ativo” (validado) ou “demonstração” (sintético, fora de produção). Integrações sem credencial aparecem como “não configurado” — a IA POSSEBON não finge conexões.</p>
       {msg && <div className="note-box" role="status">{msg}</div>}
       <table className="data">
         <thead><tr><th>Conector</th><th>Status</th><th>Operações permitidas</th><th>Última verificação</th><th /></tr></thead>
@@ -313,7 +313,7 @@ function Ai() {
     <div className="grid">
       <section className="card">
         <h3>Provedor de inteligência artificial</h3>
-        <p className="muted small">Chave configurada no servidor e cifrada antes de ser salva no banco da ADA. Somente administradores autorizados pelo POSSEBON podem alterar esta configuração.</p>
+        <p className="muted small">Chave configurada no servidor e cifrada antes de ser salva no banco da IA POSSEBON. Somente administradores autorizados pelo POSSEBON podem alterar esta configuração.</p>
         {s.err && <div className="error-box">{s.err}</div>}
         {s.data && (
           <div className="row" style={{ marginBottom: 12 }}>
@@ -369,14 +369,14 @@ function Ai() {
             </button>
             <button className="btn danger" type="button" disabled={busy || !s.data?.lastUpdatedAt}
               onClick={() => {
-                if (!window.confirm('Remover a configuração de IA salva na ADA? Uma eventual chave do ambiente continuará sendo utilizada.')) return;
+                if (!window.confirm('Remover a configuração de IA salva na IA POSSEBON? Uma eventual chave do ambiente continuará sendo utilizada.')) return;
                 void run(() => api('/admin/ai/settings', { method: 'DELETE' }), 'Configuração do cofre removida.');
               }}>
               Remover configuração
             </button>
           </div>
         </form>
-        <p className="muted small" style={{ marginTop: 12 }}>{s.data?.note ?? 'Carregando…'} O envio de conversas ao provedor obedece às regras de privacidade e permissões da ADA.</p>
+        <p className="muted small" style={{ marginTop: 12 }}>{s.data?.note ?? 'Carregando…'} O envio de conversas ao provedor obedece às regras de privacidade e permissões da IA POSSEBON.</p>
       </section>
       <section className="card">
         <h3>Consumo e limites</h3>
@@ -433,7 +433,7 @@ export default function AdminView() {
   const panels: Record<string, ReactNode> = { saude: <Health />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, politicas: <Policies />, auditoria: <Audit /> };
   return (
     <>
-      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da ADA</h1><span className="badge">Acesso restrito</span></header>
+      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da IA POSSEBON</h1><span className="badge">Acesso restrito</span></header>
       <div className="content">
         <div className="tabs" role="tablist">
           {TABS.map(([id, label]) => (
