@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { setup, type Harness } from './helpers.ts';
 import { importEpc13Corpus } from '../apps/api/src/services/epc13-corpus.ts';
 import { buildAuthContext } from '../apps/api/src/identity.ts';
+import { chunkText, sanitizeUnicode } from '@ada/domain';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 let h: Harness;
@@ -60,6 +61,39 @@ describe('importação local sigilosa EPC13', () => {
     const second = await importEpc13Corpus(h.d, corpus, 9001);
     expect(second.inserted).toBe(0);
     expect(second.unchanged).toBe(1);
+  });
+
+  it('corrige surrogates órfãos do PDF e preserva símbolos válidos até dentro do JSONB', async () => {
+    const source = 'Letra isolada: \\uDC45; outra: \\uD800; símbolo: 🌎 e matemática 𝑀.';
+    const raw = source.replace('\\\\uDC45', '\\uDC45').replace('\\\\uD800', '\\uD800');
+    const cleaned = sanitizeUnicode(raw);
+    expect(cleaned).not.toMatch(/[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]/);
+    expect(cleaned).toContain('🌎');
+    expect(cleaned).toContain('𝑀');
+    const chunked = chunkText('A'.repeat(1199) + '🌎' + 'B'.repeat(2500), 1200, 150);
+    expect(chunked.length).toBeGreaterThan(1);
+    for (const c of chunked) expect(c.content).not.toMatch(/[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]/);
+
+    const entry = {
+      version: 'ia-possebon-epc13-knowledge-v1',
+      classification: 'restrito', unit_id: 3,
+      required_programs: ['AdaAdministracao'],
+      source_file: 'Teste_Unicode_Contrato.pdf', source_sha256: 'b'.repeat(64),
+      source_type: 'pdf', page_start: 45, page_end: 66, section: 1,
+      content: raw, content_sha256: sha(raw)
+    };
+    const sample = path.join(folder, 'unicode.jsonl.gz');
+    await writeFile(sample, gzipSync(JSON.stringify(entry) + '\\n'));
+    const inserted = await importEpc13Corpus(h.d, sample, 9001);
+    expect(inserted.inserted).toBe(1);
+    const found = await h.d.db.query<{ content: string }>(
+      "SELECT c.content FROM ada.knowledge_chunk c JOIN ada.knowledge_document d ON d.id = c.document_id WHERE d.original_name = 'Teste_Unicode_Contrato.pdf'"
+    );
+    expect(found.rows.length).toBeGreaterThan(0);
+    expect(found.rows[0]!.content).toContain('🌎');
+    expect(found.rows[0]!.content).toContain('�');
+    const repeat = await importEpc13Corpus(h.d, sample, 9001);
+    expect(repeat.unchanged).toBe(1);
   });
 
   it('rejeita partes adulteradas e não importa conteúdo fora do EPC13', async () => {
