@@ -26,6 +26,7 @@ import type { Deps } from '../core.ts';
 import { HttpError, invalid } from '../errors.ts';
 import type { ToolSpec } from '../ai/provider.ts';
 import type { ConversationRow, DraftDashboard } from './conversations.ts';
+import { searchCorporateGraph } from './corporate-brain.ts';
 import type { KnowledgeHit } from './knowledge.ts';
 import type { BrainHit } from './brain.ts';
 import type { Preview } from './monitors.ts';
@@ -262,6 +263,7 @@ export class ChatService {
         description: 'Consulta valores atuais de UMA métrica catalogada, com permissões do usuário. Retorna dados e proveniência.',
         parameters: js(z.object({ metric: z.string(), groupBy: z.array(z.string()).max(2).optional(), timeRange: TimeRange, timeGrain: z.enum(['day', 'week', 'month']).optional(), filters: z.array(DashboardFilter).max(5).optional() }))
       },
+      { name: 'consultar_cerebro', description: 'Pesquisa entidades e RELAÇÕES do grafo corporativo indexado (modelos, tabelas, campos, áreas, telas, módulos, documentos). Fornece fontes; não presume que nomes *_id sejam FKs validadas, nem retorna dados operacionais.', parameters: js(z.object({ termo: z.string().min(2).max(120) })) },
       { name: 'buscar_conhecimento', description: 'Pesquisa trechos em documentos corporativos indexados e no Brain. Para perguntas amplas sobre o que a IA POSSEBON sabe, prefira listar_conhecimento.', parameters: js(z.object({ consulta: z.string() })) },
       { name: 'listar_conhecimento', description: 'Mostra o catálogo REAL dos documentos estudados que o usuário pode ler na unidade atual, com origem e amostra autorizada. Use para responder sobre conhecimentos, fontes, empresa e o que já foi estudado, mesmo quando a busca textual não encontra termos.', parameters: js(z.object({})) },
       { name: 'propor_dashboard', description: 'Cria/substitui o rascunho de dashboard desta conversa com uma especificação declarativa validada.', parameters: js(DashboardSpec) },
@@ -314,6 +316,11 @@ export class ChatService {
             })),
             aviso: UNTRUSTED_DATA_POLICY
           };
+        }
+        case 'consultar_cerebro': {
+          const a = z.object({ termo: z.string().min(2).max(120) }).parse(args);
+          const items = await searchCorporateGraph(this.d.db, ctx, a.termo, 12);
+          return { entidades: items, observacao: 'Grafo de referências do inventário técnico e documentos indexados. Estrutura técnica não equivale a dados atuais nem a FKs confirmadas.' };
         }
         case 'buscar_conhecimento': {
           const a = z.object({ consulta: z.string().max(300) }).parse(args);
@@ -410,6 +417,7 @@ export class ChatService {
       '7. Não afirme ter estudado todas as fontes; o conhecimento é limitado aos documentos aprovados e às integrações ativas.',
       '8. Para perguntas sobre o que conhece, a história da empresa e quais documentos possui, use listar_conhecimento e busque trechos com buscar_conhecimento. Diferencie: documentos indexados, resultados efetivamente recuperados e indicadores operacionais. Nunca diga que não conhece a empresa se há fontes institucionais autorizadas disponíveis. Nunca confunda nome da empresa com dados operacionais validados.',
       '9. Diferencie capacidades existentes no software de dados e integrações realmente disponíveis na sessão. Para indicadores, consulte buscar_catalogo; nunca prometa consultar métricas que ainda não foram catalogadas e validadas.',
+      '10. Para relacionar modelos, tabelas, campos, telas, documentos e processos, use consultar_cerebro. Cite sempre a origem técnica e não transforme nomes sugestivos em relacionamentos não verificados.',
       draft ? `Rascunho de dashboard atual nesta conversa: ${JSON.stringify(draft.spec)}` : 'Não há rascunho de dashboard nesta conversa.',
       memories ? `Preferências registradas pelo próprio usuário:\n${memories}` : '',
       initialStudy,
