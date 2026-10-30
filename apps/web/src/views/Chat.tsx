@@ -161,7 +161,7 @@ export function ChatView() {
   return (
     <>
       <header className="topbar">
-        <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a ADA</h1>
+        <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a IA POSSEBON</h1>
         <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
       </header>
       <div className={`chat-layout ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
@@ -197,7 +197,7 @@ export function ChatView() {
                 )}
               </div>
             ))}
-            {busy && <div className="msg assistant" aria-label="ADA está respondendo"><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
+            {busy && <div className="msg assistant" aria-label="IA POSSEBON está respondendo"><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
             {err && <div className="error-box" role="alert">{err}</div>}
             <div ref={endRef} />
           </div>
@@ -215,7 +215,7 @@ export function ChatView() {
               void send(input);
             }}
           >
-            <label htmlFor="chat-input" className="sr-only">Mensagem para a ADA</label>
+            <label htmlFor="chat-input" className="sr-only">Mensagem para a IA POSSEBON</label>
             <textarea
               id="chat-input"
               className="textarea"
