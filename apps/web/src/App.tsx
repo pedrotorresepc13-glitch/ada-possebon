@@ -31,7 +31,7 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
     <div className="login-wrap">
       <main className="card login-card">
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
-          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-mark" aria-hidden="true">IA</div>
           <div>
             <strong>IA POSSEBON</strong>
             <small>Inteligência empresarial</small>
@@ -170,7 +170,7 @@ export function App() {
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true">A</div>
+            <div className="brand-mark" aria-hidden="true">IA</div>
             <div>
               <strong>IA POSSEBON</strong>
               <small>POSSEBON · inteligência empresarial</small>
@@ -236,7 +236,7 @@ export function App() {
                 setInfo({ ...info, authenticated: false });
               }}
             >
-              Sair da ADA
+              Sair da IA POSSEBON
             </button>
           </div>
         </nav>
