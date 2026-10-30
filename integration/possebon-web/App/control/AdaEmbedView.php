@@ -21,7 +21,7 @@ class AdaEmbedView extends TPage
             $t = htmlspecialchars($ticket, ENT_QUOTES);
             $html = <<<HTML
 <div style="height: calc(100vh - 120px); min-height: 560px;">
-  <iframe name="ada_frame" title="ADA POSSEBON" src="about:blank"
+  <iframe name="ada_frame" title="IA POSSEBON" src="about:blank"
           style="width:100%;height:100%;border:0;border-radius:8px"
           allow="clipboard-write" referrerpolicy="same-origin"></iframe>
   <form id="ada_sso" method="post" action="{$action}" target="ada_frame" style="display:none">
@@ -35,7 +35,7 @@ HTML;
             parent::add($container);
         } catch (Throwable $e) {
             error_log('ADA embed: ' . get_class($e) . ': ' . $e->getMessage());
-            new TMessage('error', 'A ADA nao esta disponivel ou o usuario nao tem permissao.');
+            new TMessage('error', 'A IA POSSEBON nao esta disponivel ou o usuario nao tem permissao.');
         }
     }
 }
