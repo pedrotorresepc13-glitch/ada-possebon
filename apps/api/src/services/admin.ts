@@ -92,6 +92,15 @@ export class AdminService {
       } catch (err) {
         message = (err as Error).message;
       }
+    } else if (id === 'possebon.pg_readonly') {
+      status = 'erro';
+      try {
+        await this.d.catalog.checkReadonly(ctx.activeUnitId);
+        ok = true;
+        message = 'Conexão PostgreSQL SELECT e estrutura de colaborador/equipe verificadas para a unidade. Não representa validação de indicadores não cadastrados.';
+      } catch (err) {
+        message = (err as Error).message;
+      }
     } else if (this.d.catalog.catalog.sources[id]) {
       status = 'erro';
       try {
