@@ -54,13 +54,13 @@ export function StudyView() {
 
   return (
     <>
-      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>O que a ADA aprendeu</h1></header>
+      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>O que a IA aprendeu</h1></header>
       <div className="content grid" style={{ maxWidth: 1000 }}>
         <section className="card">
           <div className="row">
             <div className="grow">
               <h2>Estudo inicial da sua área de trabalho</h2>
-              <p className="muted small">Ao entrar, a ADA reconhece sua identidade, unidade e programas autorizados. Consulta o Brain apenas com as permissões da sua sessão. O levantamento é privado e fica cifrado no banco da ADA.</p>
+              <p className="muted small">Ao entrar, a IA POSSEBON reconhece sua identidade, unidade e programas autorizados. Consulta o Brain apenas com as permissões da sua sessão. O levantamento é privado e fica cifrado no banco da ADA.</p>
             </div>
             <button className="btn" disabled={busy} onClick={() => void refresh()}>Atualizar meu estudo</button>
           </div>
@@ -91,7 +91,7 @@ export function StudyView() {
 
         {data && <section className="card">
           <h2>Conhecimento do POSSEBON Brain</h2>
-          <p className="muted small">Estado: {data.brainState}. A ADA usa apenas trechos autorizados da unidade, como dados de referência, nunca como instruções de sistema.</p>
+          <p className="muted small">Estado: {data.brainState}. A IA POSSEBON usa apenas trechos autorizados da unidade, como dados de referência, nunca como instruções de sistema.</p>
           {!data.brainSources.length ? <p className="muted">Nenhuma referência confirmada neste levantamento.</p>
             : <ul className="list">{data.brainSources.map((s) => (
               <li className="list-item" key={s.namespace + ':' + s.id}>
@@ -101,7 +101,7 @@ export function StudyView() {
         </section>}
 
         {data && <section className="card">
-          <h2>Documentos que a ADA consegue consultar</h2>
+          <h2>Documentos que a IA consegue consultar</h2>
           <p className="muted small">Fontes efetivamente indexadas e permitidas para o seu usuário e a unidade atual. Isso é diferente das referências do Brain, que são contadas separadamente.</p>
           {!data.knowledgeDocuments?.length ? <p className="muted">Nenhum documento disponível para esta sessão.</p>
             : <ul className="list">{data.knowledgeDocuments.map((doc, i) => (
@@ -117,7 +117,7 @@ export function StudyView() {
 
         {data && <section className="card">
           <h2>O que falta integrar</h2>
-          <p className="muted small">A ADA não afirmará ter estudado registros de RH, financeiros ou operacionais enquanto os respectivos conectores autorizados não forem implementados e validados.</p>
+          <p className="muted small">A IA POSSEBON não afirmará ter estudado registros de RH, financeiros ou operacionais enquanto os respectivos conectores autorizados não forem implementados e validados.</p>
           {data.limitations.length ? <ul>{data.limitations.map((x) => <li key={x}>{x}</li>)}</ul>
             : <p>Nenhuma limitação encontrada entre as fontes atualmente cadastradas.</p>}
         </section>}
