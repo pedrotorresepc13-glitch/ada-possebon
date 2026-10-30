@@ -64,15 +64,16 @@ describe('importação local sigilosa EPC13', () => {
   });
 
   it('corrige surrogates órfãos do PDF e preserva símbolos válidos até dentro do JSONB', async () => {
-    const source = 'Letra isolada: \\uDC45; outra: \\uD800; símbolo: 🌎 e matemática 𝑀.';
-    const raw = source.replace('\\\\uDC45', '\\uDC45').replace('\\\\uD800', '\\uD800');
+    const raw = 'Letra isolada: ' + String.fromCharCode(0xDC45) +
+      '; outra: ' + String.fromCharCode(0xD800) + '; símbolo: 🌎 e matemática 𝑀.';
     const cleaned = sanitizeUnicode(raw);
-    expect(cleaned).not.toMatch(/[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]/);
+    expect(cleaned).toContain('�');
     expect(cleaned).toContain('🌎');
     expect(cleaned).toContain('𝑀');
+    expect(sanitizeUnicode(cleaned)).toBe(cleaned);
     const chunked = chunkText('A'.repeat(1199) + '🌎' + 'B'.repeat(2500), 1200, 150);
     expect(chunked.length).toBeGreaterThan(1);
-    for (const c of chunked) expect(c.content).not.toMatch(/[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]/);
+    for (const c of chunked) expect(sanitizeUnicode(c.content)).toBe(c.content);
 
     const entry = {
       version: 'ia-possebon-epc13-knowledge-v1',
@@ -83,7 +84,7 @@ describe('importação local sigilosa EPC13', () => {
       content: raw, content_sha256: sha(raw)
     };
     const sample = path.join(folder, 'unicode.jsonl.gz');
-    await writeFile(sample, gzipSync(JSON.stringify(entry) + '\\n'));
+    await writeFile(sample, gzipSync(JSON.stringify(entry) + '\n'));
     const inserted = await importEpc13Corpus(h.d, sample, 9001);
     expect(inserted.inserted).toBe(1);
     const found = await h.d.db.query<{ content: string }>(
