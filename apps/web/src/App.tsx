@@ -8,6 +8,7 @@ import { MonitorsView } from './views/Monitors.tsx';
 import { NotificationsView } from './views/Notifications.tsx';
 import { MemoryView } from './views/Memory.tsx';
 import { StudyView } from './views/Study.tsx';
+import { LiveBoardsList, LiveBoardDetail } from './views/LiveBoards.tsx';
 
 const AdminView = lazy(() => import('./views/Admin.tsx'));
 
@@ -73,6 +74,7 @@ const NAV = [
   ['/', 'Nova conversa', '✦'],
   ['/conversas', 'Minhas conversas', '☰'],
   ['/dashboards', 'Meus dashboards', '▦'],
+  ['/telas', 'Telas vivas', '▤'],
   ['/acompanhamentos', 'Acompanhamentos', '◎'],
   ['/notificacoes', 'Notificações', '🔔'],
   ['/memoria', 'Memória e preferências', '⚙'],
@@ -154,10 +156,13 @@ export function App() {
   };
   let view;
   const dashMatch = /^\/dashboards\/([0-9a-f-]{36})$/.exec(path);
+  const liveMatch = /^\/telas\/([0-9a-f-]{36})$/.exec(path);
   if (path === '/' || path === '') view = <ChatView key={window.location.search} />;
   else if (path === '/conversas') view = <ConversationsView />;
   else if (dashMatch) view = <DashboardView id={dashMatch[1]!} />;
   else if (path === '/dashboards') view = <DashboardsView />;
+  else if (liveMatch && me.isAdmin) view = <LiveBoardDetail id={liveMatch[1]!} />;
+  else if (path === '/telas' && me.isAdmin) view = <LiveBoardsList />;
   else if (path === '/acompanhamentos') view = <MonitorsView />;
   else if (path === '/notificacoes') view = <NotificationsView />;
   else if (path === '/memoria') view = <MemoryView />;
@@ -176,7 +181,7 @@ export function App() {
               <small>POSSEBON · inteligência empresarial</small>
             </div>
           </div>
-          {NAV.map(([p, label, icon]) => (
+          {NAV.filter(([p]) => p !== '/telas' || me.isAdmin).map(([p, label, icon]) => (
             <a
               key={p}
               href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}${p}`}
