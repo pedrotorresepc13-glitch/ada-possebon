@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { businessColumnLabel, businessValue } from '@ada/domain';
 import type { AuthContext } from '@ada/contracts';
 import type { ReadonlyPostgresConnector } from './readonly-postgres.ts';
 import { forbidden } from '../errors.ts';
@@ -165,10 +166,12 @@ export class OperationalQueryService {
       const columns=s.columns.get(table??'');
       const alias=aliases.get(table??'');
       if (!columns?.has(col??'') || !alias || !isSafeColumn(col??'')) deny('campo fora do escopo: '+name);
-      return {expression:alias+'.'+protect(col!),type:columns!.get(col!)!};
+      return {expression:alias+'.'+protect(col!),type:columns!.get(col!)!,table:table!,column:col!};
     };
     const group=p.groupBy.map(x=>resolve(x).expression);
     const used=new Set<string>();
+    const labels:Record<string,string>={};
+    const sources:Record<string,{table:string;column:string;aggregate?:string}>={};
     const projection=p.select.map((item,index)=>{
       const f=resolve(item.field);
       if(item.aggregate && !['count','sum','avg','min','max'].includes(item.aggregate)) deny('agregação inválida');
@@ -176,6 +179,8 @@ export class OperationalQueryService {
       if(!item.aggregate && p.select.some(x=>x.aggregate) && !group.includes(f.expression)) deny('campo não agregado precisa estar em groupBy');
       const alias=item.as ?? ('c'+index);
       if(used.has(alias)) deny('alias duplicado');used.add(alias);
+      labels[alias]=businessColumnLabel(f.table,f.column,alias,item.aggregate);
+      sources[alias]={table:f.table,column:f.column,aggregate:item.aggregate};
       const e=item.aggregate ? item.aggregate.toUpperCase()+'('+f.expression+')' : f.expression;
       return e+' AS '+protect(alias);
     });
@@ -212,7 +217,7 @@ export class OperationalQueryService {
       +' WHERE '+where.join(' AND ')+(group.length?' GROUP BY '+group.join(', '):'')
       +(order.length?' ORDER BY '+order.join(', '):'')
       +' LIMIT $'+params.length;
-    return {sql,params,columns:[...used]};
+    return {sql,params,columns:[...used],labels,sources};
   }
 
   async query(ctx:AuthContext,raw:unknown) {
@@ -221,7 +226,11 @@ export class OperationalQueryService {
     const compiled=this.compile(raw,await this.schema(source),ctx.activeUnitId);
     const result=await source.executeRead<Record<string,unknown>>(compiled.sql,compiled.params);
     return {
-      rows:result.rows,columns:compiled.columns, rowCount:result.rows.length,
+      rows:result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>{
+        const source=compiled.sources[key];
+        return [key, source && !source.aggregate ? businessValue(source.table,source.column,value) : value];
+      }))),
+      columns:compiled.columns, labels:compiled.labels, rowCount:result.rows.length,
       provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:ctx.activeUnitId,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
     };
