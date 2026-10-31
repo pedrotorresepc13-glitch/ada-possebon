@@ -44,7 +44,7 @@ O comando `\password` pergunta a nova senha sem escrevê-la na linha de comando.
    ```
 2. No `.env` LOCAL, acrescente (sem mudar as chaves existentes):
    ```dotenv
-   POSSEBON_READONLY_DATABASE_URL=postgresql://possebon_ia_readonly:SENHA_URL_ENCODED@127.0.0.1:15432/possebon_app
+   POSSEBON_READONLY_DATABASE_URL=<CONEXAO_POSTGRESQL_LOCAL_GERADA_COM_SENHA_URL_ENCODED>
    ```
    Caracteres especiais da senha precisam de URL encoding. Não exponha esse arquivo.
 3. Inicie a IA com a configuração normal. Não habilite `ADA_DEMO_DATA` nem `ADA_DEV_LOGIN`. Ao usar a primeira ferramenta de dados, o backend verifica conexão, campos e leitura real, e ativa o status do conector **somente se o teste passar**.
