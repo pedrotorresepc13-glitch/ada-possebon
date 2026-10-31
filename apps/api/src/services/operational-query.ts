@@ -54,7 +54,7 @@ const deny = (detail:string):never => {throw new Error('Consulta POSSEBON não a
 
 export class OperationalQueryService {
   private schemaCache?: {data:Schema;until:number};
-  constructor(private readonly source: () => Promise<Read>) {}
+  constructor(private readonly source: (unitId:number) => Promise<Read>) {}
 
   /** Autoridade de uso: administração POSSEBON validada na sessão, nunca papel autoatribuído. */
   assertAllowed(ctx:AuthContext) {
@@ -96,7 +96,7 @@ export class OperationalQueryService {
 
   async explore(ctx:AuthContext, term='', table='') {
     this.assertAllowed(ctx);
-    const source=await this.source();
+    const source=await this.source(ctx.activeUnitId);
     const s=await this.schema(source);
     const search=term.toLowerCase().trim().slice(0,80);
     const visible=[...s.columns.entries()].filter(([name,cols])=>
@@ -195,7 +195,7 @@ export class OperationalQueryService {
 
   async query(ctx:AuthContext,raw:unknown) {
     this.assertAllowed(ctx);
-    const source=await this.source();
+    const source=await this.source(ctx.activeUnitId);
     const compiled=this.compile(raw,await this.schema(source),ctx.activeUnitId);
     const result=await source.executeRead<Record<string,unknown>>(compiled.sql,compiled.params);
     return {
