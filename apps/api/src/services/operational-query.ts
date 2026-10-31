@@ -100,11 +100,14 @@ export class OperationalQueryService {
     const source=await this.source(ctx.activeUnitId);
     const s=await this.schema(source);
     const search=term.toLowerCase().trim().slice(0,80);
-    const visible=[...s.columns.entries()].filter(([name,cols])=>
-      cols.has('unit_id') && (name.includes(search)||[...cols.keys()].some(k=>k.includes(search))));
-    const matched=table ? visible.filter(([name])=>name===table) : (visible.length?visible:s.columns? [...s.columns.entries()].filter(([name,cols])=>cols.has('unit_id')).slice(0,30):[]).slice(0,60);
+    const accessible=[...s.columns.entries()].filter(([,cols])=>cols.has('unit_id'));
+    const matching=accessible.filter(([name,cols])=>
+      name.includes(search)||[...cols.keys()].some(k=>k.includes(search)));
+    const matched=table ? accessible.filter(([name])=>name===table) :
+      (matching.length?matching:accessible).slice(0,60);
     return {
-      totalTabelasComUnidade:visible.length,
+      totalTabelasComUnidade:accessible.length,
+      correspondencias:matching.length,
       tabelas:matched.map(([name,cols])=>({
         nome:name,
         colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo})).slice(0,65),
