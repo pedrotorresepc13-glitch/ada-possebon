@@ -138,7 +138,7 @@ export class OperationalQueryService {
       const cols=s.columns.get(name);
       if (!cols || BLOCKED_TABLE.test(name)) deny('tabela relacionada inexistente ou restrita');
       const candidates=s.foreignKeys.filter(f=>f.from_table===p.from && f.to_table===name &&
-        base!.has(f.from_col) && cols.has(f.to_col));
+        base!.has(f.from_col) && cols!.has(f.to_col));
       // colaborador possui pessoa_id E empresa_id referenciando pessoa: nunca escolher
       // a primeira FK retornada pelo PostgreSQL (ordem nao garantida).
       let relation:ForeignKey|undefined;
