@@ -1,3 +1,4 @@
+import { useBranding } from '../branding.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DashboardSpec, RuleDefinition, WidgetData } from '@ada/contracts';
 import { formatDateTime } from '@ada/domain/format';
@@ -71,6 +72,7 @@ function MonitorProposal({ m }: { m: NonNullable<NonNullable<Msg['metadata']>['m
 }
 
 export function ChatView() {
+  const { name } = useBranding();
   const { me, theme, navigate } = useApp();
   const params = new URLSearchParams(window.location.search);
   const [conversationId, setConversationId] = useState<string | undefined>(params.get('c') ?? undefined);
@@ -162,7 +164,7 @@ export function ChatView() {
   return (
     <>
       <header className="topbar">
-        <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a IA POSSEBON</h1>
+        <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a {name}</h1>
         <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
       </header>
       <div className={`chat-layout ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
@@ -199,7 +201,7 @@ export function ChatView() {
                 )}
               </div>
             ))}
-            {busy && <div className="msg assistant" aria-label="IA POSSEBON está respondendo"><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
+            {busy && <div className="msg assistant" aria-label={`${name} está respondendo`}><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
             {err && <div className="error-box" role="alert">{err}</div>}
             <div ref={endRef} />
           </div>
@@ -217,7 +219,7 @@ export function ChatView() {
               void send(input);
             }}
           >
-            <label htmlFor="chat-input" className="sr-only">Mensagem para a IA POSSEBON</label>
+            <label htmlFor="chat-input" className="sr-only">Mensagem para a {name}</label>
             <textarea
               id="chat-input"
               className="textarea"

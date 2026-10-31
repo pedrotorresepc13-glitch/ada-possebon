@@ -1,3 +1,4 @@
+import { useBranding } from '../branding.tsx';
 import { useEffect, useState } from 'react';
 import { formatDateTime } from '@ada/domain/format';
 import { api } from '../api.ts';
@@ -11,6 +12,7 @@ interface Conv {
 }
 
 export function ConversationsView() {
+  const { name } = useBranding();
   const { navigate } = useApp();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Conv[] | null>(null);
@@ -37,7 +39,7 @@ export function ConversationsView() {
           <input id="busca-conv" className="input grow" placeholder="Buscar pelo título…" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn">Buscar</button>
         </form>
-        <p className="muted small">Suas conversas são privadas: nem gestores nem administradores têm acesso a elas pela IA POSSEBON.</p>
+        <p className="muted small">Suas conversas são privadas: nem gestores nem administradores têm acesso a elas pela {name}.</p>
         {err && <div className="error-box" role="alert">{err}</div>}
         {!items ? (
           <div className="list">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 54 }} />)}</div>

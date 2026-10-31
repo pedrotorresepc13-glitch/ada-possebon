@@ -10,6 +10,8 @@ import { MemoryView } from './views/Memory.tsx';
 import { StudyView } from './views/Study.tsx';
 import { LiveBoardsList, LiveBoardDetail } from './views/LiveBoards.tsx';
 
+import { BrandingProvider, useBranding } from './branding.tsx';
+
 const AdminView = lazy(() => import('./views/Admin.tsx'));
 
 interface SessionInfo {
@@ -20,6 +22,7 @@ interface SessionInfo {
 }
 
 function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => void }) {
+  const { name } = useBranding();
   const [err, setErr] = useState('');
   const users = [
     ['admin.demo', 'Administração (2 unidades)'],
@@ -34,11 +37,11 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
           <div className="brand-mark" aria-hidden="true">IA</div>
           <div>
-            <strong>IA POSSEBON</strong>
+            <strong>{name}</strong>
             <small>Inteligência empresarial</small>
           </div>
         </div>
-        <p>Abra a IA POSSEBON pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
+        <p>Abra {name} pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
         {!info.ssoConfigured && <p className="note-box small">O SSO com o POSSEBON ainda não está configurado neste ambiente.</p>}
         {info.devLogin && (
           <section style={{ marginTop: 16 }}>
@@ -81,7 +84,8 @@ const NAV = [
   ['/estudo', 'O que a IA aprendeu', '◈']
 ] as const;
 
-export function App() {
+function AppContent() {
+  const { name } = useBranding();
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [me, setMeState] = useState<Me | null>(null);
   const [theme, setThemeState] = useState('auto');
@@ -177,7 +181,7 @@ export function App() {
           <div className="brand">
             <div className="brand-mark" aria-hidden="true">IA</div>
             <div>
-              <strong>IA POSSEBON</strong>
+              <strong>{name}</strong>
               <small>POSSEBON · inteligência empresarial</small>
             </div>
           </div>
@@ -201,7 +205,7 @@ export function App() {
             <>
               <div className="nav-sep" />
               <a href="#" className="nav-item" aria-current={path.startsWith('/admin') ? 'page' : undefined} onClick={(e) => (e.preventDefault(), go('/admin'))}>
-                <span aria-hidden="true">🛡</span>Administração da IA POSSEBON
+                <span aria-hidden="true">🛡</span>Administração · {name}
               </a>
             </>
           )}
@@ -241,7 +245,7 @@ export function App() {
                 setInfo({ ...info, authenticated: false });
               }}
             >
-              Sair da IA POSSEBON
+              Sair de {name}
             </button>
           </div>
         </nav>
@@ -254,4 +258,8 @@ export function App() {
       </div>
     </Ctx.Provider>
   );
+}
+
+export function App() {
+  return <BrandingProvider><AppContent /></BrandingProvider>;
 }

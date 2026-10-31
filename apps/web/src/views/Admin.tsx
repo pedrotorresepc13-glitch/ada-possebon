@@ -1,3 +1,5 @@
+import { BrandingSettings } from '../components/BrandingSettings.tsx';
+import { useBranding } from '../branding.tsx';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatDateTime } from '@ada/domain/format';
 import { api } from '../api.ts';
@@ -5,6 +7,7 @@ import { useApp } from '../app-context.ts';
 
 const TABS = [
   ['saude', 'Saúde'],
+  ['identidade', 'Identidade'],
   ['conhecimento', 'Fontes de conhecimento'],
   ['conectores', 'Conectores'],
   ['email', 'E-mail'],
@@ -64,6 +67,7 @@ function Health() {
 interface Doc { id: string; title: string; source_name: string; status: string; scope: string; unit_id: number | null; sensitivity: string; injection_flags: string[]; error: string | null; chunks: number; created_at: string; checksum: string }
 
 function Knowledge() {
+  const { name } = useBranding();
   const { me } = useApp();
   const sources = useLoad<{ id: string; name: string; kind: string; scope: string; unit_id: number | null; documents: number }[]>('/admin/knowledge/sources');
   const docs = useLoad<Doc[]>('/admin/knowledge/documents');
@@ -126,7 +130,7 @@ function Knowledge() {
           <input name="url" type="url" className="input grow" placeholder="https://www.site-institucional.com.br/pagina" disabled={!sel} required />
           <button className="btn" disabled={!sel}>Importar URL</button>
         </form>
-        <p className="muted small">Formatos estudados hoje: TXT, MD, CSV, JSON, HTML. PDF/DOCX/XLSX/OCR entram na fila e ficam em erro explícito até o extrator ser instalado. Conteúdo de documentos é tratado como dado, nunca como instrução para a IA POSSEBON.</p>
+        <p className="muted small">Formatos estudados hoje: TXT, MD, CSV, JSON, HTML. PDF/DOCX/XLSX/OCR entram na fila e ficam em erro explícito até o extrator ser instalado. Conteúdo de documentos é tratado como dado, nunca como instrução para a {name}.</p>
       </section>
       <section className="card">
         <div className="row"><h3 className="grow">Fila de estudo</h3>{cov.data?.byStatus.map((s) => <span key={s.status} className="small">{s.status}: <strong>{s.n}</strong></span>)}<button className="btn sm" onClick={refresh}>↻</button></div>
@@ -173,12 +177,13 @@ function Knowledge() {
 }
 
 function Connectors() {
+  const { name } = useBranding();
   const { data, err, reload } = useLoad<{ id: string; label: string; kind: string; status: string; last_check_at: string | null; last_error: string | null; allowed_operations: string[] }[]>('/admin/connectors');
   const [msg, setMsg] = useState('');
   if (err) return <div className="error-box">{err}</div>;
   return (
     <section className="card">
-      <p className="muted small">Um conector só fornece dados quando está “ativo” (validado) ou “demonstração” (sintético, fora de produção). Integrações sem credencial aparecem como “não configurado” — a IA POSSEBON não finge conexões.</p>
+      <p className="muted small">Um conector só fornece dados quando está “ativo” (validado) ou “demonstração” (sintético, fora de produção). Integrações sem credencial aparecem como “não configurado” — a {name} não finge conexões.</p>
       {msg && <div className="note-box" role="status">{msg}</div>}
       <table className="data">
         <thead><tr><th>Conector</th><th>Status</th><th>Operações permitidas</th><th>Última verificação</th><th /></tr></thead>
@@ -277,6 +282,7 @@ interface AiConfigView {
 }
 
 function Ai() {
+  const { name } = useBranding();
   const s = useLoad<AiConfigView>('/admin/ai');
   const u = useLoad<Record<string, unknown>[]>('/admin/ai/usage');
   const [model, setModel] = useState('gpt-5-mini');
@@ -313,7 +319,7 @@ function Ai() {
     <div className="grid">
       <section className="card">
         <h3>Provedor de inteligência artificial</h3>
-        <p className="muted small">Chave configurada no servidor e cifrada antes de ser salva no banco da IA POSSEBON. Somente administradores autorizados pelo POSSEBON podem alterar esta configuração.</p>
+        <p className="muted small">Chave configurada no servidor e cifrada antes de ser salva no banco da {name}. Somente administradores autorizados pelo POSSEBON podem alterar esta configuração.</p>
         {s.err && <div className="error-box">{s.err}</div>}
         {s.data && (
           <div className="row" style={{ marginBottom: 12 }}>
@@ -321,7 +327,7 @@ function Ai() {
             <span className="small muted">Credencial: {s.data.apiKeyPresent ? 'presente (' + s.data.keySource + ')' : 'ausente'} · Endpoint: {s.data.endpoint}</span>
           </div>
         )}
-        {s.data && !s.data.secureKeyStorage && <div className="error-box">Antes de cadastrar uma chave real, configure ADA_ENCRYPTION_KEY no servidor da ADA. Sem essa chave exclusiva, o armazenamento seguro de credenciais não estará habilitado.</div>}
+        {s.data && !s.data.secureKeyStorage && <div className="error-box">Antes de cadastrar uma chave real, configure ADA_ENCRYPTION_KEY no servidor da assistente. Sem essa chave exclusiva, o armazenamento seguro de credenciais não estará habilitado.</div>}
         {message && <div className="note-box" role="status">{message}</div>}
         <form className="grid" onSubmit={(e) => {
           e.preventDefault();
@@ -369,14 +375,14 @@ function Ai() {
             </button>
             <button className="btn danger" type="button" disabled={busy || !s.data?.lastUpdatedAt}
               onClick={() => {
-                if (!window.confirm('Remover a configuração de IA salva na IA POSSEBON? Uma eventual chave do ambiente continuará sendo utilizada.')) return;
+                if (!window.confirm(`Remover a configuração de IA salva em ${name}? Uma eventual chave do ambiente continuará sendo utilizada.`)) return;
                 void run(() => api('/admin/ai/settings', { method: 'DELETE' }), 'Configuração do cofre removida.');
               }}>
               Remover configuração
             </button>
           </div>
         </form>
-        <p className="muted small" style={{ marginTop: 12 }}>{s.data?.note ?? 'Carregando…'} O envio de conversas ao provedor obedece às regras de privacidade e permissões da IA POSSEBON.</p>
+        <p className="muted small" style={{ marginTop: 12 }}>{s.data?.note ?? 'Carregando…'} O envio de conversas ao provedor obedece às regras de privacidade e permissões da {name}.</p>
       </section>
       <section className="card">
         <h3>Consumo e limites</h3>
@@ -429,11 +435,12 @@ function Audit() {
 }
 
 export default function AdminView() {
+  const { name } = useBranding();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>('saude');
-  const panels: Record<string, ReactNode> = { saude: <Health />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, politicas: <Policies />, auditoria: <Audit /> };
+  const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, politicas: <Policies />, auditoria: <Audit /> };
   return (
     <>
-      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da IA POSSEBON</h1><span className="badge">Acesso restrito</span></header>
+      <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da {name}</h1><span className="badge">Acesso restrito</span></header>
       <div className="content">
         <div className="tabs" role="tablist">
           {TABS.map(([id, label]) => (

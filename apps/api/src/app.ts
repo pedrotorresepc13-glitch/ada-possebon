@@ -107,7 +107,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
       return;
     }
     const auth = await d.sessions.authenticate(req.cookies[COOKIE]);
-    if (!auth) throw new HttpError(401, 'UNAUTHENTICATED', 'Sessão ausente ou expirada. Abra a ADA pelo POSSEBON Web.');
+    if (!auth) throw new HttpError(401, 'UNAUTHENTICATED', 'Sessão ausente ou expirada. Abra a assistente pelo POSSEBON Web.');
     req.ctx = auth.ctx;
     req.csrf = auth.csrfToken;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -454,6 +454,11 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/admin/email/accounts/:id/test', 'admin', (req, _r, ctx) => d.email.test(ctx, params(req).id!));
   route('DELETE', '/admin/email/accounts/:id', 'admin', (req, _r, ctx) => d.email.remove(ctx, params(req).id!));
   route('GET', '/admin/ai', 'admin', () => d.aiSettings.read());
+  route('GET', '/branding', 'none', (_req, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return d.branding.read();
+  });
+  route('PUT', '/admin/branding', 'admin', (req, _r, ctx) => d.branding.save(ctx, body(req)));
   route('PUT', '/admin/ai/settings', 'admin', (req, _r, ctx) => d.aiSettings.save(ctx, body(req)));
   route('DELETE', '/admin/ai/settings', 'admin', (_req, _r, ctx) => d.aiSettings.clear(ctx));
   route('POST', '/admin/ai/test', 'admin', (_req, _r, ctx) => d.aiSettings.test(ctx));
@@ -481,7 +486,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
       if (req.url.startsWith(api)) return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Rota inexistente.' } });
       return reply
         .type('text/html; charset=utf-8')
-        .send('<!doctype html><meta charset="utf-8"><title>ADA</title><p>Frontend não compilado. Execute <code>npm run build -w @ada/web</code> ou use <code>npm run dev:web</code>.</p>');
+        .send('<!doctype html><meta charset="utf-8"><title>Assistente</title><p>Frontend não compilado. Execute <code>npm run build -w @ada/web</code> ou use <code>npm run dev:web</code>.</p>');
     });
   }
 

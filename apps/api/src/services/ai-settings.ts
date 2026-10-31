@@ -80,7 +80,7 @@ export class AiSettingsService {
     const existing = await this.row();
     const value = p.data;
     if (value.apiKey && !this.d.config.encryptionKeyConfigured) {
-      throw invalid('Para proteger a chave da API, configure primeiro ADA_ENCRYPTION_KEY (32 bytes aleatórios em base64) no servidor da ADA.');
+      throw invalid('Para proteger a chave da API, configure primeiro ADA_ENCRYPTION_KEY (32 bytes aleatórios em base64) no servidor da assistente.');
     }
     const encrypted = value.apiKey
       ? this.d.cipher.encrypt(value.apiKey)
