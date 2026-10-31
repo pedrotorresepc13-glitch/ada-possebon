@@ -1,51 +1,54 @@
-# Integração POSSEBON Web ↔ ADA — PROPOSTA (não aplicada)
+# ADA POSSEBON — SSO isolado do MAD Builder (29/10/2026)
 
-> **Status: preparado, NÃO aplicado.** Nenhum arquivo do POSSEBON Web (produção) ou do app Flutter foi
-> modificado. O GitHub `possebon_web` não é o baseline de produção: compare com o **ZIP vivo mais recente**
-> antes de qualquer cópia. Aplicação somente com autorização explícita e janela combinada.
+**Status: branch preparada; NÃO instalada em produção.** Comparação realizada contra o ZIP `possebon_web-28-10-2026-21-31-06.zip` e a versão real das classes `ApplicationAuthenticationService`, `SystemUsers`, `SystemGroup`, `SystemGroupProgram` e `SystemUserUnit`.
 
-## O que a ADA precisa do POSSEBON
+## Alteração mínima
 
-| # | Item | Arquivo proposto | Necessário para |
-|---|------|------------------|-----------------|
-| 1 | Programas no MAD Builder: `AdaAdministracao`, `AdaGestor`, (opcional) `AdaConsolidarUnidades`, `AdaAcesso`, `AdaEmbedView` | criar pelo **Builder** (Admin › Programas) e vincular aos grupos | papéis na ADA |
-| 2 | Página de incorporação com ticket SSO | `App/control/AdaEmbedView.php` | login único no iframe |
-| 3 | Endpoint servidor-servidor de identidade | `App/custom/AdaIdentityApiTrait.php` + `AdaIntegrationService.php` | permissões autoritativas |
-| 4 | Configuração com segredos (fora do Git) | `App/config/ada.php.example` → `app/config/ada.php` | assinatura e token técnico |
-| 5 | (Opcional) revogação imediata no logout/troca de grupo | chamada HMAC a `POST /ada/api/ada/internal/revoke` | revogação < 5 min |
-| 6 | (Futuro) outbox/webhook de mudanças de OS etc. | chamada HMAC a `POST /ada/api/ada/internal/events` | monitores por evento |
+A integração utiliza o novo `app/controller/AdaApiController.php`, sem editar `ApiAppController.php`. Esse novo controlador carrega exclusivamente os traits `AdaIdentityApiTrait.php` e `AdaBrainApiTrait.php`.
 
-## Patch de rotas (App/routes/api.php)
+O único arquivo existente a ser alterado é `app/routes/api.php`, com **duas rotas adicionais**, ao final:
 
 ```php
-// ADA — identidade servidor-servidor (token técnico exclusivo; restringir IP no Apache)
 Router::group(['prefix' => '/api/ada/v1'], function () {
-    Router::get('/identity', 'ApiAppController::identidadeAda');
+    Router::get('/identity', 'AdaApiController::identidadeAda');
+    Router::post('/brain/context', 'AdaApiController::contextoBrainAda');
 });
 ```
 
-E em `ApiAppController.php`:
+O restante são **5 arquivos novos**: `AdaIntegrationService.php`, `AdaIdentityApiTrait.php`, `AdaBrainApiTrait.php`, `AdaApiController.php` e `AdaEmbedView.php`.
 
-```php
-require_once 'app/custom/AdaIdentityApiTrait.php';
-// ...
-class ApiAppController
-{
-    use AdaIdentityApiTrait;
+## Implantação protegida
+
+No Windows VS Code, a partir do repositório atualizado nesta branch:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Instalar_ADA_SSO.ps1
 ```
 
-## Checklist de validação antes de aplicar
+Isso **somente simula**: transfere um pacote temporário ao servidor, verifica o SHA-256 da rota viva, confere se as classes novas ainda não existem e executa `php -l`. Não modifica arquivos do sistema.
 
-- [ ] Conferir no baseline vivo os nomes das conexões (`permission`, `possebon_app`) e o formato de `system_group_program.actions`.
-- [ ] Confirmar a regra de **escopo gerencial** (padrão proposto: programa `AdaGestor`; alternativa: `gerencia.gerente_id`/`equipe.responsavel_id`).
-- [ ] Confirmar se usuários do app (vínculo Pessoa/Colaborador por unidade, ver `AppApiBearerMiddleware`) devem ganhar unidades além de `system_user_unit`.
-- [ ] Gerar `sso_secret` (≥ 32 bytes aleatórios) e token técnico **exclusivo da ADA** — não reutilizar o token do Mail Import.
-- [ ] Restringir `/api/ada/v1/identity` ao IP do servidor da ADA (mesmo host: 127.0.0.1).
-- [ ] `php -l` em cada arquivo; teste em homologação com dois usuários de unidades diferentes.
-- [ ] Testes de aceite da ADA: `docs/ADA_TEST_PLAN.md` § SSO/iframe.
+Depois de validar, para executar a instalação (alteração **real** de produção):
 
-## Achado de segurança no repositório `possebon_web` (GitHub)
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Instalar_ADA_SSO.ps1 -Aplicar
+```
 
-`App/config/firebase_service_account.json` está versionado e contém o campo `private_key` (o valor não
-foi lido nem copiado). Recomenda-se **revogar/rotacionar a chave no Google Cloud**, remover o arquivo do
-repositório (e do histórico) e carregá-lo apenas do servidor.
+O script Linux bloqueia se `app/routes/api.php` diferir do snapshot de 28/10 (SHA-256 `56fd9ca8bdd8c1949502970a21fa331d5d00d0705dd93b7d0dacab1d6b7a430d`) ou se qualquer arquivo novo já existir. Ele guarda backup da rota em `$HOME/ada-sso-backups`, valida a sintaxe e restaura o original em caso de erro durante a instalação. **Não reverte nem sobrescreve alterações posteriores ao backup automaticamente**: exigir nova revisão.
+
+## Regras reais de identidade
+
+- `TSession::getValue('logged')` verdadeiro, `userid` e `userunitid` positivos, unidade na lista `userunitids`.
+- O login do POSSEBON Web continua gerenciando senha/2FA.
+- Um ticket SSO de 60 segundos assinado pelo servidor, limitado a um `jti` de uso único.
+- O acesso requer `AdaEmbedView` ou `AdaAdministracao` presente nos programas do MAD Builder.
+- A identidade para cada sessão da ADA é revalidada em `permission`; unidade não autorizada e usuário inativo são recusados pela ADA.
+- Ações por grupo: `system_program.actions` (objetos JSON) ∩ `system_group_program.actions` (lista de nomes), com concedentes por programa direto em `system_user_program`. Valores ausentes não viram `*`.
+- O escopo `AdaGestor` vale apenas como marca de papel gerencial e **não** dá acesso irrestrito aos dados operacionais.
+
+## Ainda NÃO é login ativo
+
+Faltam configurar: `app/config/ada.php` no POSSEBON Web (não versionar), `ADA_SSO_HS256_SECRET`, `POSSEBON_SERVICE_TOKEN` e `POSSEBON_IDENTITY_URL` na ADA, os programas/grupos autorizados no MAD Builder e um endereço **HTTPS seguro** acessível pelo navegador para a ADA.
+
+Enquanto ela estiver em `127.0.0.1:4800`, não afirmar que o iframe remoto já permite login; teste local do endpoint servidor-servidor primeiro, e depois hospede a ADA num HTTPS apropriado. Evitar expor diretamente a porta de desenvolvimento.
+
+Não instalar nada sem validação de versão e backup. Nenhum token do Mail Import ou do HOLO deve ser reutilizado.

@@ -192,6 +192,43 @@ export const DEMO_CATALOG: Catalog = {
   }
 };
 
+/**
+ * Primeiro indicador REAL, limitado a uma fórmula que depende somente de campos
+ * conhecidos do inventário de 28/10. NÃO mede "presentes" nem "ativos":
+ * conta registros não excluídos por DATA DE CADASTRO. A fonte inicia desligada
+ * e só será ativada depois de conexão e schema validado pelo administrador.
+ */
+export const REAL_CATALOG: Catalog = {
+  dimensions: DIMENSIONS,
+  sources: {
+    'possebon.pg_readonly': {
+      id: 'possebon.pg_readonly', label: 'POSSEBON Web — PostgreSQL somente leitura',
+      kind: 'postgres_readonly', defaultStatus: 'nao_configurado', synthetic: false,
+      requiredPrograms: ['ColaboradorList'], synonyms: ['colaboradores','efetivo cadastrado']
+    }
+  },
+  metrics: {
+    'possebon.colaborador.cadastros': {
+      id: 'possebon.colaborador.cadastros',
+      label: 'Colaboradores cadastrados',
+      description: 'Quantidade de registros não excluídos em colaborador, agrupados pela data de cadastro. Não representa presenças nem quantidade de empregados ativos.',
+      formula: 'COUNT(*) FROM colaborador WHERE deletado_em IS NULL, por criado_em',
+      source: 'possebon.pg_readonly', unit: 'pessoas', table: 'public.colaborador',
+      timeColumn: 'criado_em', timeColumnType: 'timestamptz',
+      aggregate: { fn: 'count' }, where: 'f.deletado_em IS NULL',
+      dimensions: {
+        periodo: { expr: '' },
+        equipe: { expr: 'eq.nome', join: 'LEFT JOIN public.equipe eq ON eq.id=f.equipe_id AND eq.unit_id=f.unit_id' }
+      },
+      comparableWith: [], requiredPrograms: ['ColaboradorList'],
+      scopeLevel: 'unidade', sensitivity: 'interno', status: 'validado',
+      refresh: 'a cada 30 segundos com consulta direta à fonte (se conectada)',
+      synonyms: ['colaboradores cadastrados','cadastros de colaboradores','quantidade de colaboradores cadastrados'],
+      defaultChart: 'bar'
+    }
+  }
+};
+
 /** Catálogo vazio usado em produção até que métricas reais sejam validadas. */
 export const EMPTY_CATALOG: Catalog = { dimensions: DIMENSIONS, sources: {}, metrics: {} };
 

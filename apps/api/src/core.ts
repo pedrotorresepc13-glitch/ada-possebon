@@ -16,6 +16,10 @@ import { EmailService } from './services/email.ts';
 import { ChatService } from './services/chat.ts';
 import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
+import { AiSettingsService } from './services/ai-settings.ts';
+import { InitialStudyService } from './services/initial-study.ts';
+import { OperationalQueryService } from './services/operational-query.ts';
+import { OperationalBoardService } from './services/operational-boards.ts';
 
 /** Dependências compartilhadas pela API e pelo worker. */
 export interface Deps {
@@ -38,6 +42,10 @@ export interface Deps {
   email: EmailService;
   chat: ChatService;
   admin: AdminService;
+  aiSettings: AiSettingsService;
+  study: InitialStudyService;
+  operational: OperationalQueryService;
+  liveBoards: OperationalBoardService;
 }
 
 export interface DepsOverrides {
@@ -72,6 +80,8 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
     now: o.now ?? (() => new Date())
   } as Deps;
   d.catalog = new CatalogService(d);
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId));
+  d.liveBoards = new OperationalBoardService(d);
   d.sessions = new SessionService(d);
   d.dashboards = new DashboardService(d);
   d.monitors = new MonitorService(d);
@@ -82,6 +92,8 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.brain = new PossebonBrainClient(config.brain, config.possebon.serviceToken);
   d.email = new EmailService(d);
   d.chat = new ChatService(d);
+  d.aiSettings = new AiSettingsService(d, Boolean(o.ai));
+  d.study = new InitialStudyService(d);
   d.admin = new AdminService(d);
   return d;
 }

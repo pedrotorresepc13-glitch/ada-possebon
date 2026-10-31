@@ -116,6 +116,26 @@ export function DashboardView({ id }: { id: string }) {
     void load(false, {});
   }, [id]); // carregamento por id
 
+  // Atualiza os dados diretamente pelo backend, SEM chamada à IA.
+  // O servidor revalida permissões e consulta a fonte; refresh=1 ignora o cache.
+  // Polling de segurança: funciona mesmo sem triggers/outbox do POSSEBON Web.
+  useEffect(() => {
+    let busy = false;
+    const refresh = () => {
+      if (document.visibilityState !== 'visible' || busy) return;
+      busy = true;
+      void load(true).finally(() => { busy = false; });
+    };
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [load]);
+
   if (err && !dash) return <div className="content"><div className="error-box" role="alert">{err}</div></div>;
   if (!dash) return <div className="content"><div className="skeleton" style={{ height: 300 }} /></div>;
   const dimLabel: Record<string, string> = { gerencia: 'Gerência', equipe: 'Equipe', status: 'Status', categoria: 'Categoria' };
@@ -127,6 +147,7 @@ export function DashboardView({ id }: { id: string }) {
           <h1>{dash.title}</h1>
           <div className="muted small">{dash.access === 'shared' ? 'Compartilhado com você · somente leitura' : `Revisão ${dash.current_revision}`}{generatedAt ? ` · valores gerados em ${formatDateTime(generatedAt)}` : ''}</div>
         </div>
+        <span className="muted small" aria-label="Atualização automática a cada 30 segundos">⟳ Automático · 30 s</span>
         <button className="btn sm" onClick={() => void load(true)} disabled={loading} aria-label="Atualizar valores na fonte">↻ Atualizar</button>
         <a className="btn sm" href={apiUrl(`/dashboards/${id}/export.csv`)} download>Exportar CSV</a>
         <button className="btn sm" onClick={() => setHolo((v) => !v)} aria-pressed={holo}>Modo HOLO 3D</button>

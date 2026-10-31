@@ -173,6 +173,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
     const ticket = z.object({ ticket: z.string().min(20).max(4096) }).parse(body(req)).ticket;
     const s = await d.sessions.exchangeTicket(ticket, req.headers['user-agent']);
     reply.setCookie(COOKIE, s.token, cookieOpts());
+    d.study.schedule(s.ctx);
     if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(`${base}/`);
     return { ok: true };
   });
@@ -191,14 +192,19 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   app.get(`${api}/session`, async (req) => {
     const auth = await d.sessions.authenticate(req.cookies[COOKIE]);
+    if (auth) await d.aiSettings.reload();
     return auth
       ? { authenticated: true, me: me(auth.ctx, auth.csrfToken) }
       : { authenticated: false, devLogin: config.devLogin, ssoConfigured: Boolean(config.sso.hs256Secret || config.sso.ed25519PublicKey) };
   });
-  route('GET', '/me', 'user', (req, _r, ctx) => me(ctx, req.csrf!));
+  route('GET', '/me', 'user', async (req, _r, ctx) => {
+    await d.aiSettings.reload();
+    return me(ctx, req.csrf!);
+  });
   route('POST', '/session/unit', 'user', async (req, _r, ctx) => {
     const unitId = z.object({ unitId: z.number().int().positive() }).parse(body(req)).unitId;
     const fresh = await d.sessions.switchUnit(ctx, unitId);
+    d.study.schedule(fresh);
     return me(fresh, req.csrf!);
   });
   route('POST', '/session/logout', 'user', async (_req, reply, ctx) => {
@@ -257,7 +263,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- conhecimento e catálogo */
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
-  route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
+  route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
+  route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
+    route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
   route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
     const enabled = await d.catalog.enabledSourceIds();
@@ -267,6 +275,19 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
       .map((m) => ({ id: m.id, label: m.label, description: m.description, formula: m.formula, unit: m.unit, dimensions: Object.keys(m.dimensions), comparableWith: m.comparableWith, status: m.status, refresh: m.refresh }));
   });
   route('GET', '/dimensions', 'user', () => Object.values(d.catalog.catalog.dimensions));
+
+  /* ------------------------------------------------------------- POSSEBON operacional — consultas vivas */
+  route('GET', '/operational/schema', 'user', (req, _r, ctx) =>
+    d.operational.explore(ctx, String(query(req).q??''), String(query(req).table??'')));
+  route('POST', '/operational/query', 'user', (req, _r, ctx) => d.operational.query(ctx,body(req)));
+  route('GET', '/live-boards', 'user', (_req, _r, ctx) => d.liveBoards.list(ctx));
+  route('POST', '/live-boards', 'user', async (req,reply,ctx) => {
+    const board=await d.liveBoards.create(ctx,body(req));
+    reply.code(201);
+    return board;
+  });
+  route('GET', '/live-boards/:id', 'user', (req, _r, ctx) => d.liveBoards.get(ctx,params(req).id!));
+  route('GET', '/live-boards/:id/data', 'user', (req, _r, ctx) => d.liveBoards.data(ctx,params(req).id!));
 
   /* ------------------------------------------------------------- dashboards */
   route('GET', '/dashboards', 'user', (_req, _r, ctx) => d.dashboards.list(ctx));
@@ -432,7 +453,10 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('POST', '/admin/email/accounts/:id/test', 'admin', (req, _r, ctx) => d.email.test(ctx, params(req).id!));
   route('DELETE', '/admin/email/accounts/:id', 'admin', (req, _r, ctx) => d.email.remove(ctx, params(req).id!));
-  route('GET', '/admin/ai', 'admin', () => d.admin.aiSettings());
+  route('GET', '/admin/ai', 'admin', () => d.aiSettings.read());
+  route('PUT', '/admin/ai/settings', 'admin', (req, _r, ctx) => d.aiSettings.save(ctx, body(req)));
+  route('DELETE', '/admin/ai/settings', 'admin', (_req, _r, ctx) => d.aiSettings.clear(ctx));
+  route('POST', '/admin/ai/test', 'admin', (_req, _r, ctx) => d.aiSettings.test(ctx));
   route('GET', '/admin/ai/usage', 'admin', () => d.admin.usage());
   route('GET', '/admin/policies', 'admin', (_req, _r, ctx) => d.admin.policies(ctx));
   route('GET', '/admin/audit', 'admin', (req) => d.admin.auditLog(Number(query(req).limit ?? 200), query(req).action));

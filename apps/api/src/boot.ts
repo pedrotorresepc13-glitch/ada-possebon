@@ -2,6 +2,7 @@ import type { AdaConfig } from './config.ts';
 import type { Deps } from './core.ts';
 import { listMigrations, migrateUp } from './migrate.ts';
 import { seedDemo } from './seed-demo.ts';
+import { syncPublicKnowledge } from './services/public-knowledge.ts';
 
 /**
  * Preparação comum da API e do worker.
@@ -29,4 +30,10 @@ export async function prepare(d: Deps, config: AdaConfig): Promise<void> {
     }
   }
   await d.catalog.syncToDb();
+  // Caderno público editorial revisado em código. Fonte externa jamais é executada nem rastreada indiscriminadamente.
+  const publicDocs = await syncPublicKnowledge(d);
+  if (publicDocs.inserted || publicDocs.updated) {
+    d.log.info(publicDocs, 'conhecimento público POSSEBON/EPC13 indexado');
+  }
+  await d.aiSettings.reload();
 }
