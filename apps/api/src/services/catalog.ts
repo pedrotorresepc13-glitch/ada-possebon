@@ -200,6 +200,18 @@ export class CatalogService {
     await this.readonlyPg.check(unitId);
   }
 
+  private lastOperationalCheck=0;
+  /** Teste automático, somente leitura, na primeira consulta operacional. */
+  async operationalSource(unitId:number):Promise<ReadonlyPostgresConnector> {
+    if (!this.readonlyPg) throw new SourceUnavailableError('possebon.pg_readonly', 'Conexão PostgreSQL de leitura não configurada no ambiente da IA.');
+    if (Date.now()-this.lastOperationalCheck>120_000) {
+      await this.readonlyPg.check(unitId);
+      this.lastOperationalCheck=Date.now();
+      await this.d.db.query(`UPDATE ada.source_connector SET status='ativo',last_error=NULL WHERE id='possebon.pg_readonly'`);
+    }
+    return this.readonlyPg;
+  }
+
   metric(id: string): MetricDef | undefined {
     return this.catalog.metrics[id];
   }
