@@ -74,6 +74,12 @@ export class ReadonlyPostgresConnector implements SourceAdapter {
     } finally {client.release();}
   }
 
+  /** Interface interna: somente compiladores declarativos podem enviar SQL ao executor. */
+  executeRead<T=Record<string,unknown>>(sql:string,params:unknown[]=[]):Promise<{rows:T[];rowCount:number}> {
+    if (!/^SELECT\s/i.test(sql.trimStart())) throw new Error('Somente SELECT é permitido');
+    return this.query<T>(sql,params);
+  }
+
   async check(unitId:number):Promise<void> {
     const fields = await this.query<{table_name:string;column_name:string}>(
       `SELECT table_name,column_name FROM information_schema.columns
