@@ -27,6 +27,7 @@ import { HttpError, invalid } from '../errors.ts';
 import type { ToolSpec } from '../ai/provider.ts';
 import type { ConversationRow, DraftDashboard } from './conversations.ts';
 import { searchCorporateGraph } from './corporate-brain.ts';
+import { LiveBoardSpec, OperationalPlan } from './operational-query.ts';
 import type { KnowledgeHit } from './knowledge.ts';
 import type { BrainHit } from './brain.ts';
 import type { Preview } from './monitors.ts';
@@ -35,6 +36,7 @@ export interface ChatTurnMeta {
   mode: 'openai' | 'deterministico';
   dashboardDraft?: DashboardSpec;
   savedDashboardId?: string;
+  liveBoardId?: string;
   monitorProposal?: { definition: RuleDefinition; preview: Preview };
   knowledge?: KnowledgeHit[];
   brain?: BrainHit[];
@@ -263,6 +265,9 @@ export class ChatService {
         description: 'Consulta valores atuais de UMA métrica catalogada, com permissões do usuário. Retorna dados e proveniência.',
         parameters: js(z.object({ metric: z.string(), groupBy: z.array(z.string()).max(2).optional(), timeRange: TimeRange, timeGrain: z.enum(['day', 'week', 'month']).optional(), filters: z.array(DashboardFilter).max(5).optional() }))
       },
+      { name: 'explorar_tabelas', description: 'Descobre automaticamente tabelas do PostgreSQL POSSEBON, campos permitidos e FK REAIS. Use ANTES de qualquer consulta operacional sobre colaboradores, RH, TI, equipes, projetos, materiais e qualquer módulo; não depende de cadastro de métricas.', parameters: js(z.object({ termo: z.string().max(80).optional(), tabela: z.string().max(63).optional() })) },
+      { name: 'consultar_banco', description: 'Consulta dados operacionais REAIS no banco POSSEBON usando plano DECLARATIVO, NÃO SQL. A API confere nomes no schema PostgreSQL, FKs, unidade e permissões. Filtre o status de colaboradores pela regra comprovada; nunca confunda cadastro e efetivo. Use explorar_tabelas para descobrir campos.', parameters: js(OperationalPlan) },
+      { name: 'criar_tela', description: 'Cria e SALVA imediatamente uma tela corporativa viva com gráficos, indicadores e tabelas. Define vários painéis, cada um com consulta declarativa validada e atualizada automaticamente. Somente quando o usuário solicitar uma tela/dashboard.', parameters: js(LiveBoardSpec) },
       { name: 'consultar_cerebro', description: 'Pesquisa entidades e RELAÇÕES do grafo corporativo indexado (modelos, tabelas, campos, áreas, telas, módulos, documentos). Fornece fontes; não presume que nomes *_id sejam FKs validadas, nem retorna dados operacionais.', parameters: js(z.object({ termo: z.string().min(2).max(120) })) },
       { name: 'buscar_conhecimento', description: 'Pesquisa trechos em documentos corporativos indexados e no Brain. Para perguntas amplas sobre o que a IA POSSEBON sabe, prefira listar_conhecimento.', parameters: js(z.object({ consulta: z.string() })) },
       { name: 'listar_conhecimento', description: 'Mostra o catálogo REAL dos documentos estudados que o usuário pode ler na unidade atual, com origem e amostra autorizada. Use para responder sobre conhecimentos, fontes, empresa e o que já foi estudado, mesmo quando a busca textual não encontra termos.', parameters: js(z.object({})) },
@@ -283,6 +288,18 @@ export class ChatService {
     const catalog = this.d.catalog.catalog;
     const execute = async (name: string, args: unknown): Promise<unknown> => {
       switch (name) {
+        case 'explorar_tabelas': {
+          const a=z.object({termo:z.string().max(80).optional(),tabela:z.string().max(63).optional()}).parse(args);
+          return this.d.operational.explore(ctx,a.termo??'',a.tabela??'');
+        }
+        case 'consultar_banco': {
+          return this.d.operational.query(ctx,args);
+        }
+        case 'criar_tela': {
+          const board=await this.d.liveBoards.create(ctx,args);
+          meta.liveBoardId=board.id;
+          return {ok:true,id:board.id,titulo:board.title,url:'/telas/'+board.id,nota:'Tela salva, dados atualizados pelo PostgreSQL sem novas chamadas de IA.'};
+        }
         case 'buscar_catalogo': {
           const enabled = await this.d.catalog.enabledSourceIds();
           return {
@@ -410,13 +427,15 @@ export class ChatService {
       'Regras inegociáveis:',
       '1. Nunca invente números, fontes, métricas, campos ou joins. Use somente as ferramentas; se faltar dado ou permissão, diga claramente "não encontrei dados suficientes" ou que o dado está indisponível para o usuário.',
       '2. Toda resposta analítica cita fonte, filtros, unidade e horário da consulta (proveniência das ferramentas). Indique quando os dados forem SINTÉTICOS.',
-      '3. Dashboards e monitores são sempre declarativos via ferramentas. Nunca gere HTML, JavaScript, SQL ou código.',
+      '3. Telas, dashboards e monitores devem ser sempre declarativos via ferramentas; não gere SQL arbitrário nem código executável. Para NOVAS telas sobre qualquer dado do POSSEBON, use explorar_tabelas, consultar_banco e criar_tela. O catálogo legado não é obrigatório.',
       '4. Monitores: proponha com propor_monitor e explique em português o que será acompanhado; a ativação é feita pelo usuário. Pedidos fora da biblioteca: diga que requerem implementação.',
       '5. Conversas e memórias de outras pessoas são privadas e inacessíveis; recuse pedidos sobre elas.',
       '6. ' + UNTRUSTED_DATA_POLICY,
       '7. Não afirme ter estudado todas as fontes; o conhecimento é limitado aos documentos aprovados e às integrações ativas.',
       '8. Para perguntas sobre o que conhece, a história da empresa e quais documentos possui, use listar_conhecimento e busque trechos com buscar_conhecimento. Diferencie: documentos indexados, resultados efetivamente recuperados e indicadores operacionais. Nunca diga que não conhece a empresa se há fontes institucionais autorizadas disponíveis. Nunca confunda nome da empresa com dados operacionais validados.',
-      '9. Diferencie capacidades existentes no software de dados e integrações realmente disponíveis na sessão. Para indicadores, consulte buscar_catalogo; nunca prometa consultar métricas que ainda não foram catalogadas e validadas.',
+      '9. Para perguntas OPERACIONAIS (quem trabalha na TI, efetivo, RDO, materiais, compras etc.), primeiro use explorar_tabelas e consultar_banco, SEM exigir métrica predefinida. Falta de métrica no catálogo legado NÃO significa que não há dados disponíveis. Se o conector não estiver acessível, informe exatamente a dependência.',
+      '11. Consultas sobre pessoas: use apenas campos permitidos pela ferramenta e a unidade da sessão. Para equipe de TI busque vínculos de colaborador com equipe, funcao e pessoa por FKs reais; comprove o critério TI nos dados, não invente. Um registro cadastrado não implica colaborador ativo.',
+      '12. A IA entende o sistema pelo cérebro e esquema vivo; ações de escrita ainda exigem ferramentas dedicadas e autorização. Não alegue conseguir editar qualquer tabela.',
       '10. Para relacionar modelos, tabelas, campos, telas, documentos e processos, use consultar_cerebro. Cite sempre a origem técnica e não transforme nomes sugestivos em relacionamentos não verificados.',
       draft ? `Rascunho de dashboard atual nesta conversa: ${JSON.stringify(draft.spec)}` : 'Não há rascunho de dashboard nesta conversa.',
       memories ? `Preferências registradas pelo próprio usuário:\n${memories}` : '',
@@ -431,7 +450,7 @@ export class ChatService {
         input: [...history.slice(0, -1).map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
         tools: this.tools(),
         execute,
-        maxSteps: 6
+        maxSteps: 12
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
       return { text: r.text || 'Não consegui produzir uma resposta.', meta };
