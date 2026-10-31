@@ -11,9 +11,11 @@ import { forbidden } from '../errors.ts';
 const identifier = z.string().regex(/^[a-z][a-z0-9_]{0,62}$/);
 const field = z.string().regex(/^[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}$/);
 const scalar = z.union([z.string().max(300), z.number().finite(), z.boolean()]);
+// Para FKs ambiguas, a IA pode declarar explicitamente o campo de origem.
+const joinSpec = z.union([identifier, z.object({table:identifier,via:identifier}).strict()]);
 export const OperationalPlan = z.object({
   from: identifier,
-  joins: z.array(identifier).max(3).default([]),
+  joins: z.array(joinSpec).max(3).default([]),
   select: z.array(z.object({
     field, as: identifier.optional(),
     aggregate: z.enum(['count','sum','avg','min','max']).optional()
@@ -122,7 +124,7 @@ export class OperationalQueryService {
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
   private compile(planInput:unknown,s:Schema,unitId:number) {
     const p=OperationalPlan.parse(planInput);
-    const tables=[p.from,...p.joins];
+    const tables=[p.from,...p.joins.map(j=>typeof j==='string'?j:j.table)];
     if (new Set(tables).size!==tables.length) deny('tabela repetida');
     const base=s.columns.get(p.from);
     if (!base?.has('unit_id')) deny('tabela base sem unit_id');
@@ -130,10 +132,25 @@ export class OperationalQueryService {
     const aliases=new Map<string,string>([[p.from,'t0']]);
     const joins:string[]=[];
     for(let i=0;i<p.joins.length;i++){
-      const name=p.joins[i]!, cols=s.columns.get(name);
+      const join=p.joins[i]!;
+      const name=typeof join==='string'?join:join.table;
+      const via=typeof join==='string'?undefined:join.via;
+      const cols=s.columns.get(name);
       if (!cols || BLOCKED_TABLE.test(name)) deny('tabela relacionada inexistente ou restrita');
-      const relation=s.foreignKeys.find(f=>f.from_table===p.from && f.to_table===name &&
-        base!.has(f.from_col) && cols!.has(f.to_col));
+      const candidates=s.foreignKeys.filter(f=>f.from_table===p.from && f.to_table===name &&
+        base!.has(f.from_col) && cols.has(f.to_col));
+      // colaborador possui pessoa_id E empresa_id referenciando pessoa: nunca escolher
+      // a primeira FK retornada pelo PostgreSQL (ordem nao garantida).
+      let relation:ForeignKey|undefined;
+      if(via){
+        relation=candidates.find(f=>f.from_col===via);
+        if(!relation) deny('JOIN via campo sem FK confirmada: '+name+'.'+via);
+      }else{
+        const conventional=candidates.filter(f=>f.from_col===name+'_id');
+        relation=conventional.length===1?conventional[0]:
+          candidates.length===1?candidates[0]:undefined;
+        if(candidates.length>1 && !relation) deny('JOIN ambiguo para '+name+'; informe via explicitamente');
+      }
       if (!relation) deny('JOIN sem FK confirmada da tabela base');
       const alias='t'+(i+1);
       aliases.set(name,alias);
