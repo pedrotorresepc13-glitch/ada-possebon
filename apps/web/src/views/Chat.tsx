@@ -5,6 +5,7 @@ import { formatDateTime } from '@ada/domain/format';
 import { api, ApiError } from '../api.ts';
 import { useApp } from '../app-context.ts';
 import { DashboardCanvas } from '../components/DashboardCanvas.tsx';
+import { Icon } from '../components/Icon.tsx';
 
 interface Msg {
   id: string;
@@ -18,6 +19,8 @@ interface Msg {
     liveBoardId?: string;
     monitorProposal?: { definition: RuleDefinition; preview: { summary: string[]; warnings: string[] } };
     knowledge?: { title: string; source: string; excerpt: string; observedAt: string; uri: string | null }[];
+    operationalWatchProposal?:{input:unknown;summary:string};
+    operationalEvidence?:{source:string;unitId:number;queriedAt:string}[];
   };
   createdAt?: string;
 }
@@ -71,11 +74,19 @@ function MonitorProposal({ m }: { m: NonNullable<NonNullable<Msg['metadata']>['m
   );
 }
 
-export function ChatView() {
+function WatchProposal({proposal}:{proposal:{input:unknown;summary:string}}){
+  const [state,setState]=useState('idle');const [error,setError]=useState('');
+  return <div className="proposal"><strong>Acompanhar este registro</strong><p>{proposal.summary}</p>{state==='done'?<p role="status">Acompanhamento ativo. Você receberá uma notificação quando houver mudança confirmada.</p>:<button className="btn primary sm" disabled={state==='saving'} onClick={()=>{setState('saving');void api('/watches',{body:proposal.input}).then(()=>setState('done')).catch(e=>{setError((e as Error).message);setState('idle');});}}>Confirmar e acompanhar</button>}{error&&<p role="alert">{error}</p>}</div>;
+}
+
+export function ChatView({compact=false}:{compact?:boolean}) {
   const { name } = useBranding();
   const { me, theme, navigate } = useApp();
   const params = new URLSearchParams(window.location.search);
-  const [conversationId, setConversationId] = useState<string | undefined>(params.get('c') ?? undefined);
+  const storageKey='possebon:conversation:'+me.user.systemUserId+':'+me.activeUnit.id;
+  const stored=()=>{try{return sessionStorage.getItem(storageKey)??undefined;}catch{return undefined;}};
+  const [conversationId, setConversationId] = useState<string | undefined>(()=>params.get('c')??(compact?stored():undefined));
+  const [pageContext,setPageContext]=useState<{module:string;table?:string;recordId?:number}>();
   const [pendingDashboardId, setPendingDashboardId] = useState<string | undefined>(params.get('dashboard') ?? undefined);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState<DashboardSpec | null>(null);
@@ -87,7 +98,18 @@ export function ChatView() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(conversationId){try{sessionStorage.setItem(storageKey,conversationId);}catch{/* Sessão continua sem persistência do navegador. */}
+      if(compact)window.parent.postMessage({type:'possebon:conversation',id:conversationId},window.location.origin);}
+  },[conversationId,storageKey,compact]);
+  useEffect(()=>{if(!compact)return;window.parent.postMessage({type:'possebon:ready'},window.location.origin);const receive=(event:MessageEvent)=>{
+    if(event.origin!==window.location.origin||event.source!==window.parent||event.data?.type!=='possebon:context')return;
+    const data=event.data.context;
+    if(data===null){setPageContext(undefined);return;}
+    if(data&&typeof data.module==='string'&&data.module.length<=120)setPageContext({module:data.module,table:typeof data.table==='string'?data.table:undefined,recordId:Number.isSafeInteger(data.recordId)?data.recordId:undefined});
+  };window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);},[compact]);
 
+  useEffect(()=>{if(!compact)return;const key=(event:KeyboardEvent)=>{if(event.key==='Escape')window.parent.postMessage({type:'possebon:close'},window.location.origin);};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[compact]);
   const loadData = useCallback(async (spec: DashboardSpec, refresh = false) => {
     setDataLoading(true);
     setDataErr('');
@@ -139,11 +161,12 @@ export function ChatView() {
     const tmp: Msg = { id: 'tmp-' + Date.now(), role: 'user', content: message };
     setMessages((m) => [...m, tmp]);
     try {
-      const r = await api<{ conversationId: string; message: Msg }>('/chat', { body: { message, conversationId, dashboardId: conversationId ? undefined : pendingDashboardId } });
+      const r = await api<{ conversationId: string; message: Msg }>('/chat', { body: { message, conversationId, dashboardId: conversationId ? undefined : pendingDashboardId,pageContext } });
       if (!conversationId) {
         setConversationId(r.conversationId);
         window.history.replaceState(null, '', `${window.location.pathname}?c=${r.conversationId}`);
       }
+      if(!compact)window.dispatchEvent(new CustomEvent('possebon:conversation-updated',{detail:{id:r.conversationId}}));
       setPendingDashboardId(undefined);
       setMessages((m) => [...m, r.message]);
       const meta = r.message.metadata ?? {};
@@ -163,16 +186,17 @@ export function ChatView() {
 
   return (
     <>
-      <header className="topbar">
+      {!compact&&<header className="topbar">
         <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a {name}</h1>
         <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
-      </header>
+      </header>}
+      {pageContext&&<div className="compact-context">Contexto: {pageContext.module}</div>}
       <div className={`chat-layout ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
         <section className="chat-pane" aria-label="Conversa">
           <div className="messages" role="log" aria-live="polite" aria-busy={busy}>
             {messages.length === 0 && !err && (
               <div className="empty" style={{ marginTop: 20 }}>
-                <strong>Olá, {me.user.displayName.split(' ')[0]}.</strong>
+                <span className="chat-welcome-symbol"><Icon name="spark" size={30}/></span><strong>Olá, {me.user.displayName.split(' ')[0]}.</strong>
                 Pergunte sobre indicadores, peça dashboards ou crie acompanhamentos. Uso somente dados que você tem permissão para ver na unidade{' '}
                 <strong style={{ display: 'inline' }}>{me.activeUnit.name}</strong>.
                 {me.demoData && <p className="small">Este ambiente usa DADOS SINTÉTICOS de demonstração.</p>}
@@ -182,6 +206,8 @@ export function ChatView() {
               <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'assistant'}`}>
                 {m.content}
                 {m.metadata?.monitorProposal && <MonitorProposal m={m.metadata.monitorProposal} />}
+                {m.metadata?.operationalWatchProposal&&<WatchProposal proposal={m.metadata.operationalWatchProposal}/>}
+                {!!m.metadata?.operationalEvidence?.length&&<details className="query-details"><summary>Detalhes da consulta</summary>{m.metadata.operationalEvidence.map((e,i)=><p key={i}>{e.source} · Unidade {e.unitId} · {formatDateTime(e.queriedAt)}</p>)}</details>}
                 {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>Abrir tela viva criada</button></div>}
                 {m.metadata?.knowledge && m.metadata.knowledge.length > 0 && (
                   <ol className="citations" aria-label="Fontes consultadas">
@@ -194,7 +220,7 @@ export function ChatView() {
                 )}
                 {m.role === 'assistant' && (
                   <div className="msg-meta">
-                    <span>{m.metadata?.mode === 'openai' ? 'IA' : 'Interpretador determinístico'}</span>
+                    <span>{name}</span>
                     {m.createdAt && <span>{formatDateTime(m.createdAt)}</span>}
                     {m.metadata?.notes?.filter((n) => n.length > 25 && !m.content.includes(n)).map((n) => <span key={n}>· {n}</span>)}
                   </div>

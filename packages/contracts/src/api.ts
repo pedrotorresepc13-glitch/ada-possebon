@@ -21,6 +21,8 @@ export interface AuthContext {
   permissionsVersion: string;
   resolvedAt: string;
   identitySource: 'possebon' | 'dev_synthetic';
+  /** Vínculos da unidade confirmados pelo endpoint de identidade, nunca pelo navegador. */
+  workContext?: { title?: string; subjectId?: number; teamIds: number[]; reportUserIds: number[] };
 }
 export type AdaRole = 'user' | 'manager' | 'admin';
 
@@ -40,7 +42,8 @@ export const ChatRequest = z
   .object({
     conversationId: z.uuid().optional(),
     message: z.string().trim().min(1).max(4000),
-    dashboardId: z.uuid().optional()
+    dashboardId: z.uuid().optional(),
+    pageContext: z.object({module:z.string().max(120),table:z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).optional(),recordId:z.number().int().positive().optional()}).strict().optional()
   })
   .strict();
 export type ChatRequest = z.infer<typeof ChatRequest>;

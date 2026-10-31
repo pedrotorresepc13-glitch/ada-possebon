@@ -51,6 +51,20 @@ components:
           items: { type: object, properties: { controller: { type: string }, actions: { type: array, items: { type: string } } } }
         manager_unit_ids: { type: array, items: { type: integer }, description: Unidades com escopo gerencial (regra de negócio a confirmar) }
         permissions_version: { type: string, description: Muda quando qualquer permissão muda (invalida cache da ADA) }
+        work_contexts:
+          type: array
+          maxItems: 100
+          description: Vínculos autoritativos opcionais por unidade; ausência não concede escopo de equipe ou subordinados.
+          items:
+            type: object
+            additionalProperties: false
+            required: [unit_id]
+            properties:
+              unit_id: {type: integer, minimum: 1}
+              title: {type: string, maxLength: 120}
+              subject_id: {type: integer, minimum: 1, description: Identificador do colaborador}
+              team_ids: {type: array, maxItems: 500, items: {type: integer, minimum: 1}}
+              report_user_ids: {type: array, maxItems: 500, items: {type: integer, minimum: 1}, description: Identificadores de usuários subordinados}
     SsoTicket:
       description: |
         JWS compacto HS256 (ou EdDSA) emitido pelo POSSEBON para o usuário da SESSÃO, enviado por POST de

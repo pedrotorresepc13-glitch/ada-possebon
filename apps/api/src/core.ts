@@ -18,6 +18,9 @@ import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
 import { AiSettingsService } from './services/ai-settings.ts';
 import { BrandingService } from './services/branding.ts';
+import { OperationalAccessService } from './services/operational-access.ts';
+import { OperationalWatchService } from './services/operational-watches.ts';
+import { WorkspaceService } from './services/workspace.ts';
 import { InitialStudyService } from './services/initial-study.ts';
 import { CorporateMemoryService } from './services/corporate-memory.ts';
 import { OperationalQueryService } from './services/operational-query.ts';
@@ -46,6 +49,9 @@ export interface Deps {
   admin: AdminService;
   aiSettings: AiSettingsService;
   branding: BrandingService;
+  operationalAccess: OperationalAccessService;
+  watches: OperationalWatchService;
+  workspace: WorkspaceService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
   operational: OperationalQueryService;
@@ -84,8 +90,10 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
     now: o.now ?? (() => new Date())
   } as Deps;
   d.catalog = new CatalogService(d);
-  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId));
+  d.operationalAccess = new OperationalAccessService(d);
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx));
   d.liveBoards = new OperationalBoardService(d);
+  d.watches = new OperationalWatchService(d);
   d.sessions = new SessionService(d);
   d.dashboards = new DashboardService(d);
   d.monitors = new MonitorService(d);
@@ -101,6 +109,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.study = new InitialStudyService(d);
   d.corporateMemory = new CorporateMemoryService(d);
   d.admin = new AdminService(d);
+  d.workspace = new WorkspaceService(d);
   return d;
 }
 

@@ -265,6 +265,19 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
   route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
   route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
+  route('POST','/workspace/welcome','user',async(_req,_r,ctx)=>{await d.db.query('UPDATE ada.personal_workspace SET welcomed_at=now() WHERE owner_user_id=$1 AND unit_id=$2 AND conversation_id IS NOT NULL',[ctx.systemUserId,ctx.activeUnitId]);return {ok:true};});
+  route('GET','/workspace','user',(_req,_r,ctx)=>d.workspace.status(ctx));
+  route('POST','/workspace/retry','user',(req,_r,ctx)=>d.workspace.retry(ctx,z.object({restart:z.boolean().default(false)}).strict().parse(body(req)).restart));
+  route('GET','/admin/operational-access','admin',()=>d.operationalAccess.read());
+  route('PUT','/admin/operational-access','admin',(req,_r,ctx)=>d.operationalAccess.save(ctx,body(req)));
+  route('GET','/sharing/recipients','user',async(_req,_r,ctx)=>{
+    const r=await d.db.query('SELECT DISTINCT u.system_user_id AS id,u.display_name AS name FROM ada.user_identity_map u JOIN ada.permission_cache p ON p.system_user_id=u.system_user_id WHERE p.unit_id=$1 AND u.system_user_id<>$2 ORDER BY u.display_name LIMIT 100',[ctx.activeUnitId,ctx.systemUserId]);
+    return r.rows;
+  });
+  route('GET','/watches','user',(_req,_r,ctx)=>d.watches.list(ctx));
+  route('GET','/watches/:id/current','user',(req,_r,ctx)=>d.watches.current(ctx,params(req).id!));
+  route('POST','/watches','user',(req,_r,ctx)=>d.watches.create(ctx,body(req)));
+  route('PUT','/watches/:id/state','user',(req,_r,ctx)=>d.watches.setState(ctx,params(req).id!,z.object({state:z.enum(['active','paused'])}).strict().parse(body(req)).state));
     route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
   route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
@@ -288,6 +301,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('GET', '/live-boards/:id', 'user', (req, _r, ctx) => d.liveBoards.get(ctx,params(req).id!));
   route('GET', '/live-boards/:id/data', 'user', (req, _r, ctx) => d.liveBoards.data(ctx,params(req).id!));
+  route('GET','/live-boards/:id/shares','user',(req,_r,ctx)=>d.liveBoards.shares(ctx,params(req).id!));
+  route('POST','/live-boards/:id/shares','user',(req,_r,ctx)=>d.liveBoards.share(ctx,params(req).id!,z.object({userId:z.number().int().positive()}).strict().parse(body(req)).userId));
+  route('DELETE','/live-boards/:id/shares/:userId','user',(req,_r,ctx)=>d.liveBoards.unshare(ctx,params(req).id!,z.coerce.number().int().positive().parse(params(req).userId)));
 
   /* ------------------------------------------------------------- dashboards */
   route('GET', '/dashboards', 'user', (_req, _r, ctx) => d.dashboards.list(ctx));

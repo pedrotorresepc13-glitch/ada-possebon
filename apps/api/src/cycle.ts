@@ -15,6 +15,7 @@ export async function runCycle(d: Deps, workerId: string): Promise<CycleResult> 
   const inbound = await d.runner.processInbound(100);
   const runs = await d.runner.runDue(workerId, 25);
   const documents = await d.knowledge.processPending(5);
+  await d.watches.runDue(15);
   return { inbound, monitors: runs.map((r) => ({ id: r.monitorId, status: r.status, events: r.eventsCreated })), documents };
 }
 

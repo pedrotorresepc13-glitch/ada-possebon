@@ -3,6 +3,7 @@ import { businessColumnLabel, businessValue } from '@ada/domain';
 import type { AuthContext } from '@ada/contracts';
 import type { ReadonlyPostgresConnector } from './readonly-postgres.ts';
 import { forbidden } from '../errors.ts';
+import type { OperationalAccess } from './operational-access.ts';
 
 /**
  * Linguagem declarativa de consultas do POSSEBON.
@@ -57,19 +58,21 @@ const isSafeColumn = (name:string) => !BLOCKED.test(name);
 const deny = (detail:string):never => {throw forbidden('Consulta POSSEBON não autorizada: '+detail);};
 
 export class OperationalQueryService {
-  private schemaCache?: {data:Schema;until:number};
-  constructor(private readonly source: (unitId:number) => Promise<Read>) {}
+  private readonly schemaCache=new Map<number,{data:Schema;until:number}>();
+  constructor(private readonly source: (unitId:number) => Promise<Read>,
+    private readonly access?: (ctx:AuthContext)=>Promise<OperationalAccess>) {}
 
   /** Autoridade de uso: administração POSSEBON validada na sessão, nunca papel autoatribuído. */
   assertAllowed(ctx:AuthContext) {
-    if (ctx.identitySource !== 'possebon' || !ctx.roles.includes('admin') || !ctx.programs.AdaAdministracao) {
+    if (ctx.identitySource !== 'possebon' || (!this.access && (!ctx.roles.includes('admin') || !ctx.programs.AdaAdministracao))) {
       deny('motor corporativo liberado inicialmente somente para AdaAdministracao com identidade real');
     }
     if (!ctx.allowedUnitIds.includes(ctx.activeUnitId)) deny('unidade não autorizada');
   }
 
-  private async schema(source:Read):Promise<Schema> {
-    if (this.schemaCache && this.schemaCache.until>Date.now()) return this.schemaCache.data;
+  private async schema(source:Read,unitId:number):Promise<Schema> {
+    const cached=this.schemaCache.get(unitId);
+    if (cached && cached.until>Date.now()) return cached.data;
     const [columns, keys] = await Promise.all([
       source.executeRead<Column>(
         "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position"),
@@ -94,14 +97,15 @@ export class OperationalQueryService {
       map.get(c.table_name)!.set(c.column_name,c.data_type);
     }
     const data={columns:map,foreignKeys:keys.rows};
-    this.schemaCache={data,until:Date.now()+60_000};
+    this.schemaCache.set(unitId,{data,until:Date.now()+60_000});
     return data;
   }
 
   async explore(ctx:AuthContext, term='', table='') {
     this.assertAllowed(ctx);
     const source=await this.source(ctx.activeUnitId);
-    const s=await this.schema(source);
+    const policy=await this.policy(ctx);
+    const s=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
     const search=term.toLowerCase().trim().slice(0,80);
     const accessible=[...s.columns.entries()].filter(([,cols])=>cols.has('unit_id'));
     const matching=accessible.filter(([name,cols])=>
@@ -123,7 +127,7 @@ export class OperationalQueryService {
   }
 
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
-  private compile(planInput:unknown,s:Schema,unitId:number) {
+  private compile(planInput:unknown,s:Schema,unitId:number,access:OperationalAccess) {
     const p=OperationalPlan.parse(planInput);
     const tables=[p.from,...p.joins.map(j=>typeof j==='string'?j:j.table)];
     if (new Set(tables).size!==tables.length) deny('tabela repetida');
@@ -186,6 +190,13 @@ export class OperationalQueryService {
     });
     const params:unknown[]=[unitId];
     const where=['t0.unit_id = $1'];
+    if(!access.admin) for(const table of tables) {
+      const grant=access.tables[table] ?? deny('módulo não liberado para este usuário');
+      if(grant.scopeColumn && grant.scopeValues) {
+        params.push(grant.scopeValues.map(String));
+        where.push(aliases.get(table)+'.'+protect(grant.scopeColumn)+'::text = ANY($'+params.length+'::text[])');
+      }
+    }
     if(base!.has('deletado_em')) where.push('t0.deletado_em IS NULL');
     if(base!.has('deleted_at')) where.push('t0.deleted_at IS NULL');
     for(const cond of p.where){
@@ -223,7 +234,8 @@ export class OperationalQueryService {
   async query(ctx:AuthContext,raw:unknown) {
     this.assertAllowed(ctx);
     const source=await this.source(ctx.activeUnitId);
-    const compiled=this.compile(raw,await this.schema(source),ctx.activeUnitId);
+    const policy=await this.policy(ctx);
+    const compiled=this.compile(raw,this.scoped(await this.schema(source,ctx.activeUnitId),policy),ctx.activeUnitId,policy);
     const result=await source.executeRead<Record<string,unknown>>(compiled.sql,compiled.params);
     return {
       rows:result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>{
@@ -234,5 +246,19 @@ export class OperationalQueryService {
       provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:ctx.activeUnitId,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
     };
+  }
+
+  private async policy(ctx:AuthContext):Promise<OperationalAccess> {
+    return this.access ? this.access(ctx) : {admin:true,tables:{}};
+  }
+  private scoped(schema:Schema,policy:OperationalAccess):Schema {
+    if(policy.admin) return schema;
+    const columns=new Map<string,Map<string,string>>();
+    for(const [table,grant] of Object.entries(policy.tables)) {
+      const actual=schema.columns.get(table);
+      if(!actual || (grant.scopeColumn && !actual.has(grant.scopeColumn))) continue;
+      columns.set(table,new Map([...actual].filter(([c])=>c==='unit_id'||grant.columns.includes(c))));
+    }
+    return {columns,foreignKeys:schema.foreignKeys.filter(k=>columns.has(k.from_table)&&columns.has(k.to_table))};
   }
 }

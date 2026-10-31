@@ -1,3 +1,4 @@
+import { RecordWatches } from '../components/RecordWatches.tsx';
 import { useBranding } from '../branding.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { RuleDefinition } from '@ada/contracts';
@@ -73,6 +74,7 @@ export function MonitorsView() {
         <button className="btn primary sm" onClick={() => navigate('/?nova=' + Date.now())}>Criar pela conversa</button>
       </header>
       <div className="content">
+        <RecordWatches/>
         <p className="muted small">A IA apenas ajuda a escrever a regra. As verificações são feitas por um motor determinístico, sem IA, e os alertas chegam somente para você.</p>
         {msg && <div className="note-box" role="status" style={{ marginBottom: 10 }}>{msg}</div>}
         {err && <div className="error-box" role="alert" style={{ marginBottom: 10 }}>{err}</div>}

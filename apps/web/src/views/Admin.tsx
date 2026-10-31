@@ -1,3 +1,4 @@
+import { OperationalSettings } from '../components/OperationalSettings.tsx';
 import { BrandingSettings } from '../components/BrandingSettings.tsx';
 import { useBranding } from '../branding.tsx';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -12,6 +13,7 @@ const TABS = [
   ['conectores', 'Conectores'],
   ['email', 'E-mail'],
   ['ia', 'IA e custos'],
+  ['acessos', 'Acessos operacionais'],
   ['politicas', 'Políticas'],
   ['auditoria', 'Auditoria']
 ] as const;
@@ -437,7 +439,7 @@ function Audit() {
 export default function AdminView() {
   const { name } = useBranding();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>('saude');
-  const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, politicas: <Policies />, auditoria: <Audit /> };
+  const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, acessos: <OperationalSettings />, politicas: <Policies />, auditoria: <Audit /> };
   return (
     <>
       <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da {name}</h1><span className="badge">Acesso restrito</span></header>

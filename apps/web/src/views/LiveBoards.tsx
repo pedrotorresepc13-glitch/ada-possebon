@@ -1,5 +1,10 @@
+import { BoardSharing } from '../components/BoardSharing.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { BarChart,LineChart,PieChart } from 'echarts/charts';
+import { GridComponent,LegendComponent,TooltipComponent,AriaComponent } from 'echarts/components';
+import { SVGRenderer } from 'echarts/renderers';
+echarts.use([BarChart,LineChart,PieChart,GridComponent,LegendComponent,TooltipComponent,AriaComponent,SVGRenderer]);
 import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
 
@@ -11,7 +16,7 @@ type Panel={
 };
 interface Board{
   id:string;title:string;spec:{title:string;description:string;panels:unknown[]};
-  updated_at?:string;
+  updated_at?:string;owned?:boolean;
 }
 interface Data {board:Board;panels:Panel[];generatedAt:string}
 
@@ -21,7 +26,7 @@ function Graph({p}:{p:Panel}){
   useEffect(()=>{
     const node=ref.current;
     if(!node || !p.rows.length)return;
-    const obj=echarts.init(node);
+    const obj=echarts.init(node,undefined,{renderer:'svg'});
     const numeric=p.columns.filter(c=>p.rows.some(r=>typeof r[c]==='number'));
     const category=p.columns.find(c=>!numeric.includes(c))??p.columns[0]??'';
     const labels=p.rows.map((r,i)=>category&&category!==numeric[0]?fmt(r[category]):String(i+1));
@@ -105,6 +110,7 @@ export function LiveBoardDetail({id}:{id:string}){
     </header>
     <div className="content">
       {err&&<div className="error-box" role="alert">{err}</div>}
+      {d?.board.owned&&<BoardSharing id={id}/>}
       {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')} · Atualizado em {new Date(d.generatedAt).toLocaleString('pt-BR')}</p>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,440px),1fr))',gap:16}}>
           {d.panels.map((p,i)=><PanelWidget key={i} panel={p}/>)}

@@ -9,6 +9,9 @@ import { NotificationsView } from './views/Notifications.tsx';
 import { MemoryView } from './views/Memory.tsx';
 import { StudyView } from './views/Study.tsx';
 import { LiveBoardsList, LiveBoardDetail } from './views/LiveBoards.tsx';
+import { WorkspaceView } from './views/Workspace.tsx';
+import { CompactAssistant } from './components/CompactAssistant.tsx';
+import { Icon } from './components/Icon.tsx';
 
 import { BrandingProvider, useBranding } from './branding.tsx';
 
@@ -74,21 +77,22 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
 }
 
 const NAV = [
-  ['/', 'Nova conversa', '✦'],
-  ['/conversas', 'Minhas conversas', '☰'],
-  ['/dashboards', 'Meus dashboards', '▦'],
-  ['/telas', 'Telas vivas', '▤'],
-  ['/acompanhamentos', 'Acompanhamentos', '◎'],
-  ['/notificacoes', 'Notificações', '🔔'],
-  ['/memoria', 'Memória e preferências', '⚙'],
-  ['/estudo', 'O que a IA aprendeu', '◈']
+  ['/inicio', 'Meu ambiente', 'home'],
+  ['/', 'Nova conversa', 'plus'],
+  ['/conversas', 'Minhas conversas', 'chat'],
+  ['/dashboards', 'Meus dashboards', 'grid'],
+  ['/telas', 'Telas vivas', 'chart'],
+  ['/acompanhamentos', 'Acompanhamentos', 'clock'],
+  ['/notificacoes', 'Notificações', 'bell'],
+  ['/memoria', 'Memória e preferências', 'settings'],
+  ['/estudo', 'O que a IA aprendeu', 'brain']
 ] as const;
 
 function AppContent() {
   const { name } = useBranding();
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [me, setMeState] = useState<Me | null>(null);
-  const [theme, setThemeState] = useState('auto');
+  const [theme, setThemeState] = useState('light');
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [path, navigate] = useRoute();
@@ -155,18 +159,23 @@ function AppContent() {
   if (!me) return <Login info={info} onLogged={setMe} />;
 
   const go = (p: string) => {
+    if(path==='/compacto'&&window.parent!==window){window.parent.postMessage({type:'possebon:navigate',path:p},window.location.origin);return;}
     navigate(p);
     setMenuOpen(false);
   };
   let view;
   const dashMatch = /^\/dashboards\/([0-9a-f-]{36})$/.exec(path);
   const liveMatch = /^\/telas\/([0-9a-f-]{36})$/.exec(path);
-  if (path === '/' || path === '') view = <ChatView key={window.location.search} />;
+  const compact=path==='/compacto';
+  const hasConversation=new URLSearchParams(window.location.search).has('c')||new URLSearchParams(window.location.search).has('nova')||new URLSearchParams(window.location.search).has('dashboard');
+  if(compact)view=<ChatView compact key={me.user.systemUserId+':'+me.activeUnit.id}/>;
+  else if(path==='/inicio'||((path==='/'||path==='')&&!hasConversation))view=<WorkspaceView key={me.user.systemUserId+':'+me.activeUnit.id}/>;
+  else if (path === '/' || path === '') view = <ChatView key={window.location.search+me.activeUnit.id} />;
   else if (path === '/conversas') view = <ConversationsView />;
   else if (dashMatch) view = <DashboardView id={dashMatch[1]!} />;
   else if (path === '/dashboards') view = <DashboardsView />;
-  else if (liveMatch && me.isAdmin) view = <LiveBoardDetail id={liveMatch[1]!} />;
-  else if (path === '/telas' && me.isAdmin) view = <LiveBoardsList />;
+  else if (liveMatch) view = <LiveBoardDetail id={liveMatch[1]!} />;
+  else if (path === '/telas') view = <LiveBoardsList key={me.activeUnit.id}/>;
   else if (path === '/acompanhamentos') view = <MonitorsView />;
   else if (path === '/notificacoes') view = <NotificationsView />;
   else if (path === '/memoria') view = <MemoryView />;
@@ -176,27 +185,28 @@ function AppContent() {
 
   return (
     <Ctx.Provider value={{ me, theme, setTheme, navigate: go, unread, refreshUnread, setMe }}>
+      {compact?<div className="compact-app">{view}</div>:<>
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true">IA</div>
+            <div className="brand-mark" aria-hidden="true">PB</div>
             <div>
               <strong>{name}</strong>
               <small>POSSEBON · inteligência empresarial</small>
             </div>
           </div>
-          {NAV.filter(([p]) => p !== '/telas' || me.isAdmin).map(([p, label, icon]) => (
+          {NAV.map(([p, label, icon]) => (
             <a
               key={p}
               href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}${p}`}
               className="nav-item"
-              aria-current={(p === '/' ? path === '/' : path.startsWith(p)) ? 'page' : undefined}
+              aria-current={(p === '/' ? path === '/'&&hasConversation : p==='/inicio' ? path==='/inicio'||path==='/'&&!hasConversation : path.startsWith(p)) ? 'page' : undefined}
               onClick={(e) => {
                 e.preventDefault();
                 go(p === '/' ? '/?nova=' + Date.now() : p);
               }}
             >
-              <span aria-hidden="true">{icon}</span>
+              <Icon name={icon}/>
               {label}
               {p === '/notificacoes' && unread > 0 && <span className="count" aria-label={`${unread} não lidas`}>{unread}</span>}
             </a>
@@ -205,7 +215,7 @@ function AppContent() {
             <>
               <div className="nav-sep" />
               <a href="#" className="nav-item" aria-current={path.startsWith('/admin') ? 'page' : undefined} onClick={(e) => (e.preventDefault(), go('/admin'))}>
-                <span aria-hidden="true">🛡</span>Administração · {name}
+                <Icon name="shield"/>Administração
               </a>
             </>
           )}
@@ -256,6 +266,8 @@ function AppContent() {
           {view}
         </div>
       </div>
+      <CompactAssistant key={me.user.systemUserId+':'+me.activeUnit.id}/>
+      </>}
     </Ctx.Provider>
   );
 }
