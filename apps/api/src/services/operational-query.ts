@@ -128,14 +128,14 @@ export class OperationalQueryService {
       const name=p.joins[i]!, cols=s.columns.get(name);
       if (!cols || BLOCKED_TABLE.test(name)) deny('tabela relacionada inexistente ou restrita');
       const relation=s.foreignKeys.find(f=>f.from_table===p.from && f.to_table===name &&
-        base.has(f.from_col) && cols.has(f.to_col));
+        base!.has(f.from_col) && cols!.has(f.to_col));
       if (!relation) deny('JOIN sem FK confirmada da tabela base');
       const alias='t'+(i+1);
       aliases.set(name,alias);
-      const clause=[alias+'.'+protect(relation.to_col)+' = t0.'+protect(relation.from_col)];
-      if(cols.has('unit_id')) clause.push(alias+'.unit_id = t0.unit_id');
-      if(cols.has('deletado_em')) clause.push(alias+'.deletado_em IS NULL');
-      if(cols.has('deleted_at')) clause.push(alias+'.deleted_at IS NULL');
+      const clause=[alias+'.'+protect(relation!.to_col)+' = t0.'+protect(relation!.from_col)];
+      if(cols!.has('unit_id')) clause.push(alias+'.unit_id = t0.unit_id');
+      if(cols!.has('deletado_em')) clause.push(alias+'.deletado_em IS NULL');
+      if(cols!.has('deleted_at')) clause.push(alias+'.deleted_at IS NULL');
       joins.push('LEFT JOIN public.'+protect(name)+' '+alias+' ON '+clause.join(' AND '));
     }
     const resolve=(name:string) => {
@@ -143,7 +143,7 @@ export class OperationalQueryService {
       const columns=s.columns.get(table??'');
       const alias=aliases.get(table??'');
       if (!columns?.has(col??'') || !alias || !isSafeColumn(col??'')) deny('campo fora do escopo: '+name);
-      return {expression:alias+'.'+protect(col!),type:columns.get(col!)!};
+      return {expression:alias+'.'+protect(col!),type:columns!.get(col!)!};
     };
     const group=p.groupBy.map(x=>resolve(x).expression);
     const used=new Set<string>();
@@ -159,15 +159,15 @@ export class OperationalQueryService {
     });
     const params:unknown[]=[unitId];
     const where=['t0.unit_id = $1'];
-    if(base.has('deletado_em')) where.push('t0.deletado_em IS NULL');
-    if(base.has('deleted_at')) where.push('t0.deleted_at IS NULL');
+    if(base!.has('deletado_em')) where.push('t0.deletado_em IS NULL');
+    if(base!.has('deleted_at')) where.push('t0.deleted_at IS NULL');
     for(const cond of p.where){
       const f=resolve(cond.field).expression;
       if(cond.op==='is_null'||cond.op==='not_null') {where.push(f+(cond.op==='is_null'?' IS NULL':' IS NOT NULL'));continue;}
       if(cond.value===undefined) deny('filtro sem valor');
       if(cond.op==='in'){
         if(!Array.isArray(cond.value)) deny('in exige lista');
-        params.push(cond.value.map(String));
+        params.push((cond.value as (string|number|boolean)[]).map(String));
         where.push(f+'::text = ANY($'+params.length+'::text[])');
       }else if(cond.op==='contains'){
         if(Array.isArray(cond.value)) deny('busca textual exige valor único');
