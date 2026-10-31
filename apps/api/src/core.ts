@@ -18,6 +18,7 @@ import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
 import { AiSettingsService } from './services/ai-settings.ts';
 import { InitialStudyService } from './services/initial-study.ts';
+import { OperationalQueryService } from './services/operational-query.ts';
 
 /** Dependências compartilhadas pela API e pelo worker. */
 export interface Deps {
@@ -42,6 +43,7 @@ export interface Deps {
   admin: AdminService;
   aiSettings: AiSettingsService;
   study: InitialStudyService;
+  operational: OperationalQueryService;
 }
 
 export interface DepsOverrides {
@@ -76,6 +78,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
     now: o.now ?? (() => new Date())
   } as Deps;
   d.catalog = new CatalogService(d);
+  d.operational = new OperationalQueryService(() => d.catalog.operationalSource(3));
   d.sessions = new SessionService(d);
   d.dashboards = new DashboardService(d);
   d.monitors = new MonitorService(d);
