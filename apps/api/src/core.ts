@@ -18,6 +18,7 @@ import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
 import { AiSettingsService } from './services/ai-settings.ts';
 import { InitialStudyService } from './services/initial-study.ts';
+import { CorporateMemoryService } from './services/corporate-memory.ts';
 import { OperationalQueryService } from './services/operational-query.ts';
 import { OperationalBoardService } from './services/operational-boards.ts';
 
@@ -44,6 +45,7 @@ export interface Deps {
   admin: AdminService;
   aiSettings: AiSettingsService;
   study: InitialStudyService;
+  corporateMemory: CorporateMemoryService;
   operational: OperationalQueryService;
   liveBoards: OperationalBoardService;
 }
@@ -94,6 +96,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.chat = new ChatService(d);
   d.aiSettings = new AiSettingsService(d, Boolean(o.ai));
   d.study = new InitialStudyService(d);
+  d.corporateMemory = new CorporateMemoryService(d);
   d.admin = new AdminService(d);
   return d;
 }
