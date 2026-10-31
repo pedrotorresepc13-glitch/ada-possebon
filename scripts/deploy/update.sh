@@ -8,7 +8,12 @@ REF="${1:?Uso: sudo bash update.sh COMMIT_COMPLETO}"
 BASE=/opt/ada
 REPO="${ADA_REPO:-https://github.com/pedrotorresepc13-glitch/ada-possebon.git}"
 for command in git node npm pg_dump pg_restore flock systemctl runuser curl; do command -v "$command" >/dev/null; done
-[[ -f /etc/ada/ada.env && -f /etc/ada/migrate.env ]] || { echo 'Configuração existente não encontrada.'; exit 1; }
+[[ -f /etc/ada/ada.env ]] || { echo 'Configuração /etc/ada/ada.env não encontrada.'; exit 1; }
+MIGRATE_ENV=/etc/ada/migrate.env
+if [[ ! -f "$MIGRATE_ENV" ]]; then
+  MIGRATE_ENV=/etc/ada/ada.env
+  echo 'Sem migrate.env: verificarei se a conexão existente permite a migração antes de parar os serviços.'
+fi
 exec 9>/run/lock/ada-update.lock
 flock -n 9 || { echo 'Outra atualização está em andamento.'; exit 1; }
 PREVIOUS="$(readlink -f "$BASE/current")"
@@ -38,20 +43,20 @@ runuser -u ada -- git clone --quiet "$REPO" "$REL"
 runuser -u ada -- git -C "$REL" checkout --quiet --detach "$REF"
 [[ "$(git -c safe.directory="$REL" -C "$REL" rev-parse HEAD)" == "$REF" ]]
 cd "$REL"
-runuser -u ada -- npm ci --no-audit --no-fund
-runuser -u ada -- env -u DATABASE_URL -u ADA_ROOT -u ADA_ENV npm run ci
-env -u DATABASE_URL node --env-file=/etc/ada/migrate.env scripts/deploy/release-data.mjs validate
+runuser -u ada -- env HOME=/opt/ada npm ci --no-audit --no-fund
+env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs validate
+runuser -u ada -- env -u DATABASE_URL -u ADA_ROOT -u ADA_ENV HOME=/opt/ada npm run ci
 echo 'Validação concluída. Parando serviços para backup consistente e migração.'
 STOPPED=1
 systemctl stop ada-worker ada-api
 install -d -m 700 "$BACKUP"
 cp -a /etc/ada "$BACKUP/configuracao"
 printf '%s\n' "$PREVIOUS" > "$BACKUP/release-anterior.txt"
-env -u DATABASE_URL node --env-file=/etc/ada/migrate.env scripts/deploy/release-data.mjs backup "$BACKUP/ada.dump"
-env -u DATABASE_URL node --env-file=/etc/ada/migrate.env scripts/deploy/release-data.mjs snapshot "$BACKUP/dados-antes.json"
+env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs backup "$BACKUP/ada.dump"
+env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs snapshot "$BACKUP/dados-antes.json"
 sha256sum "$BACKUP/ada.dump" > "$BACKUP/ada.dump.sha256"
-env -u DATABASE_URL ADA_ROOT="$REL" ADA_ENV=production ADA_DB_DRIVER=pg node --env-file=/etc/ada/migrate.env apps/api/dist/migrate.mjs up
-env -u DATABASE_URL node --env-file=/etc/ada/migrate.env scripts/deploy/release-data.mjs verify "$BACKUP/dados-antes.json"
+env -u DATABASE_URL ADA_ROOT="$REL" ADA_ENV=production ADA_DB_DRIVER=pg node --env-file="$MIGRATE_ENV" apps/api/dist/migrate.mjs up
+env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs verify "$BACKUP/dados-antes.json"
 ln -s "$REL" "$BASE/current.new"
 mv -Tf "$BASE/current.new" "$BASE/current"
 systemctl start ada-api ada-worker

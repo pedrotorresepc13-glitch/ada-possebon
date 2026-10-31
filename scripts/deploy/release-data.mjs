@@ -2,8 +2,9 @@ import {spawnSync} from 'node:child_process';
 import {writeFileSync,readFileSync} from 'node:fs';
 import pg from 'pg';
 import {parseEnv} from 'node:util';
+import {checkMigrationAccess} from './migration-access.mjs';
 const [mode,file]=process.argv.slice(2);
-if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL ausente em migrate.env');
+if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL ausente no arquivo de configuração selecionado.');
 const url=new URL(process.env.DATABASE_URL);
 if(!['postgres:','postgresql:'].includes(url.protocol))throw new Error('Atualização exige PostgreSQL.');
 if(mode==='validate'){
@@ -11,6 +12,8 @@ if(mode==='validate'){
   if(config.ADA_DB_DRIVER==='pglite'||!config.DATABASE_URL)throw new Error('Este atualizador é exclusivo para o PostgreSQL do servidor.');
   const appUrl=new URL(config.DATABASE_URL);
   if(appUrl.hostname!==url.hostname||(appUrl.port||'5432')!==(url.port||'5432')||appUrl.pathname!==url.pathname)throw new Error('A aplicação e as migrations apontam para bancos diferentes.');
+  const client=new pg.Client({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:10000});
+  try{await client.connect();await checkMigrationAccess(client);}finally{await client.end();}
 }else if(mode==='backup'){
   const env={...process.env,PGHOST:url.hostname,PGPORT:url.port||'5432',PGDATABASE:decodeURIComponent(url.pathname.slice(1)),PGUSER:decodeURIComponent(url.username),PGPASSWORD:decodeURIComponent(url.password)};
   if(url.searchParams.has('sslmode'))env.PGSSLMODE=url.searchParams.get('sslmode');
