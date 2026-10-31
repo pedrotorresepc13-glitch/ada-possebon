@@ -14,6 +14,7 @@ interface Msg {
     notes?: string[];
     dashboardDraft?: DashboardSpec;
     savedDashboardId?: string;
+    liveBoardId?: string;
     monitorProposal?: { definition: RuleDefinition; preview: { summary: string[]; warnings: string[] } };
     knowledge?: { title: string; source: string; excerpt: string; observedAt: string; uri: string | null }[];
   };
@@ -70,7 +71,7 @@ function MonitorProposal({ m }: { m: NonNullable<NonNullable<Msg['metadata']>['m
 }
 
 export function ChatView() {
-  const { me, theme } = useApp();
+  const { me, theme, navigate } = useApp();
   const params = new URLSearchParams(window.location.search);
   const [conversationId, setConversationId] = useState<string | undefined>(params.get('c') ?? undefined);
   const [pendingDashboardId, setPendingDashboardId] = useState<string | undefined>(params.get('dashboard') ?? undefined);
@@ -179,6 +180,7 @@ export function ChatView() {
               <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'assistant'}`}>
                 {m.content}
                 {m.metadata?.monitorProposal && <MonitorProposal m={m.metadata.monitorProposal} />}
+                {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>Abrir tela viva criada</button></div>
                 {m.metadata?.knowledge && m.metadata.knowledge.length > 0 && (
                   <ol className="citations" aria-label="Fontes consultadas">
                     {m.metadata.knowledge.slice(0, 5).map((k, i) => (
