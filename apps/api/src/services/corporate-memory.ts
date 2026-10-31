@@ -41,11 +41,11 @@ export class CorporateMemoryService {
       'AND (d.valid_until IS NULL OR d.valid_until>=current_date)',
       'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]',
       "AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)",
-      "(p.document_id IS NULL OR p.source_checksum IS DISTINCT FROM d.checksum OR p.state<>'complete')",
+      "AND (p.document_id IS NULL OR p.source_checksum IS DISTINCT FROM d.checksum OR p.state<>'complete')",
       'AND EXISTS (SELECT 1 FROM ada.knowledge_chunk c WHERE c.document_id=d.id',
       'AND c.ordinal >= CASE WHEN p.source_checksum=d.checksum THEN coalesce(p.next_ordinal,0) ELSE 0 END)',
       'ORDER BY p.updated_at ASC NULLS FIRST,d.observed_at DESC,d.id LIMIT 1'
-    ].join(' AND ').replace(' AND FROM ',' FROM ').replace(' AND LEFT JOIN ',' LEFT JOIN ').replace(' AND WHERE ',' WHERE ').replace(' AND ORDER BY ',' ORDER BY '),
+    ].join(' '),
     [ctx.activeUnitId,Object.keys(ctx.programs)]);
     const doc=r.rows[0];
     if(!doc)return {processed:false,reason:'Sem documentos pendentes para esta unidade.'};
