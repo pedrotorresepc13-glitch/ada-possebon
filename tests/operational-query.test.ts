@@ -74,6 +74,31 @@ describe('consultas operacionais declarativas e telas vivas',()=>{
       select:[{field:'pessoa.nome'}]
     })).rejects.toThrow();
   });
+  it('mostra codigos de colaborador.status como situacoes compreensiveis, sem adivinhar codigos desconhecidos',async()=>{
+    const original=await service.query(ctx,{
+      from:'colaborador',
+      select:[{field:'colaborador.status',as:'status'}],
+      where:[{field:'colaborador.id',op:'eq',value:1}]
+    });
+    expect(original.rows).toEqual([{status:'Ativo'}]);
+    expect(original.labels.status).toBe('Situação');
+
+    await db.query("INSERT INTO colaborador VALUES(20,3,1,10,1,1,'D',NULL)");
+    await db.query("INSERT INTO colaborador VALUES(21,3,1,10,1,1,'G',NULL)");
+    const desligado=await service.query(ctx,{
+      from:'colaborador',
+      select:[{field:'colaborador.status',as:'situacao'}],
+      where:[{field:'colaborador.id',op:'eq',value:20}]
+    });
+    expect(desligado.rows).toEqual([{situacao:'Desligado'}]);
+    const desconhecido=await service.query(ctx,{
+      from:'colaborador',
+      select:[{field:'colaborador.status',as:'status'}],
+      where:[{field:'colaborador.id',op:'eq',value:21}]
+    });
+    expect(desconhecido.rows[0]?.status).toMatch(/Situação sem descrição cadastrada/);
+    expect(desconhecido.rows[0]?.status).not.toBe('Ativo');
+  });
   it('bloqueia usuário não administrativo, vazamentos e joins inventados',async()=>{
     await expect(service.query({...ctx,roles:['user']},{from:'colaborador',select:[{field:'colaborador.id'}]})).rejects.toThrow();
     await expect(service.query(ctx,{from:'colaborador',joins:['pessoa'],
