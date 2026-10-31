@@ -69,7 +69,7 @@ export class OperationalQueryService {
     const [columns, keys] = await Promise.all([
       source.executeRead<Column>(
         "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position"),
-      source.executeRead<ForeignKey>(String.raw\`
+      source.executeRead<ForeignKey>(String.raw`
         SELECT a.relname AS from_table, aa.attname AS from_col,
                b.relname AS to_table, bb.attname AS to_col
         FROM pg_constraint c
@@ -81,7 +81,7 @@ export class OperationalQueryService {
         JOIN pg_attribute aa ON aa.attrelid=a.oid AND aa.attnum=cols.from_att
         JOIN pg_attribute bb ON bb.attrelid=b.oid AND bb.attnum=cols.to_att
         WHERE c.contype='f' AND na.nspname='public' AND nb.nspname='public'
-      \`)
+      `)
     ]);
     const map=new Map<string,Map<string,string>>();
     for (const c of columns.rows) {
