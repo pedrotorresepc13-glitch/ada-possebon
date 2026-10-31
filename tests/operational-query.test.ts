@@ -21,13 +21,13 @@ describe('consultas operacionais declarativas e telas vivas',()=>{
       CREATE TABLE public.equipe(id integer PRIMARY KEY,unit_id integer,nome text,deletado_em timestamp);
       CREATE TABLE public.colaborador(
         id integer PRIMARY KEY,unit_id integer,pessoa_id integer REFERENCES pessoa(id),
-        funcao_id integer REFERENCES funcao(id),equipe_id integer REFERENCES equipe(id),
+        empresa_id integer REFERENCES pessoa(id),funcao_id integer REFERENCES funcao(id),equipe_id integer REFERENCES equipe(id),
         status text,deletado_em timestamp
       );
-      INSERT INTO pessoa VALUES(1,'Pessoa TI','11111111111'),(2,'Pessoa Obra','22222222222'),(3,'Outra Unidade','33333333333');
+      INSERT INTO pessoa VALUES(1,'Pessoa TI','11111111111'),(2,'Pessoa Obra','22222222222'),(3,'Outra Unidade','33333333333'),(10,'Empresa Teste','44444444000100');
       INSERT INTO funcao VALUES(1,'Analista de TI'),(2,'Pedreiro');
       INSERT INTO equipe VALUES(1,3,'Tecnologia',NULL),(2,3,'Obra',NULL),(3,4,'TI Externa',NULL);
-      INSERT INTO colaborador VALUES(1,3,1,1,1,'A',NULL),(2,3,2,2,2,'A',NULL),(3,4,3,1,3,'A',NULL);
+      INSERT INTO colaborador VALUES(1,3,1,10,1,1,'A',NULL),(2,3,2,10,2,2,'A',NULL),(3,4,3,10,1,3,'A',NULL);
     `);
     const source={executeRead:<T=Record<string,unknown>>(sql:string,params:unknown[]=[])=>
       db.query<T>(sql,params)};
@@ -52,9 +52,27 @@ describe('consultas operacionais declarativas e telas vivas',()=>{
     const a=await service.query(ctx,plan);
     expect(a.rows).toEqual([{nome:'Pessoa TI',funcao:'Analista de TI',equipe:'Tecnologia'}]);
     await db.query("INSERT INTO pessoa VALUES(4,'Pessoa Nova','44444444444')");
-    await db.query("INSERT INTO colaborador VALUES(4,3,4,1,1,'A',NULL)");
+    await db.query("INSERT INTO colaborador VALUES(4,3,4,10,1,1,'A',NULL)");
     const b=await service.query(ctx,plan);
     expect(b.rows).toHaveLength(2);
+  });
+  it('distingue pessoa_id de empresa_id em duas FKs reais para pessoa',async()=>{
+    const colaborador=await service.query(ctx,{
+      from:'colaborador',joins:['pessoa'],
+      select:[{field:'pessoa.nome',as:'nome'}],
+      where:[{field:'colaborador.id',op:'eq',value:1}]
+    });
+    expect(colaborador.rows).toEqual([{nome:'Pessoa TI'}]);
+    const empresa=await service.query(ctx,{
+      from:'colaborador',joins:[{table:'pessoa',via:'empresa_id'}],
+      select:[{field:'pessoa.nome',as:'empresa'}],
+      where:[{field:'colaborador.id',op:'eq',value:1}]
+    });
+    expect(empresa.rows).toEqual([{empresa:'Empresa Teste'}]);
+    await expect(service.query(ctx,{
+      from:'colaborador',joins:[{table:'pessoa',via:'inexistente_id'}],
+      select:[{field:'pessoa.nome'}]
+    })).rejects.toThrow();
   });
   it('bloqueia usuário não administrativo, vazamentos e joins inventados',async()=>{
     await expect(service.query({...ctx,roles:['user']},{from:'colaborador',select:[{field:'colaborador.id'}]})).rejects.toThrow();
