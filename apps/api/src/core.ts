@@ -78,7 +78,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
     now: o.now ?? (() => new Date())
   } as Deps;
   d.catalog = new CatalogService(d);
-  d.operational = new OperationalQueryService(() => d.catalog.operationalSource(3));
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId));
   d.sessions = new SessionService(d);
   d.dashboards = new DashboardService(d);
   d.monitors = new MonitorService(d);
