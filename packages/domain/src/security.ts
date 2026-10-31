@@ -103,9 +103,28 @@ export function assertSafeUrl(raw: string): URL {
 
 /* ------------------------------ Fragmentação ----------------------------- */
 
+/** Corrige texto extraído de PDFs sem destruir pares Unicode válidos.
+ * Postgres JSONB não admite code units surrogate órfãos.
+ * A fonte e seu checksum original permanecem preservados fora do índice.
+ */
+export function sanitizeUnicode(text: string): string {
+  return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, (pair) =>
+    pair.length === 2 ? pair : '\uFFFD'
+  );
+}
+
+/** Corta sem separar um par UTF-16, inclusive quando há sobreposição. */
+function unicodeSlice(text: string, start: number, end?: number): string {
+  let a = Math.max(0, start);
+  let b = end === undefined ? text.length : Math.min(text.length, end);
+  if (a > 0 && a < text.length && /[\uDC00-\uDFFF]/.test(text[a]!) && /[\uD800-\uDBFF]/.test(text[a - 1]!)) a--;
+  if (b > 0 && b < text.length && /[\uD800-\uDBFF]/.test(text[b - 1]!) && /[\uDC00-\uDFFF]/.test(text[b]!)) b++;
+  return text.slice(a, b);
+}
+
 /** Divide texto em fragmentos por parágrafo com sobreposição leve, preservando posição. */
 export function chunkText(text: string, maxChars = 1200, overlap = 150): { ordinal: number; content: string }[] {
-  const clean = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const clean = sanitizeUnicode(text).replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   if (!clean) return [];
   const paras = clean.split(/\n\n/);
   const chunks: string[] = [];
@@ -113,11 +132,11 @@ export function chunkText(text: string, maxChars = 1200, overlap = 150): { ordin
   for (const p of paras) {
     if ((cur + '\n\n' + p).length > maxChars && cur) {
       chunks.push(cur);
-      cur = cur.slice(-overlap) + '\n\n' + p;
+      cur = unicodeSlice(cur, Math.max(0, cur.length - overlap)) + '\n\n' + p;
     } else cur = cur ? cur + '\n\n' + p : p;
     while (cur.length > maxChars * 1.5) {
-      chunks.push(cur.slice(0, maxChars));
-      cur = cur.slice(maxChars - overlap);
+      chunks.push(unicodeSlice(cur, 0, maxChars));
+      cur = unicodeSlice(cur, maxChars - overlap);
     }
   }
   if (cur.trim()) chunks.push(cur);

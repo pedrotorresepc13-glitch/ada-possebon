@@ -37,7 +37,7 @@ export function ConversationsView() {
           <input id="busca-conv" className="input grow" placeholder="Buscar pelo título…" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn">Buscar</button>
         </form>
-        <p className="muted small">Suas conversas são privadas: nem gestores nem administradores têm acesso a elas pela ADA.</p>
+        <p className="muted small">Suas conversas são privadas: nem gestores nem administradores têm acesso a elas pela IA POSSEBON.</p>
         {err && <div className="error-box" role="alert">{err}</div>}
         {!items ? (
           <div className="list">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 54 }} />)}</div>

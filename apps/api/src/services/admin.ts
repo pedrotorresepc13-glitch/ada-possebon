@@ -71,15 +71,38 @@ export class AdminService {
   async testConnector(ctx: AuthContext, id: string) {
     let ok = false;
     let message = 'Conector não configurado neste ambiente. Ver docs/ADA_INTEGRACAO_POSSEBON.md.';
+    let status: IntegrationStatus = 'nao_configurado';
+
     if (id === 'possebon.identity' && this.d.identity.kind === 'possebon' && this.d.identity.status() !== 'nao_configurado') {
+      status = 'erro';
       try {
         const r = await this.d.identity.resolve(ctx.systemUserId);
         ok = Boolean(r);
-        message = ok ? 'Endpoint de identidade respondeu com o contrato v1.' : 'Endpoint respondeu, mas não reconheceu o usuário.';
+        message = ok ? 'Identidade real do POSSEBON validada para este usuário.' : 'Endpoint respondeu, mas não reconheceu o usuário.';
+      } catch (err) {
+        message = (err as Error).message;
+      }
+    } else if (id === 'possebon.brain' && this.d.brain.configured) {
+      status = 'erro';
+      try {
+        // Somente consulta read-only sob identidade, unidade e programas da sessão.
+        const hits = await this.d.brain.search(ctx, 'POSSEBON: informações institucionais e arquitetura', 3);
+        ok = true; // HTTP 200 e contrato válido; uma busca vazia não significa falha de conexão.
+        message = `Conexão Brain validada para a unidade ativa. Trechos encontrados: ${hits.length}. Isso não confirma existência de métricas operacionais.`;
+      } catch (err) {
+        message = (err as Error).message;
+      }
+    } else if (id === 'possebon.pg_readonly') {
+      status = 'erro';
+      try {
+        await this.d.catalog.checkReadonly(ctx.activeUnitId);
+        ok = true;
+        message = 'Conexão PostgreSQL SELECT e estrutura de colaborador/equipe verificadas para a unidade. Não representa validação de indicadores não cadastrados.';
       } catch (err) {
         message = (err as Error).message;
       }
     } else if (this.d.catalog.catalog.sources[id]) {
+      status = 'erro';
       try {
         await this.d.catalog.adapterFor(id);
         ok = true;
@@ -88,26 +111,13 @@ export class AdminService {
         message = (err as Error).message;
       }
     }
-    await this.d.db.query(`UPDATE ada.source_connector SET last_check_at = now(), last_error = $2 WHERE id = $1`, [id, ok ? null : message]);
+    if (ok) status = 'ativo';
+    await this.d.db.query(
+      `UPDATE ada.source_connector SET status = $2, last_check_at = now(), last_error = $3 WHERE id = $1`,
+      [id, status, ok ? null : message]
+    );
     await audit(this.d.db, { actor: ctx.systemUserId, unit: ctx.activeUnitId, action: 'conector.teste', targetType: 'connector', targetId: id, outcome: ok ? 'ok' : 'erro' });
     return { ok, message };
-  }
-
-  aiSettings() {
-    const c = this.d.config.ai;
-    return {
-      provider: this.d.ai.name,
-      configured: this.d.ai.configured,
-      model: c.model ?? null,
-      apiKeyPresent: Boolean(c.apiKey),
-      baseUrlHost: new URL(c.baseUrl).host,
-      timeoutMs: c.timeoutMs,
-      maxOutputTokens: c.maxOutputTokens,
-      dailyRequestsPerUser: c.dailyRequestsPerUser,
-      chatPerMinute: c.chatPerMinute,
-      fallback: 'interpretador determinístico (sem IA)',
-      note: 'Chaves e modelo são definidos apenas no servidor (variáveis de ambiente/cofre). Nunca pela interface.'
-    };
   }
 
   policies(ctx: AuthContext) {

@@ -7,6 +7,8 @@ import { DashboardsView, DashboardView } from './views/Dashboards.tsx';
 import { MonitorsView } from './views/Monitors.tsx';
 import { NotificationsView } from './views/Notifications.tsx';
 import { MemoryView } from './views/Memory.tsx';
+import { StudyView } from './views/Study.tsx';
+import { LiveBoardsList, LiveBoardDetail } from './views/LiveBoards.tsx';
 
 const AdminView = lazy(() => import('./views/Admin.tsx'));
 
@@ -30,13 +32,13 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
     <div className="login-wrap">
       <main className="card login-card">
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
-          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-mark" aria-hidden="true">IA</div>
           <div>
-            <strong>ADA POSSEBON</strong>
+            <strong>IA POSSEBON</strong>
             <small>Inteligência empresarial</small>
           </div>
         </div>
-        <p>Abra a ADA pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
+        <p>Abra a IA POSSEBON pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
         {!info.ssoConfigured && <p className="note-box small">O SSO com o POSSEBON ainda não está configurado neste ambiente.</p>}
         {info.devLogin && (
           <section style={{ marginTop: 16 }}>
@@ -72,9 +74,11 @@ const NAV = [
   ['/', 'Nova conversa', '✦'],
   ['/conversas', 'Minhas conversas', '☰'],
   ['/dashboards', 'Meus dashboards', '▦'],
+  ['/telas', 'Telas vivas', '▤'],
   ['/acompanhamentos', 'Acompanhamentos', '◎'],
   ['/notificacoes', 'Notificações', '🔔'],
-  ['/memoria', 'Memória e preferências', '⚙']
+  ['/memoria', 'Memória e preferências', '⚙'],
+  ['/estudo', 'O que a IA aprendeu', '◈']
 ] as const;
 
 export function App() {
@@ -152,13 +156,17 @@ export function App() {
   };
   let view;
   const dashMatch = /^\/dashboards\/([0-9a-f-]{36})$/.exec(path);
+  const liveMatch = /^\/telas\/([0-9a-f-]{36})$/.exec(path);
   if (path === '/' || path === '') view = <ChatView key={window.location.search} />;
   else if (path === '/conversas') view = <ConversationsView />;
   else if (dashMatch) view = <DashboardView id={dashMatch[1]!} />;
   else if (path === '/dashboards') view = <DashboardsView />;
+  else if (liveMatch && me.isAdmin) view = <LiveBoardDetail id={liveMatch[1]!} />;
+  else if (path === '/telas' && me.isAdmin) view = <LiveBoardsList />;
   else if (path === '/acompanhamentos') view = <MonitorsView />;
   else if (path === '/notificacoes') view = <NotificationsView />;
   else if (path === '/memoria') view = <MemoryView />;
+  else if (path === '/estudo') view = <StudyView />;
   else if (path.startsWith('/admin') && me.isAdmin) view = <Suspense fallback={<div className="content"><div className="skeleton" style={{ height: 200 }} /></div>}><AdminView /></Suspense>;
   else view = <div className="content"><div className="empty"><strong>Página não encontrada</strong>Verifique o endereço ou use o menu.</div></div>;
 
@@ -167,13 +175,13 @@ export function App() {
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true">A</div>
+            <div className="brand-mark" aria-hidden="true">IA</div>
             <div>
-              <strong>ADA</strong>
+              <strong>IA POSSEBON</strong>
               <small>POSSEBON · inteligência empresarial</small>
             </div>
           </div>
-          {NAV.map(([p, label, icon]) => (
+          {NAV.filter(([p]) => p !== '/telas' || me.isAdmin).map(([p, label, icon]) => (
             <a
               key={p}
               href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}${p}`}
@@ -193,7 +201,7 @@ export function App() {
             <>
               <div className="nav-sep" />
               <a href="#" className="nav-item" aria-current={path.startsWith('/admin') ? 'page' : undefined} onClick={(e) => (e.preventDefault(), go('/admin'))}>
-                <span aria-hidden="true">🛡</span>Administração da ADA
+                <span aria-hidden="true">🛡</span>Administração da IA POSSEBON
               </a>
             </>
           )}
@@ -233,7 +241,7 @@ export function App() {
                 setInfo({ ...info, authenticated: false });
               }}
             >
-              Sair da ADA
+              Sair da IA POSSEBON
             </button>
           </div>
         </nav>

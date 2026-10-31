@@ -7,6 +7,8 @@
  * para /ada/api/ada/session/exchange com target no iframe → ADA cria sessão própria (cookie HttpOnly)
  * e redireciona para /ada/. O ticket não aparece na URL, no histórico nem em logs de acesso.
  */
+require_once 'app/custom/AdaIntegrationService.php';
+
 class AdaEmbedView extends TPage
 {
     public function __construct()
@@ -19,7 +21,7 @@ class AdaEmbedView extends TPage
             $t = htmlspecialchars($ticket, ENT_QUOTES);
             $html = <<<HTML
 <div style="height: calc(100vh - 120px); min-height: 560px;">
-  <iframe name="ada_frame" title="ADA POSSEBON" src="about:blank"
+  <iframe name="ada_frame" title="IA POSSEBON" src="about:blank"
           style="width:100%;height:100%;border:0;border-radius:8px"
           allow="clipboard-write" referrerpolicy="same-origin"></iframe>
   <form id="ada_sso" method="post" action="{$action}" target="ada_frame" style="display:none">
@@ -28,9 +30,12 @@ class AdaEmbedView extends TPage
   <script>document.getElementById('ada_sso').submit();</script>
 </div>
 HTML;
-            parent::add($html);
-        } catch (Exception $e) {
-            new TMessage('error', 'A ADA não está disponível: ' . $e->getMessage());
+            $container = new TElement('div');
+            $container->add($html);
+            parent::add($container);
+        } catch (Throwable $e) {
+            error_log('ADA embed: ' . get_class($e) . ': ' . $e->getMessage());
+            new TMessage('error', 'A IA POSSEBON nao esta disponivel ou o usuario nao tem permissao.');
         }
     }
 }

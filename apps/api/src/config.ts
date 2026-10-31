@@ -40,6 +40,7 @@ const EnvSchema = z.object({
   POSSEBON_IDENTITY_URL: z.string().optional(),
   POSSEBON_SERVICE_TOKEN: z.string().optional(),
   POSSEBON_BRAIN_CONTEXT_URL: z.string().optional(),
+  POSSEBON_READONLY_DATABASE_URL: z.string().optional(),
   ADA_ADMIN_PROGRAM: z.string().default('AdaAdministracao'),
   ADA_MANAGER_PROGRAM: z.string().default('AdaGestor'),
   ADA_CROSSUNIT_PROGRAM: z.string().default('AdaConsolidarUnidades'),
@@ -73,9 +74,10 @@ export interface AdaConfig {
   frameAncestors: string;
   db: { driver: 'pg' | 'pglite'; url?: string; pgliteDir: string };
   encryptionKey: Buffer;
+  encryptionKeyConfigured: boolean;
   session: { ttlHours: number; idleMinutes: number; cookieSecure: boolean; sameSite: 'Lax' | 'Strict' | 'None' };
   sso: { issuer: string; audience: string; hs256Secret?: string; ed25519PublicKey?: string; maxAgeSeconds: number };
-  possebon: { identityUrl?: string; serviceToken?: string };
+  possebon: { identityUrl?: string; serviceToken?: string; readonlyUrl?: string };
   brain: { contextUrl?: string };
   programs: { admin: string; manager: string; crossUnit: string; access?: string };
   permissionTtlSeconds: number;
@@ -142,6 +144,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
     frameAncestors: normalizeSources(e.ADA_FRAME_ANCESTORS),
     db: { driver, url: e.DATABASE_URL, pgliteDir: path.resolve(REPO_ROOT, e.ADA_PGLITE_DIR) },
     encryptionKey,
+    encryptionKeyConfigured: Boolean(e.ADA_ENCRYPTION_KEY),
     session: { ttlHours: e.ADA_SESSION_TTL_HOURS, idleMinutes: e.ADA_SESSION_IDLE_MINUTES, cookieSecure, sameSite: e.ADA_COOKIE_SAMESITE },
     sso: {
       issuer: e.ADA_SSO_ISSUER,
@@ -150,7 +153,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
       ed25519PublicKey: e.ADA_SSO_ED25519_PUBLIC_KEY,
       maxAgeSeconds: e.ADA_SSO_MAX_AGE_SECONDS
     },
-    possebon: { identityUrl: e.POSSEBON_IDENTITY_URL, serviceToken: e.POSSEBON_SERVICE_TOKEN },
+    possebon: { identityUrl: e.POSSEBON_IDENTITY_URL, serviceToken: e.POSSEBON_SERVICE_TOKEN, readonlyUrl: e.POSSEBON_READONLY_DATABASE_URL },
     brain: { contextUrl: e.POSSEBON_BRAIN_CONTEXT_URL },
     programs: { admin: e.ADA_ADMIN_PROGRAM, manager: e.ADA_MANAGER_PROGRAM, crossUnit: e.ADA_CROSSUNIT_PROGRAM, access: e.ADA_ACCESS_PROGRAM },
     permissionTtlSeconds: e.ADA_PERMISSION_TTL_SECONDS,

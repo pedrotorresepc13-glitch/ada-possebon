@@ -2,7 +2,7 @@
   "name": "ada-possebon",
   "private": true,
   "version": "0.1.0",
-  "description": "ADA POSSEBON — inteligência empresarial independente, incorporável ao POSSEBON Web.",
+  "description": "IA POSSEBON — inteligência empresarial independente, incorporável ao POSSEBON Web.",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
@@ -28,7 +28,8 @@
     "build": "npm run build -w @ada/web && npm run build -w @ada/api && npm run build -w @ada/worker",
     "check:secrets": "node scripts/check-secrets.mjs",
     "ci": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:secrets",
-    "brain:import-inventory": "npm run brain:import-inventory -w @ada/api --"
+    "brain:import-inventory": "npm run brain:import-inventory -w @ada/api --",
+    "knowledge:import-epc13": "npm run knowledge:import-epc13 -w @ada/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

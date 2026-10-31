@@ -48,7 +48,7 @@ export function MemoryView() {
         {msg && <div className="note-box" role="status">{msg}</div>}
         {err && <div className="error-box" role="alert">{err}</div>}
         <section className="card">
-          <h2>O que a ADA lembra sobre você</h2>
+          <h2>O que a IA POSSEBON lembra sobre você</h2>
           <p className="muted small">Somente você vê e controla estas memórias. Elas são cifradas e usadas apenas nas suas conversas.</p>
           <form className="row" onSubmit={async (e) => {
             e.preventDefault();

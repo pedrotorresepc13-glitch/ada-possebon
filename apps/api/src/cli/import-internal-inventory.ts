@@ -9,6 +9,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { chunkText, scanForInjection } from '@ada/domain';
 import { loadConfig } from '../config.ts';
+import { syncArchitectureGraph } from '../services/corporate-brain.ts';
 import { createDeps } from '../core.ts';
 import { prepare } from '../boot.ts';
 
@@ -135,8 +136,9 @@ async function main() {
       });
     }
     await d.db.query("UPDATE ada.knowledge_source SET status='ativo',last_sync_at=now(),updated_at=now() WHERE id=$1",[sourceId]);
+    const graph = await syncArchitectureGraph(d.db, snapshot);
     console.log(JSON.stringify({
-      ok:true,classification:'interno-restrito',requiredProgram:'AdaAdministracao',
+      graph,ok:true,classification:'interno-restrito',requiredProgram:'AdaAdministracao',
       snapshot:snapshot.snapshot,documents:documents.length,inserted,updated,unchanged,
       modelCount:snapshot.models.length,containsPrivateRecords:false
     },null,2));

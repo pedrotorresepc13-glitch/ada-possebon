@@ -276,6 +276,53 @@ export class KnowledgeService {
     }));
   }
 
+  /**
+   * Índice de conhecimento disponível, não uma busca de palavras.
+   * Responde "o que você sabe?" sem depender de o usuário acertar termos do FTS.
+   * Usa a MESMA ACL por unidade/programa/validade dos trechos, não expõe
+   * documentos em revisão nem desabilitados.
+   */
+  async overview(ctx: AuthContext, limit = 20): Promise<{
+    total: number;
+    documents: Array<{
+      title: string; source: string; uri: string | null; domain: string | null;
+      observedAt: string; sensitivity: string; excerpt: string;
+    }>;
+  }> {
+    const r = await this.d.db.query<{
+      total: number; title: string; source: string; uri: string | null;
+      domain: string | null; observed_at: Date; sensitivity: string;
+      excerpt: string;
+    }>(
+      `SELECT count(*) OVER()::int AS total,
+              d.title, s.name AS source, COALESCE(s.uri, d.original_name) AS uri,
+              d.domain, d.observed_at, d.sensitivity,
+              left(COALESCE(d.extracted_text, ''), 350) AS excerpt
+       FROM ada.knowledge_document d
+       JOIN ada.knowledge_source s ON s.id = d.source_id
+       WHERE d.status = 'indexado'
+         AND s.status = 'ativo'
+         AND (d.valid_until IS NULL OR d.valid_until >= current_date)
+         AND (d.unit_id IS NULL OR d.unit_id = $1)
+         AND (d.scope <> 'unidade' OR d.unit_id = $1)
+         AND d.required_programs <@ $2::text[]
+         AND (d.sensitivity <> 'confidencial' OR cardinality(d.required_programs) > 0)
+       ORDER BY CASE WHEN d.sensitivity = 'publico' THEN 0 ELSE 1 END,
+                d.observed_at DESC, d.title ASC
+       LIMIT $3`,
+      [ctx.activeUnitId, Object.keys(ctx.programs), Math.max(1, Math.min(30, limit))]
+    );
+    return {
+      total: r.rows[0]?.total ?? 0,
+      documents: r.rows.map((d) => ({
+        title: d.title, source: d.source,
+        uri: d.uri?.startsWith('https://') ? d.uri : null,
+        domain: d.domain, observedAt: new Date(d.observed_at).toISOString(),
+        sensitivity: d.sensitivity, excerpt: d.excerpt
+      }))
+    };
+  }
+
   /** Cobertura por status e domínio — usado no painel e para a ADA nunca alegar que "estudou tudo". */
   async coverage() {
     const byStatus = await this.d.db.query(`SELECT status, count(*)::int AS n FROM ada.knowledge_document GROUP BY status ORDER BY status`);

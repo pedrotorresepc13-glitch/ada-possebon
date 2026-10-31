@@ -72,6 +72,7 @@ export async function setup(opts: { ai?: AiProvider; env?: Record<string, string
     ADA_DEV_LOGIN: '1',
     ADA_DEMO_DATA: '1',
     ADA_SSO_HS256_SECRET: SSO_SECRET,
+    ADA_ENCRYPTION_KEY: Buffer.alloc(32, 5).toString('base64'),
     ADA_INTERNAL_HMAC_SECRET: HMAC_SECRET,
     ADA_FRAME_ANCESTORS: "'self' https://possebon.exemplo.com.br",
     ADA_ALLOWED_ORIGINS: 'https://possebon.exemplo.com.br http://localhost',
