@@ -39,5 +39,24 @@ try {
     console.log('Lote '+(i+1)+': '+result.chunks+' trechos; '+result.facts+' afirmacoes; documento completo: '+result.complete);
   }
   console.log('Estudo parcial encerrado; lotes: '+studied+'; afirmacoes extraidas: '+total);
+  const coverage=await d.db.query<{indexed:number;completed:number;partial:number;facts:number}>([
+    'SELECT',
+    "(SELECT count(*)::int FROM ada.knowledge_document d WHERE d.status='indexado'",
+    'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]) AS indexed,',
+    "(SELECT count(*)::int FROM ada.corporate_study_progress p",
+    'JOIN ada.knowledge_document d ON d.id=p.document_id',
+    "WHERE p.state='complete' AND p.source_checksum=d.checksum",
+    'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]) AS completed,',
+    "(SELECT count(*)::int FROM ada.corporate_study_progress p",
+    'JOIN ada.knowledge_document d ON d.id=p.document_id',
+    "WHERE p.state='partial' AND p.source_checksum=d.checksum",
+    'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]) AS partial,',
+    '(SELECT count(*)::int FROM ada.corporate_fact f',
+    'JOIN ada.knowledge_document d ON d.id=f.document_id AND d.checksum=f.source_checksum',
+    "WHERE d.status='indexado' AND (d.unit_id IS NULL OR d.unit_id=$1)",
+    'AND d.required_programs <@ $2::text[]) AS facts'
+  ].join(' '),[unitId,Object.keys(ctx.programs)]);
+  console.log('Cobertura REAL do estudo: '+JSON.stringify(coverage.rows[0]));
+
   console.log('ATENCAO: isto NAO confirma que os documentos foram estudados integralmente.');
 } finally {await d.db.close();}
