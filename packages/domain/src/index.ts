@@ -5,3 +5,4 @@ export * from './dashboard.ts';
 export * from './rules.ts';
 export * from './security.ts';
 export * from './intent.ts';
+export * from './business-labels.ts';
