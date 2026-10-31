@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AuthContext } from '@ada/contracts';
 import type { ReadonlyPostgresConnector } from './readonly-postgres.ts';
+import { forbidden } from '../errors.ts';
 
 /**
  * Linguagem declarativa de consultas do POSSEBON.
@@ -50,7 +51,7 @@ const protect = (name:string) => {
   return quote(name);
 };
 const isSafeColumn = (name:string) => !BLOCKED.test(name);
-const deny = (detail:string):never => {throw new Error('Consulta POSSEBON não autorizada: '+detail);};
+const deny = (detail:string):never => {throw forbidden('Consulta POSSEBON não autorizada: '+detail);};
 
 export class OperationalQueryService {
   private schemaCache?: {data:Schema;until:number};
@@ -101,16 +102,17 @@ export class OperationalQueryService {
     const search=term.toLowerCase().trim().slice(0,80);
     const visible=[...s.columns.entries()].filter(([name,cols])=>
       cols.has('unit_id') && (name.includes(search)||[...cols.keys()].some(k=>k.includes(search))));
-    const matched=table ? visible.filter(([name])=>name===table) : visible.slice(0,60);
+    const matched=table ? visible.filter(([name])=>name===table) : (visible.length?visible:s.columns? [...s.columns.entries()].filter(([name,cols])=>cols.has('unit_id')).slice(0,30):[]).slice(0,60);
     return {
       totalTabelasComUnidade:visible.length,
       tabelas:matched.map(([name,cols])=>({
         nome:name,
         colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo})).slice(0,65),
         relacionamentos:s.foreignKeys.filter(k=>k.from_table===name && s.columns.has(k.to_table))
-          .map(k=>({campo:k.from_col,tabelaRelacionada:k.to_table,campoRelacionado:k.to_col})).slice(0,30)
+          .map(k=>({campo:k.from_col,tabelaRelacionada:k.to_table,campoRelacionado:k.to_col,
+            colunasRelacionadas:[...s.columns.get(k.to_table)!].filter(([col])=>isSafeColumn(col)).map(([col])=>col).slice(0,40)})).slice(0,30)
       })),
-      nota:'Somente tabelas públicas com unit_id podem iniciar consultas; tabelas relacionadas entram somente por FK real. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
+      nota:'Somente tabelas públicas com unit_id podem iniciar consultas; tabelas relacionadas entram somente por FK real. Termos como TI podem ser VALORES de equipe/funcao, não nomes de tabela. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
     };
   }
 
