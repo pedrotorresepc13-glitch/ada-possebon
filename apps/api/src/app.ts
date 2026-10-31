@@ -276,6 +276,19 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('GET', '/dimensions', 'user', () => Object.values(d.catalog.catalog.dimensions));
 
+  /* ------------------------------------------------------------- POSSEBON operacional — consultas vivas */
+  route('GET', '/operational/schema', 'user', (req, _r, ctx) =>
+    d.operational.explore(ctx, String(query(req).q??''), String(query(req).table??'')));
+  route('POST', '/operational/query', 'user', (req, _r, ctx) => d.operational.query(ctx,body(req)));
+  route('GET', '/live-boards', 'user', (_req, _r, ctx) => d.liveBoards.list(ctx));
+  route('POST', '/live-boards', 'user', async (req,reply,ctx) => {
+    const board=await d.liveBoards.create(ctx,body(req));
+    reply.code(201);
+    return board;
+  });
+  route('GET', '/live-boards/:id', 'user', (req, _r, ctx) => d.liveBoards.get(ctx,params(req).id!));
+  route('GET', '/live-boards/:id/data', 'user', (req, _r, ctx) => d.liveBoards.data(ctx,params(req).id!));
+
   /* ------------------------------------------------------------- dashboards */
   route('GET', '/dashboards', 'user', (_req, _r, ctx) => d.dashboards.list(ctx));
   route('POST', '/dashboards', 'user', async (req, reply, ctx) => {
