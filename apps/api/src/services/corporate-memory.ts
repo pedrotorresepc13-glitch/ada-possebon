@@ -139,6 +139,6 @@ export class CorporateMemoryService {
         '; observado '+new Date(f.observed_at).toISOString()+
         '; documento '+f.document_id+'\n'+
         'Sintese: '+this.d.cipher.decrypt(f.statement_enc)+'\n'+
-        'Evidencia literal: '+this.d.cipher.decrypt(f.evidence_enc)).join('\n');
+        'Evidencia literal: '+wrapUntrusted(f.title,this.d.cipher.decrypt(f.evidence_enc))).join('\n');
   }
 }
