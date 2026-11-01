@@ -19,6 +19,7 @@ const scalar = z.union([z.string().max(300), z.number().finite(), z.boolean()]);
 const joinSpec = z.union([identifier, z.object({table:identifier,via:identifier}).strict()]);
 export const OperationalPlan = z.object({
   from: identifier,
+  unitScope: z.enum(['current','all']).default('current'),
   joins: z.array(joinSpec).max(3).default([]),
   select: z.array(z.object({
     field, as: identifier.optional(),
@@ -124,7 +125,7 @@ export class OperationalQueryService {
           .map(k=>({campo:k.from_col,tabelaRelacionada:k.to_table,campoRelacionado:k.to_col,
             colunasRelacionadas:[...s.columns.get(k.to_table)!].filter(([col])=>isSafeColumn(col)).map(([col])=>col).slice(0,40)})).slice(0,30)
       })),
-      nota:'Tabelas sem unit_id exigem caminho único de FK até uma tabela com unidade; tabelas relacionadas entram somente por FK real. Termos como TI podem ser VALORES de equipe/funcao, não nomes de tabela. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
+      nota:policy.admin?'Administração POSSEBON confirmada: permite consulta de negócio de todas as unidades desta conexão, inclusive tabelas sem unit_id. Por padrão usa unidade atual quando há vínculo verificável; unitScope=all amplia explicitamente. Sem vínculo, resultados não comprovam pertencer à unidade atual. JOINs exigem FK real. Colunas pessoais e credenciais são omitidas.':'Tabelas sem unit_id exigem caminho único de FK até uma tabela com unidade; tabelas relacionadas entram somente por FK real. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
     };
   }
 
@@ -135,13 +136,13 @@ export class OperationalQueryService {
     const result=await source.executeRead<{table_name:string;can_read:boolean;has_unit:boolean}>(`SELECT c.relname AS table_name,has_table_privilege(current_user,c.oid,'SELECT') AS can_read,
       EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='unit_id' AND NOT a.attisdropped) AS has_unit
       FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=$1 AND c.relkind IN ('r','p','v','m')`,[name]);
-    const row=result.rows[0];return row?{exists:true,...row,note:'Diagnóstico da credencial real; falta de SELECT exige autorização no PostgreSQL. Falta de unit_id exige vínculo por FK ou mapeamento.'}:{exists:false,table_name:name,note:'Nome não encontrado no schema public desta conexão.'};
+    const row=result.rows[0];return row?{exists:true,...row,scope:policy.admin?'all_units':'unit',note:policy.admin?'Administração confirmada: ausência de unit_id não bloqueia consulta de negócio. A credencial PostgreSQL ainda precisa de SELECT.':'Diagnóstico da credencial real; falta de SELECT exige autorização no PostgreSQL. Falta de unit_id exige vínculo por FK ou mapeamento.'}:{exists:false,table_name:name,note:'Nome não encontrado no schema public desta conexão.'};
   }
   async processMap(ctx:AuthContext){
     this.assertAllowed(ctx);const source=await this.source(ctx.activeUnitId);const policy=await this.policy(ctx);
     const schema=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
-    const tables=[...schema.columns].map(([nome,cols])=>({nome,consultavel:findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
-    return {unitId:ctx.activeUnitId,tables,areas:[...new Set(tables.map(t=>t.area))],note:'Mapa de estrutura autorizada. Nomes classificados são pistas; dados e regras exigem consulta. Tabelas sem caminho único de unidade exigem mapeamento; constar no mapa não comprova permissão SELECT.'};
+    const tables=[...schema.columns].map(([nome,cols])=>({nome,unidadeVerificavel:findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,consultavel:policy.admin||findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
+    return {unitId:ctx.activeUnitId,scope:policy.admin?'all_units':'unit',tables,areas:[...new Set(tables.map(t=>t.area))],note:policy.admin?'Administração confirmada: todas as unidades e tabelas de negócio desta conexão, sem exigir vínculo de unidade. Constarem no mapa não comprova SELECT.':'Mapa de estrutura autorizada. Nomes classificados são pistas; dados e regras exigem consulta. Tabelas sem caminho único de unidade exigem mapeamento; constar no mapa não comprova permissão SELECT.'};
   }
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
   private compile(planInput:unknown,s:Schema,unitId:number,access:OperationalAccess) {
@@ -150,7 +151,11 @@ export class OperationalQueryService {
     if (new Set(tables).size!==tables.length) deny('tabela repetida');
     const base=s.columns.get(p.from);
     if (!base) deny('tabela base inexistente ou sem metadados acessíveis');
-    if(findUnitPath(p.from,s.columns,s.foreignKeys)===null)deny('tabela sem vínculo único de unidade; requer mapeamento: '+p.from);
+    if(p.unitScope==='all'&&!access.admin)deny('consulta entre unidades exige administração confirmada');
+    const path=findUnitPath(p.from,s.columns,s.foreignKeys);
+    if(!access.admin&&path===null)deny('tabela sem vínculo único de unidade; requer mapeamento: '+p.from);
+    const filterUnit=p.unitScope==='current'&&path!==null;
+    const scope=filterUnit?'unit':p.unitScope==='all'?'all_units':'unit_unverified';
     if (BLOCKED_TABLE.test(p.from)) deny('tabela protegida');
     const aliases=new Map<string,string>([[p.from,'t0']]);
     const joins:string[]=[];
@@ -178,7 +183,7 @@ export class OperationalQueryService {
       const alias='t'+(i+1);
       aliases.set(name,alias);
       const clause=[alias+'.'+protect(relation!.to_col)+' = t0.'+protect(relation!.from_col)];
-      if(cols!.has('unit_id')) clause.push(alias+'.unit_id = $1');
+      if(filterUnit&&cols!.has('unit_id')) clause.push(alias+'.unit_id = $1');
       if(cols!.has('deletado_em')) clause.push(alias+'.deletado_em IS NULL');
       if(cols!.has('deleted_at')) clause.push(alias+'.deleted_at IS NULL');
       joins.push('LEFT JOIN public.'+protect(name)+' '+alias+' ON '+clause.join(' AND '));
@@ -206,8 +211,8 @@ export class OperationalQueryService {
       const e=item.aggregate ? item.aggregate.toUpperCase()+'('+f.expression+')' : f.expression;
       return e+' AS '+protect(alias);
     });
-    const params:unknown[]=[unitId];
-    const where=[unitPredicate(p.from,'t0',s.columns,s.foreignKeys,protect,'$1')];
+    const params:unknown[]=filterUnit?[unitId]:[];
+    const where=filterUnit?[unitPredicate(p.from,'t0',s.columns,s.foreignKeys,protect,'$1')]:['TRUE'];
     if(!access.admin) for(const table of tables) {
       const grant=access.tables[table] ?? deny('módulo não liberado para este usuário');
       if(grant.scopeColumn && grant.scopeValues) {
@@ -246,7 +251,7 @@ export class OperationalQueryService {
       +' WHERE '+where.join(' AND ')+(group.length?' GROUP BY '+group.join(', '):'')
       +(order.length?' ORDER BY '+order.join(', '):'')
       +' LIMIT $'+params.length;
-    return {sql,params,columns:[...used],labels,sources};
+    return {sql,params,columns:[...used],labels,sources,scope};
   }
 
   async query(ctx:AuthContext,raw:unknown) {
@@ -261,7 +266,8 @@ export class OperationalQueryService {
         return [key, source && !source.aggregate ? businessValue(source.table,source.column,value) : value];
       }))),
       columns:compiled.columns, labels:compiled.labels, rowCount:result.rows.length,
-      provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:ctx.activeUnitId,
+      provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:compiled.scope==='unit'?ctx.activeUnitId:null,requestedUnitId:ctx.activeUnitId,scope:compiled.scope,
+        note:compiled.scope==='unit_unverified'?'Busca administrativa permitida, mas o vínculo destes registros com a unidade solicitada NÃO está confirmado. Verifique empresa, contrato, projeto ou outro vínculo real antes de atribuir à unidade solicitada.':undefined,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
     };
   }

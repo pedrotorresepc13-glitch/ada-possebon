@@ -12,7 +12,7 @@ type Cell=string|number|boolean|null;
 export type Panel={
   title:string;type:'table'|'kpi'|'bar'|'line'|'pie';status:string;message?:string;
   rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;
-  provenance?:{source:string;unitId:number;queriedAt:string};
+  provenance?:{source:string;unitId:number|null;scope?:string;queriedAt:string};
 };
 interface Board{
   id:string;title:string;spec:{title:string;description:string;panels:unknown[]};
@@ -63,7 +63,7 @@ export function PanelWidget({panel:p}:{panel:Panel}){
         <table className="data"><thead><tr>{p.columns.map(c=><th key={c}>{p.labels?.[c]??c}</th>)}</tr></thead>
         <tbody>{p.rows.map((r,i)=><tr key={i}>{p.columns.map(c=><td key={c}>{fmt(r[c])}</td>)}</tr>)}</tbody></table>
       </div>:<Graph p={p}/>}
-    {p.provenance&&<div className="widget-foot">Fonte: {p.provenance.source} · Unidade {p.provenance.unitId} · Consultado em {new Date(p.provenance.queriedAt).toLocaleString('pt-BR')}</div>}
+    {p.provenance&&<div className="widget-foot">Fonte: {p.provenance.source} · {p.provenance.scope==='unit_unverified'?'Vínculo com a unidade ainda não confirmado':p.provenance.scope==='all_units'?'Todas as unidades':`Unidade ${p.provenance.unitId}`} · Consultado em {new Date(p.provenance.queriedAt).toLocaleString('pt-BR')}</div>}
   </section>;
 }
 export function LiveBoardsList(){

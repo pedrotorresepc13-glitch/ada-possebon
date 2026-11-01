@@ -75,7 +75,7 @@ export class WorkspaceService {
     try {
       const map=await this.d.operational.processMap(ctx);
       processAreas=map.areas;
-      const schema={tabelas:map.tables.filter(t=>t.consultavel)};
+      const schema={tabelas:map.tables.filter(t=>t.consultavel&&t.unidadeVerificavel)};
       const hints=(ctx.workContext?.title??'')+' '+Object.keys(ctx.programs).join(' ');
       const scored=schema.tabelas.map(t=>({t,score:(labels[t.nome]?3:0)+(hints.toLowerCase().includes(t.nome)?5:0)})).sort((a,b)=>b.score-a.score||a.t.nome.localeCompare(b.t.nome));
       for(const {t} of diverseTables(scored.map(x=>x.t),6).map(t=>({t}))) {

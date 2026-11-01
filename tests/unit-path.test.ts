@@ -13,7 +13,7 @@ it('consulta item sem unidade por FK verificada e mantém o isolamento mesmo qua
  INSERT INTO projeto VALUES(1,3,NULL),(2,4,NULL),(3,3,now());
  INSERT INTO procurement VALUES(10,1,'Notebook TI'),(20,2,'Notebook outra unidade'),(30,3,'Projeto excluído');
  INSERT INTO procurement_item VALUES(100,10,'Notebook'),(200,20,'Notebook'),(300,30,'Notebook');`);
- const service=new OperationalQueryService(async()=>({executeRead:<T>(sql:string,params:unknown[]=[])=>db.query<T>(sql,params)}));
+ const service=new OperationalQueryService(async()=>({executeRead:<T>(sql:string,params:unknown[]=[])=>db.query<T>(sql,params)}),async()=>({admin:false,tables:{projeto:{columns:['id','unit_id','deletado_em']},procurement:{columns:['id','projeto_id','descricao']},procurement_item:{columns:['id','procurement_id','descricao']},ambigua:{columns:['id','origem_id','destino_id']}}}));
  const plan={from:'procurement_item',select:[{field:'procurement_item.id',as:'item'}]};
  expect((await service.query(ctx,plan)).rows).toEqual([{item:100}]);
  expect((await service.query({...ctx,activeUnitId:4,allowedUnitIds:[4]},plan)).rows).toEqual([{item:200}]);

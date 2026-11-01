@@ -42,19 +42,19 @@ describe('consultas operacionais declarativas e telas vivas',()=>{
     ]));
     expect(JSON.stringify(e)).not.toContain('documento');
   });
-  it('responde quem trabalha na TI usando dados atuais e unit_id',async()=>{
+  it('administrador consulta dados atuais de todas as unidades',async()=>{
     const plan={
-      from:'colaborador',joins:['pessoa','equipe','funcao'],
+      from:'colaborador',unitScope:'all',joins:['pessoa','equipe','funcao'],
       select:[{field:'pessoa.nome',as:'nome'},{field:'funcao.nome',as:'funcao'},{field:'equipe.nome',as:'equipe'}],
       where:[{field:'colaborador.status',op:'eq',value:'A'}],
       search:{fields:['equipe.nome','funcao.nome'],text:'TI'},limit:50
     };
     const a=await service.query(ctx,plan);
-    expect(a.rows).toEqual([{nome:'Pessoa TI',funcao:'Analista de TI',equipe:'Tecnologia'}]);
+    expect(a.rows).toEqual([{nome:'Pessoa TI',funcao:'Analista de TI',equipe:'Tecnologia'},{nome:'Outra Unidade',funcao:'Analista de TI',equipe:'TI Externa'}]);
     await db.query("INSERT INTO pessoa VALUES(4,'Pessoa Nova','44444444444')");
     await db.query("INSERT INTO colaborador VALUES(4,3,4,10,1,1,'A',NULL)");
     const b=await service.query(ctx,plan);
-    expect(b.rows).toHaveLength(2);
+    expect(b.rows).toHaveLength(3);
   });
   it('distingue pessoa_id de empresa_id em duas FKs reais para pessoa',async()=>{
     const colaborador=await service.query(ctx,{
@@ -103,7 +103,7 @@ describe('consultas operacionais declarativas e telas vivas',()=>{
     await expect(service.query({...ctx,roles:['user']},{from:'colaborador',select:[{field:'colaborador.id'}]})).rejects.toThrow();
     await expect(service.query(ctx,{from:'colaborador',joins:['pessoa'],
       select:[{field:'pessoa.documento'}]})).rejects.toThrow();
-    await expect(service.query(ctx,{from:'pessoa',select:[{field:'pessoa.nome'}]})).rejects.toThrow();
+    expect((await service.query(ctx,{from:'pessoa',select:[{field:'pessoa.nome'}]})).rows.length).toBeGreaterThan(0);
     await expect(service.query(ctx,{from:'equipe',joins:['pessoa'],
       select:[{field:'pessoa.nome'}]})).rejects.toThrow();
   });
