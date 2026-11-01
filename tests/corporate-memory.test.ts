@@ -9,7 +9,7 @@ const scripted:AiProvider={
   async run(){
     return {
       text:JSON.stringify({facts:[{
-        ordinal:0,category:'cliente',topic:'Petrobras',
+        ordinal:0,category:'clientes',topic:'Petrobras',
         statement:'Segundo o documento, o cliente contratante do consórcio EPC13 é a Petrobras.',
         evidence:excerpt,
         certainty:'documental'
