@@ -263,6 +263,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- conhecimento e catálogo */
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
+  route('GET','/corporate-base','user',(req,_r,ctx)=>d.corporateFoundation.read(ctx,z.string().max(40).optional().parse(query(req).area)));
+  route('GET','/business-dictionary','user',(_req,_r,ctx)=>d.businessDictionary.read(ctx));
+  route('PUT','/admin/business-dictionary','admin',(req,_r,ctx)=>d.businessDictionary.save(ctx,body(req)));
   route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
   route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
   route('POST','/workspace/welcome','user',async(_req,_r,ctx)=>{await d.db.query('UPDATE ada.personal_workspace SET welcomed_at=now() WHERE owner_user_id=$1 AND unit_id=$2 AND conversation_id IS NOT NULL',[ctx.systemUserId,ctx.activeUnitId]);return {ok:true};});

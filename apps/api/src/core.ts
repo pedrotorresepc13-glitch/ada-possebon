@@ -1,4 +1,6 @@
 import {WorkspaceBriefService} from './services/workspace-brief.ts';
+import {CorporateFoundationService} from './services/corporate-foundation.ts';
+import {BusinessDictionaryService} from './services/business-dictionary.ts';
 import {InstitutionalStudyService} from './services/institutional-study.ts';
 import type { AdaConfig } from './config.ts';
 import { Cipher } from './crypto.ts';
@@ -55,6 +57,8 @@ export interface Deps {
   watches: OperationalWatchService;
   workspace: WorkspaceService;
   workspaceBrief: WorkspaceBriefService;
+  corporateFoundation: CorporateFoundationService;
+  businessDictionary: BusinessDictionaryService;
   institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
@@ -95,7 +99,9 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   } as Deps;
   d.catalog = new CatalogService(d);
   d.operationalAccess = new OperationalAccessService(d);
-  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx));
+  d.corporateFoundation=new CorporateFoundationService(d);
+  d.businessDictionary=new BusinessDictionaryService(d);
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx),ctx=>d.businessDictionary.read(ctx));
   d.liveBoards = new OperationalBoardService(d);
   d.watches = new OperationalWatchService(d);
   d.sessions = new SessionService(d);

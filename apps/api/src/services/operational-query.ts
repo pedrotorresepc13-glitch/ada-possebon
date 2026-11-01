@@ -6,6 +6,7 @@ import type { AuthContext } from '@ada/contracts';
 import type { ReadonlyPostgresConnector } from './readonly-postgres.ts';
 import { forbidden } from '../errors.ts';
 import type { OperationalAccess } from './operational-access.ts';
+import {dictionaryKey} from './business-dictionary.ts';
 
 /**
  * Linguagem declarativa de consultas do POSSEBON.
@@ -63,7 +64,8 @@ const deny = (detail:string):never => {throw forbidden('Consulta POSSEBON não a
 export class OperationalQueryService {
   private readonly schemaCache=new Map<number,{data:Schema;until:number}>();
   constructor(private readonly source: (unitId:number) => Promise<Read>,
-    private readonly access?: (ctx:AuthContext)=>Promise<OperationalAccess>) {}
+    private readonly access?: (ctx:AuthContext)=>Promise<OperationalAccess>,
+    private readonly definitions?: (ctx:AuthContext)=>Promise<{table:string;column:string;code:string;label:string;documentId:string;checksum:string}[]>) {}
 
   /** Autoridade de uso: administração POSSEBON validada na sessão, nunca papel autoatribuído. */
   assertAllowed(ctx:AuthContext) {
@@ -260,12 +262,23 @@ export class OperationalQueryService {
     const policy=await this.policy(ctx);
     const compiled=this.compile(raw,this.scoped(await this.schema(source,ctx.activeUnitId),policy),ctx.activeUnitId,policy);
     const result=await source.executeRead<Record<string,unknown>>(compiled.sql,compiled.params);
+    const definitions=this.definitions?await this.definitions(ctx):[];
+    const dictionary=new Map(definitions.map(d=>[dictionaryKey(d.table,d.column,d.code),d]));
+    const codes=new Map<string,unknown>();
     return {
       rows:result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>{
         const source=compiled.sources[key];
-        return [key, source && !source.aggregate ? businessValue(source.table,source.column,value) : value];
+        if(!source||source.aggregate||value==null)return [key,value];
+        const definition=dictionary.get(dictionaryKey(source.table,source.column,String(value)));
+        const displayed=definition?.label??businessValue(source.table,source.column,value);
+        if(typeof value==='string'&&/(^|_)(status|situacao|situation|state)(_|$)/i.test(source.column)){
+          const unknown=displayed===value||String(displayed).startsWith('Situação sem descrição');
+          codes.set(dictionaryKey(source.table,source.column,value),{table:source.table,column:source.column,code:value,label:unknown?null:displayed,verified:Boolean(definition)||!unknown,documentId:definition?.documentId,checksum:definition?.checksum});
+        }
+        return [key,displayed];
       }))),
       columns:compiled.columns, labels:compiled.labels, rowCount:result.rows.length,
+      codeDefinitions:[...codes.values()].slice(0,40),codeDefinitionsTruncated:codes.size>40,
       provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:compiled.scope==='unit'?ctx.activeUnitId:null,requestedUnitId:ctx.activeUnitId,scope:compiled.scope,
         note:compiled.scope==='unit_unverified'?'Busca administrativa permitida, mas o vínculo destes registros com a unidade solicitada NÃO está confirmado. Verifique empresa, contrato, projeto ou outro vínculo real antes de atribuir à unidade solicitada.':undefined,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
