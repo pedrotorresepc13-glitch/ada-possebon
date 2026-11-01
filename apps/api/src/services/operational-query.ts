@@ -1,3 +1,4 @@
+import {processArea} from './process-map.ts';
 import { z } from 'zod';
 import { businessColumnLabel, businessValue } from '@ada/domain';
 import type { AuthContext } from '@ada/contracts';
@@ -126,6 +127,12 @@ export class OperationalQueryService {
     };
   }
 
+  async processMap(ctx:AuthContext){
+    this.assertAllowed(ctx);const source=await this.source(ctx.activeUnitId);const policy=await this.policy(ctx);
+    const schema=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
+    const tables=[...schema.columns].filter(([,cols])=>cols.has('unit_id')).map(([nome,cols])=>({nome,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
+    return {unitId:ctx.activeUnitId,tables,areas:[...new Set(tables.map(t=>t.area))],note:'Mapa de estrutura autorizada. Nomes classificados são pistas; dados e regras exigem consulta. Tabelas sem unit_id não podem iniciar consultas.'};
+  }
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
   private compile(planInput:unknown,s:Schema,unitId:number,access:OperationalAccess) {
     const p=OperationalPlan.parse(planInput);

@@ -1,3 +1,4 @@
+import {InstitutionalStudy} from '../components/InstitutionalStudy.tsx';
 import {PanelWidget,type Panel} from './LiveBoards.tsx';
 import { useCallback,useEffect,useState } from 'react';
 import { api } from '../api.ts';
@@ -45,12 +46,13 @@ export function WorkspaceView() {
       {me.demoData&&<p className="note-box small">Ambiente de demonstração. Os indicadores abaixo usam dados fictícios.</p>}
       {error&&<div className="error-box" role="alert">{error}<button className="btn sm" onClick={()=>void load()}>Tentar novamente</button></div>}
       <section className="overview-cards" aria-label="Seu contexto confirmado">
-        <article className="summary-card"><span className="summary-icon"><Icon name="shield"/></span><span>Áreas autorizadas</span><strong>{workspace?.profile?.programs.length??'—'}</strong><small>Permissões confirmadas no POSSEBON</small></article>
+        <article className="summary-card"><span className="summary-icon"><Icon name="shield"/></span><span>Programas autorizados</span><strong>{workspace?.profile?.programs.length??'—'}</strong><small>Permissões confirmadas no POSSEBON</small></article>
         <article className="summary-card"><span className="summary-icon"><Icon name="chart"/></span><span>Informações preparadas</span><strong>{completed}</strong><small>{working?'Validação em andamento':'Consultas conferidas para seu perfil'}</small></article>
         <article className="summary-card"><span className="summary-icon"><Icon name="brain"/></span><span>Conhecimento disponível</span><strong>{workspace?.profile?.documents??'—'}</strong><small>Documentos acessíveis na unidade</small></article>
         <article className="summary-card"><span className="summary-icon"><Icon name="home"/></span><span>Seu contexto</span><strong className="summary-text">{workspace?.profile?.title??workspace?.profile?.role??'Preparando'}</strong><small>{workspace?.profile?.teams?`${workspace.profile.teams} equipes vinculadas`:'Conforme seus acessos e vínculos'}</small></article>
       </section>
-      <div className="workspace-columns"><section className="workspace-main">
+      <InstitutionalStudy/>
+      <div className="workspace-columns" style={{marginTop:24}}><section className="workspace-main">
         <div className="section-heading"><div><span className="eyebrow">INFORMAÇÕES DO SEU DIA</span><h2>Seu panorama</h2></div>{workspace?.dashboardId&&<button className="btn ghost sm" onClick={()=>navigate('/dashboards/'+workspace.dashboardId)}>Abrir dashboard<Icon name="arrow" size={16}/></button>}</div>
         {dashboard?<DashboardCanvas spec={dashboard.spec} data={dashboard.data} theme={theme}/>:operational.length?<div className="grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))'}}>{operational.map((p,i)=><PanelWidget key={i} panel={p}/>)}</div>:<section className="card preparation-card" aria-busy={working}><span className="preparation-icon"><Icon name={working?'spark':'chart'} size={28}/></span><h3>{working?'Estou preparando seu ambiente':'Seu espaço está organizado'}</h3><p>{working?'Conferindo seus acessos e validando as informações úteis para você. Cada etapa concluída fica salva.':'Os indicadores aparecem quando as fontes estiverem conectadas e autorizadas para seu perfil. Você já pode conversar e consultar seus documentos.'}</p></section>}
         {workspace?.liveBoardId&&<button className="live-board-callout" onClick={()=>navigate('/telas/'+workspace.liveBoardId)}><span className="summary-icon"><Icon name="chart"/></span><span><strong>Panorama operacional</strong><small>Abra suas tabelas e indicadores com atualização automática.</small></span><Icon name="arrow"/></button>}

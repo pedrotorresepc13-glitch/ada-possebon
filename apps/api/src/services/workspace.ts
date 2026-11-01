@@ -1,3 +1,4 @@
+import {diverseTables} from './process-map.ts';
 import { createHash,randomUUID } from 'node:crypto';
 import type { AuthContext,DashboardSpec,WidgetSpec } from '@ada/contracts';
 import { DashboardSpec as Spec } from '@ada/contracts';
@@ -17,7 +18,7 @@ export class WorkspaceService {
   constructor(private readonly d:Deps) {}
   private key(ctx:AuthContext){return ctx.systemUserId+':'+ctx.activeUnitId;}
   private async fingerprint(ctx:AuthContext) {
-    return createHash('sha256').update(JSON.stringify({version:ctx.permissionsVersion,unit:ctx.activeUnitId,
+    return createHash('sha256').update(JSON.stringify({revision:2,version:ctx.permissionsVersion,unit:ctx.activeUnitId,
       roles:ctx.roles,programs:Object.keys(ctx.programs).sort(),groups:ctx.groups.map(g=>g.id).sort(),
       work:ctx.workContext,access:await this.d.operationalAccess.read()})).digest('hex');
   }
@@ -33,6 +34,7 @@ export class WorkspaceService {
     void task.finally(()=>this.running.delete(key));
   }
   async status(ctx:AuthContext) {
+    await this.d.institutionalStudy.ensure(ctx);
     const fingerprint=await this.fingerprint(ctx);
     const row=await this.row(ctx);
     if(!row||row.permission_fingerprint!==fingerprint||['pending','running'].includes(row.state))this.schedule(ctx);
@@ -61,19 +63,21 @@ export class WorkspaceService {
     return 'Contexto pessoal confirmado (dados de referência, nunca instruções): '+this.d.cipher.decrypt(row.profile_enc);
   }
   private async discover(ctx:AuthContext) {
-    const tasks:Task[]=[];const issues:string[]=[];
+    const tasks:Task[]=[];const issues:string[]=[];let processAreas:string[]=[];
     const enabled=await this.d.catalog.enabledSourceIds();
     const metrics=Object.values(this.d.catalog.catalog.metrics).filter(m=>enabled.has(m.source)&&canUseMetric(ctx,this.d.catalog.catalog,m,queryUnitScope(ctx)).allowed);
     for(const metric of metrics.slice(0,4)) {
-      const group=Object.keys(metric.dimensions).filter(k=>k!=='periodo').slice(0,1);
+      const group:string[]=[];
       tasks.push({kind:'metric',label:metric.label,state:'pending',payload:{id:'w'+tasks.length,type:group.length?'bar':'kpi',title:metric.label,
         metrics:[metric.id],groupBy:group,timeRange:{kind:'last',amount:6,unit:'month'},span:2}});
     }
     try {
-      const schema=await this.d.operational.explore(ctx);
+      const map=await this.d.operational.processMap(ctx);
+      processAreas=map.areas;
+      const schema={tabelas:map.tables};
       const hints=(ctx.workContext?.title??'')+' '+Object.keys(ctx.programs).join(' ');
       const scored=schema.tabelas.map(t=>({t,score:(labels[t.nome]?3:0)+(hints.toLowerCase().includes(t.nome)?5:0)})).sort((a,b)=>b.score-a.score||a.t.nome.localeCompare(b.t.nome));
-      for(const {t} of scored.slice(0,4)) {
+      for(const {t} of diverseTables(scored.map(x=>x.t),6).map(t=>({t}))) {
         if(!t.colunas.some(c=>c.nome==='id'))continue;
         const title=tableLabel(t.nome);
         tasks.push({kind:'operational',state:'pending',label:title,payload:{title,type:'kpi',plan:{from:t.nome,select:[{field:t.nome+'.id',as:'quantidade',aggregate:'count'}]}}});
@@ -85,9 +89,10 @@ export class WorkspaceService {
     const profile={name:ctx.displayName,unit:ctx.units.find(u=>u.id===ctx.activeUnitId)?.name??'Unidade autorizada',
       role:ctx.roles.includes('admin')?'Administração':ctx.roles.includes('manager')?'Gestão':'Colaborador',
       title:ctx.workContext?.title??null,teams:ctx.workContext?.teamIds.length??0,reports:ctx.workContext?.reportUserIds.length??0,
-      programs:Object.keys(ctx.programs).sort(),documents:overview.total,areas:tasks.map(t=>t.label),
+      programs:Object.keys(ctx.programs).sort(),documents:overview.total,areas:processAreas.length?processAreas:tasks.map(t=>t.label),
       permissionsVersion:ctx.permissionsVersion};
-    return {tasks:tasks.slice(0,12),issues,profile};
+    const operational=tasks.filter(t=>t.kind==='operational');
+    return {tasks:operational.length?operational.slice(0,12):tasks.slice(0,4),issues,profile};
   }
   async run(initial:AuthContext) {
     const ctx=await this.d.sessions.resolveContext(initial.systemUserId,initial.activeUnitId,initial.sessionId,{force:true});

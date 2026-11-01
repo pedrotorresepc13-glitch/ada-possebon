@@ -1,3 +1,4 @@
+import {InstitutionalStudyService} from './services/institutional-study.ts';
 import type { AdaConfig } from './config.ts';
 import { Cipher } from './crypto.ts';
 import { createDb, type Db } from './db.ts';
@@ -52,6 +53,7 @@ export interface Deps {
   operationalAccess: OperationalAccessService;
   watches: OperationalWatchService;
   workspace: WorkspaceService;
+  institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
   operational: OperationalQueryService;
@@ -110,6 +112,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.corporateMemory = new CorporateMemoryService(d);
   d.admin = new AdminService(d);
   d.workspace = new WorkspaceService(d);
+  d.institutionalStudy = new InstitutionalStudyService(d);
   return d;
 }
 

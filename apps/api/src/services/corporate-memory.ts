@@ -115,6 +115,10 @@ export class CorporateMemoryService {
     const terms=question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .split(/[^a-z0-9]+/).filter(t=>t.length>=4).slice(0,8);
     if(!terms.length)return '';
+    const categories:string[]=[];
+    if(/cliente|contratante/i.test(question))categories.push('cliente');
+    if(/empresa|possebon|cons[oó]rcio|epc/i.test(question))categories.push('empresa','consorcio','empreendimento');
+    if(/contrato|obriga|prazo|escopo|objetivo/i.test(question))categories.push('contrato','obrigacao','prazo','escopo','objetivo');
     const pattern=terms.map(t=>'%'+t.replace(/[\\%_]/g,'\\$&')+'%');
     const r=await this.d.db.query<{
       title:string;statement_enc:string;evidence_enc:string;category:string;
@@ -129,9 +133,9 @@ export class CorporateMemoryService {
       'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]',
       "AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)",
       'AND (f.unit_id IS NULL OR f.unit_id=$1) AND f.required_programs <@ $2::text[]',
-      "AND f.review_state<>'rejeitado' AND f.topic ILIKE ANY($3::text[])",
+      "AND f.review_state<>'rejeitado' AND (f.topic ILIKE ANY($3::text[]) OR f.category=ANY($4::text[]))",
       'ORDER BY CASE f.review_state WHEN \'validado\' THEN 0 ELSE 1 END,f.observed_at DESC LIMIT 8'
-    ].join(' '),[ctx.activeUnitId,Object.keys(ctx.programs),pattern]);
+    ].join(' '),[ctx.activeUnitId,Object.keys(ctx.programs),pattern,categories]);
     if(!r.rows.length)return '';
     return 'CADERNO CORPORATIVO: afirmar somente o que a fonte sustenta; hipoteses nao sao fatos, e documentos antigos nao representam estado atual.\n'+
       r.rows.map((f,i)=>'Referencia '+(i+1)+': '+f.title+'; categoria '+f.category+

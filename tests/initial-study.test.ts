@@ -25,7 +25,7 @@ describe('estudo inicial privado no login e por unidade', () => {
     expect(response.json.authorizedPrograms).toContain('AdaAdministracao');
     expect(response.json.brainState).toBe('not_configured');
     expect(response.json.operationalMetrics).toBe(0);
-    expect(response.json.limitations).toEqual(expect.arrayContaining([expect.stringMatching(/não estão integrados/)]));
+    expect(response.json.limitations).toEqual(expect.arrayContaining([expect.stringMatching(/não determina a disponibilidade do banco operacional/)]));
     const data = await h.d.db.query<{ report_enc: string }>('SELECT report_enc FROM ada.user_initial_study WHERE system_user_id = 9001 AND unit_id = 1');
     expect(data.rows[0]?.report_enc).toMatch(/^v1:/);
     expect(data.rows[0]?.report_enc).not.toContain('AdaAdministracao');

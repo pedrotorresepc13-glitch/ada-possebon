@@ -9,13 +9,14 @@ export interface CycleResult {
 /**
  * Um ciclo do worker. Idempotente e seguro com várias instâncias (lease + SKIP LOCKED).
  * Ordem: eventos recebidos → regras vencidas → fila de documentos.
- * Nenhuma chamada de IA acontece aqui.
+ * Estudo institucional usa orçamento explícito persistente; os monitores não chamam IA.
  */
 export async function runCycle(d: Deps, workerId: string): Promise<CycleResult> {
   const inbound = await d.runner.processInbound(100);
   const runs = await d.runner.runDue(workerId, 25);
   const documents = await d.knowledge.processPending(5);
   await d.watches.runDue(15);
+  await d.institutionalStudy.runDue();
   return { inbound, monitors: runs.map((r) => ({ id: r.monitorId, status: r.status, events: r.eventsCreated })), documents };
 }
 

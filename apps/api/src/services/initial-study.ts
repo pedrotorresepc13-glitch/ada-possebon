@@ -37,7 +37,7 @@ export class InitialStudyService {
   private fingerprint(ctx: AuthContext): string {
     const allowed = Object.keys(ctx.programs).sort();
     return createHash('sha256').update(JSON.stringify({
-      version: ctx.permissionsVersion, curatedPublicKnowledge: PUBLIC_KNOWLEDGE_REVISION, programs: allowed,
+      revision: 2, version: ctx.permissionsVersion, curatedPublicKnowledge: PUBLIC_KNOWLEDGE_REVISION, programs: allowed,
       unit: ctx.activeUnitId, units: [...ctx.allowedUnitIds].sort()
     })).digest('hex');
   }
@@ -72,7 +72,7 @@ export class InitialStudyService {
       // os termos com AND: frases longas e genéricas costumam retornar zero.
       // Consultas CURTAS por domínio, sempre respeitando os filtros da API.
       const queries = [
-        'pessoa', 'colaborador', 'treinamento', 'equipe', 'permissao',
+        'contrato', 'procurement', 'rdo', 'material', 'cliente',
         'rdo', 'material', 'procurement', 'integracao', 'unidade'
       ];
       try {
@@ -82,7 +82,7 @@ export class InitialStudyService {
             if (!brainHits.some((h) => h.namespace === hit.namespace && h.id === hit.id)) {
               brainHits.push({ ...hit, excerpt: hit.excerpt.slice(0, 600) });
             }
-            if (brainHits.length >= 12) break;
+            if (brainHits.length >= 40) break;
           }
           if (brainHits.length >= 12) break;
         }
@@ -94,7 +94,7 @@ export class InitialStudyService {
 
     const limitations: string[] = [];
     if (!operationalMetrics) {
-      limitations.push('Indicadores e consultas operacionais ainda não estão integrados; conhecer programas autorizados não fornece acesso aos registros de negócio.');
+      limitations.push('Não há métricas do catálogo legado ativas. Isso não determina a disponibilidade do banco operacional: use explorar_tabelas e consultar_banco.');
     }
     if (brainState !== 'available') {
       limitations.push(brainState === 'not_permitted'
@@ -200,7 +200,7 @@ export class InitialStudyService {
     const row = await this.row(ctx);
     if (!row?.report_enc || row.permission_fingerprint !== this.fingerprint(ctx)) return 'Estudo inicial ainda não disponível. Não presuma conhecimento de módulos nem de dados operacionais.';
     const report = JSON.parse(this.d.cipher.decrypt(row.report_enc)) as StudyReport;
-    const snippets = report.brainHits.slice(0, 5).map((h, i) =>
+    const snippets = report.brainHits.slice(0, 12).map((h, i) =>
       `[Fonte do Brain ${i + 1}: ${h.namespace} · ${h.sourceType} · ${h.title}] ${h.excerpt.slice(0, 400)}`
     ).join('\n');
     return [

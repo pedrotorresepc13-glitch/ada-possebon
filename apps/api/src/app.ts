@@ -266,6 +266,8 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
   route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
   route('POST','/workspace/welcome','user',async(_req,_r,ctx)=>{await d.db.query('UPDATE ada.personal_workspace SET welcomed_at=now() WHERE owner_user_id=$1 AND unit_id=$2 AND conversation_id IS NOT NULL',[ctx.systemUserId,ctx.activeUnitId]);return {ok:true};});
+  route('GET','/institutional-study','user',(_req,_r,ctx)=>d.institutionalStudy.status(ctx));
+  route('POST','/institutional-study/control','admin',(req,_r,ctx)=>d.institutionalStudy.control(ctx,z.object({action:z.enum(['continue','pause'])}).strict().parse(body(req)).action));
   route('GET','/workspace','user',(_req,_r,ctx)=>d.workspace.status(ctx));
   route('POST','/workspace/retry','user',(req,_r,ctx)=>d.workspace.retry(ctx,z.object({restart:z.boolean().default(false)}).strict().parse(body(req)).restart));
   route('GET','/admin/operational-access','admin',()=>d.operationalAccess.read());
