@@ -98,6 +98,10 @@ export class ReadonlyPostgresConnector implements SourceAdapter {
     await this.query('SELECT 1 FROM public.equipe WHERE unit_id=$1 LIMIT 1',[unitId]);
   }
 
+  async checkOperational():Promise<void>{
+    await this.query('SELECT current_database() AS database, current_user AS role');
+  }
+
   queryMetric(args: Parameters<typeof buildMetricQuery>[0]):Promise<MetricRow[]> {
     return this.adapter.queryMetric(args);
   }

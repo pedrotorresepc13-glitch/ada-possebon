@@ -8,7 +8,7 @@ export function ownerMigrationSql(applied:{version:string;checksum:string}[],app
   const all=listMigrations();const known=new Map(applied.map(r=>[r.version,r.checksum]));
   for(const m of all)if(known.has(m.version)&&known.get(m.version)!==m.checksum)throw new Error('Checksum divergente: '+m.version);
   const pending=all.filter(m=>!known.has(m.version));
-  if(pending.some(m=>!['0006_corporate_memory','0007_personal_workspace'].includes(m.version)))throw new Error('Estado anterior inesperado.');
+  if(pending.some(m=>!['0006_corporate_memory','0007_personal_workspace','0008_study_offsets'].includes(m.version)))throw new Error('Estado anterior inesperado.');
   const registry=JSON.stringify([...applied].sort((a,b)=>a.version.localeCompare(b.version)));
   const guard=`DO $guard$ BEGIN IF (SELECT COALESCE(jsonb_agg(jsonb_build_object('version',version,'checksum',checksum) ORDER BY version),'[]'::jsonb) FROM ada_migrations.applied) <> ${literal(registry)}::jsonb THEN RAISE EXCEPTION 'Registro de migrations mudou'; END IF; END $guard$;`;
   const role='"'+appRole.replaceAll('"','""')+'"';

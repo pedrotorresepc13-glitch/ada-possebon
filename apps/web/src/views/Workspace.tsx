@@ -8,7 +8,7 @@ import { Icon } from '../components/Icon.tsx';
 import { DashboardCanvas } from '../components/DashboardCanvas.tsx';
 import type { DashboardSpec,WidgetData } from '@ada/contracts';
 
-interface Workspace {state:string;step:number;tasks:{label:string;state:string;message?:string}[];issues:string[];
+interface Workspace {brief?:{summary:string;sources:string[];inputTokens:number;outputTokens:number};state:string;updatedAt?:string;stage?:string;step:number;tasks:{label:string;state:string;message?:string}[];issues:string[];
   profile:{name:string;unit:string;role:string;title:string|null;teams:number;reports:number;programs:string[];documents:number;areas:string[]}|null;
   liveBoardId:string|null;dashboardId:string|null;conversationId:string|null;welcomePending?:boolean}
 
@@ -27,10 +27,10 @@ export function WorkspaceView() {
     const refresh=async()=>{try{const [spec,data]=await Promise.all([api<{spec:DashboardSpec}>('/dashboards/'+id),api<{data:WidgetData[]}>('/dashboards/'+id+'/data')]);if(current)setDashboard({spec:spec.spec,data:data.data});}catch(e){if(current)setError((e as Error).message);}};
     void refresh();const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30_000);
     return()=>{current=false;window.clearInterval(timer);};},[workspace?.dashboardId]);
-  useEffect(()=>{if(!workspace?.welcomePending||!workspace.conversationId)return;
+  useEffect(()=>{if(workspace?.state!=='ready'||!workspace?.welcomePending||!workspace.conversationId)return;
     window.dispatchEvent(new CustomEvent('possebon:welcome',{detail:{id:workspace.conversationId}}));
     void api('/workspace/welcome',{body:{}}).catch(()=>{});
-  },[workspace?.welcomePending,workspace?.conversationId]);
+  },[workspace?.state,workspace?.welcomePending,workspace?.conversationId]);
   useEffect(()=>{let active=true;const id=workspace?.liveBoardId;if(!id){setOperational([]);return;}
     const refresh=()=>api<{panels:Panel[]}>('/live-boards/'+id+'/data').then(r=>{if(active)setOperational(r.panels);}).catch(e=>{if(active)setError((e as Error).message);});
     void refresh();const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30000);return()=>{active=false;window.clearInterval(timer);};
@@ -39,6 +39,7 @@ export function WorkspaceView() {
   const completed=workspace?.tasks.filter(t=>t.state==='done').length??0;
   const greeting=new Date().getHours()<12?'Bom dia':new Date().getHours()<18?'Boa tarde':'Boa noite';
   async function retry(restart=false){setRetrying(true);try{await api('/workspace/retry',{body:{restart}});await load();}catch(e){setError((e as Error).message);}finally{setRetrying(false);}}
+  if(workspace?.state!=='ready')return <><header className="topbar"><h1>Preparação do ambiente</h1></header><main className="content workspace-content"><section className="card preparation-card" aria-busy={working}><span className="assistant-symbol"><Icon name="spark" size={28}/></span><h2>{working?'Preparando seu ambiente de trabalho':'A preparação precisa de atenção'}</h2><p>Confirmamos seu acesso, reunimos o contexto essencial das fontes e validamos o panorama antes de abrir a visão inicial.</p><p><strong>{workspace?.stage??'Confirmando identidade e permissões'}</strong></p><ol className="preparation-list"><li><span className="task-state done"><Icon name="check" size={16}/></span>Identidade e unidade confirmadas</li><li><span className={'task-state '+(workspace?.profile?'done':'pending')}><Icon name={workspace?.profile?'check':'clock'} size={16}/></span>Contexto essencial e fontes</li><li><span className="task-state pending"><Icon name="clock" size={16}/></span>Validação e publicação do panorama</li></ol>{workspace?.tasks.length?<><progress className="preparation-progress" max={workspace.tasks.length} value={completed} aria-label="Consultas validadas"/><p>{completed} de {workspace.tasks.length} consultas validadas.</p></>:<p className="small muted">Identificando as fontes e os indicadores disponíveis.</p>}{workspace?.updatedAt&&<p className="small muted">Último avanço: {new Date(workspace.updatedAt).toLocaleString('pt-BR')}</p>}<p className="small muted">A preparação reutiliza o contexto salvo. Uma síntese nova usa no máximo uma chamada de IA; o estudo integral do acervo fica separado.</p>{error&&<p className="error-box" role="alert">{error}</p>}{workspace?.issues.map(x=><p key={x} className="error-box" role="alert">{x}</p>)}{workspace?.tasks.filter(t=>t.state==='error').map((t,i)=><p key={i} className="error-box">{t.label}: {t.message}</p>)}{!working&&<button className="btn primary" disabled={retrying} onClick={()=>void retry()}>Retomar preparação</button>}</section></main></>;
   return <>
     <header className="topbar"><div className="page-heading grow"><span className="eyebrow">SEU ESPAÇO DE TRABALHO</span><h1>Visão geral</h1></div><span className="context-badge"><span className="status-dot" style={{background:'var(--accent)'}}/>{me.activeUnit.name}</span><button className="btn primary" onClick={()=>navigate('/?nova='+Date.now())}><Icon name="plus" size={17}/>Nova conversa</button></header>
     <main className="content workspace-content">
@@ -51,6 +52,7 @@ export function WorkspaceView() {
         <article className="summary-card"><span className="summary-icon"><Icon name="brain"/></span><span>Conhecimento disponível</span><strong>{workspace?.profile?.documents??'—'}</strong><small>Documentos acessíveis na unidade</small></article>
         <article className="summary-card"><span className="summary-icon"><Icon name="home"/></span><span>Seu contexto</span><strong className="summary-text">{workspace?.profile?.title??workspace?.profile?.role??'Preparando'}</strong><small>{workspace?.profile?.teams?`${workspace.profile.teams} equipes vinculadas`:'Conforme seus acessos e vínculos'}</small></article>
       </section>
+      {workspace?.brief&&<section className="card" style={{marginBottom:24}}><h3>Contexto essencial preparado</h3><p>{workspace.brief.summary}</p><details><summary>Fontes e consumo desta preparação</summary><p>{workspace.brief.sources.join('; ')}</p><p className="small muted">{workspace.brief.inputTokens} tokens de entrada · {workspace.brief.outputTokens} tokens de saída. Contexto reutilizado nos próximos acessos enquanto as fontes e permissões forem as mesmas.</p></details></section>}
       <InstitutionalStudy/>
       <div className="workspace-columns" style={{marginTop:24}}><section className="workspace-main">
         <div className="section-heading"><div><span className="eyebrow">INFORMAÇÕES DO SEU DIA</span><h2>Seu panorama</h2></div>{workspace?.dashboardId&&<button className="btn ghost sm" onClick={()=>navigate('/dashboards/'+workspace.dashboardId)}>Abrir dashboard<Icon name="arrow" size={16}/></button>}</div>

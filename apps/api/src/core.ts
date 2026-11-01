@@ -1,3 +1,4 @@
+import {WorkspaceBriefService} from './services/workspace-brief.ts';
 import {InstitutionalStudyService} from './services/institutional-study.ts';
 import type { AdaConfig } from './config.ts';
 import { Cipher } from './crypto.ts';
@@ -53,6 +54,7 @@ export interface Deps {
   operationalAccess: OperationalAccessService;
   watches: OperationalWatchService;
   workspace: WorkspaceService;
+  workspaceBrief: WorkspaceBriefService;
   institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
@@ -111,6 +113,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.study = new InitialStudyService(d);
   d.corporateMemory = new CorporateMemoryService(d);
   d.admin = new AdminService(d);
+  d.workspaceBrief = new WorkspaceBriefService(d);
   d.workspace = new WorkspaceService(d);
   d.institutionalStudy = new InstitutionalStudyService(d);
   return d;

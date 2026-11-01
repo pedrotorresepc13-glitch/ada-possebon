@@ -33,7 +33,7 @@ export class OperationalBoardService {
     const r=await this.d.db.query<BoardRow>(
       `SELECT id,owner_user_id,unit_id,title,spec,created_at,updated_at
        FROM ada.operational_board
-       WHERE unit_id=$1 AND deleted_at IS NULL AND (owner_user_id=$2 OR EXISTS
+       WHERE unit_id=$1 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.live_board_id=ada.operational_board.id AND pw.state<>'ready') AND (owner_user_id=$2 OR EXISTS
          (SELECT 1 FROM ada.operational_board_share s WHERE s.board_id=ada.operational_board.id AND s.target_user_id=$2))
        ORDER BY updated_at DESC LIMIT 100`,[ctx.activeUnitId,ctx.systemUserId]
     );
@@ -46,7 +46,7 @@ export class OperationalBoardService {
     const r=await this.d.db.query<BoardRow>(
       `SELECT id,owner_user_id,unit_id,title,spec,created_at,updated_at
        FROM ada.operational_board
-       WHERE id=$1 AND unit_id=$2 AND deleted_at IS NULL AND (owner_user_id=$3 OR EXISTS
+       WHERE id=$1 AND unit_id=$2 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.live_board_id=ada.operational_board.id AND pw.state<>'ready') AND (owner_user_id=$3 OR EXISTS
          (SELECT 1 FROM ada.operational_board_share s WHERE s.board_id=ada.operational_board.id AND s.target_user_id=$3))`,
       [id,ctx.activeUnitId,ctx.systemUserId]
     );

@@ -53,6 +53,11 @@ else
   env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs validate
 fi
 runuser -u ada -- env -u DATABASE_URL -u ADA_ROOT -u ADA_ENV HOME=/opt/ada npm run ci
+if [[ "${ADA_CONFIGURE_BUSINESS_READONLY:-0}" == 1 ]]; then
+  install -d -m 700 "$BACKUP"
+  env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env node_modules/tsx/dist/cli.mjs scripts/deploy/business-readonly.ts apply "$BACKUP/business-readonly.undo.sql"
+fi
+
 echo 'Validação concluída. Parando serviços para backup consistente e migração.'
 STOPPED=1
 systemctl stop ada-worker ada-api

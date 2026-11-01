@@ -14,6 +14,7 @@ export interface AiTurnInput {
   tools: ToolSpec[];
   execute: (name: string, args: unknown) => Promise<unknown>;
   maxSteps?: number;
+  maxOutputTokens?: number;
   signal?: AbortSignal;
 }
 

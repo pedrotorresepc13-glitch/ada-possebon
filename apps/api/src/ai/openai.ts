@@ -64,7 +64,7 @@ export class OpenAIResponsesProvider implements AiProvider {
           tools,
           tool_choice: 'auto',
           parallel_tool_calls: false,
-          max_output_tokens: this.cfg.maxOutputTokens,
+          max_output_tokens: Math.min(this.cfg.maxOutputTokens,args.maxOutputTokens??this.cfg.maxOutputTokens),
           store: false,
           include: ['reasoning.encrypted_content']
         },

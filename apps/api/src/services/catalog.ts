@@ -195,17 +195,17 @@ export class CatalogService {
     throw new SourceUnavailableError(sourceId, `Adaptador para "${src.label}" ainda não implementado.`);
   }
 
-  async checkReadonly(unitId: number): Promise<void> {
+  async checkReadonly(_unitId: number): Promise<void> {
     if (!this.readonlyPg) throw new SourceUnavailableError('possebon.pg_readonly', 'Configure POSSEBON_READONLY_DATABASE_URL com credencial SELECT exclusiva.');
-    await this.readonlyPg.check(unitId);
+    await this.readonlyPg.checkOperational();
   }
 
   private lastOperationalCheck=0;
   /** Teste automático, somente leitura, na primeira consulta operacional. */
-  async operationalSource(unitId:number):Promise<ReadonlyPostgresConnector> {
+  async operationalSource(_unitId:number):Promise<ReadonlyPostgresConnector> {
     if (!this.readonlyPg) throw new SourceUnavailableError('possebon.pg_readonly', 'Conexão PostgreSQL de leitura não configurada no ambiente da IA.');
     if (Date.now()-this.lastOperationalCheck>120_000) {
-      await this.readonlyPg.check(unitId);
+      await this.readonlyPg.checkOperational();
       this.lastOperationalCheck=Date.now();
       await this.d.db.query(`UPDATE ada.source_connector SET status='ativo',last_error=NULL WHERE id='possebon.pg_readonly'`);
     }

@@ -61,10 +61,10 @@ describe('acompanhamento real sem chamadas à IA',()=>{
 describe('preparação inicial persistente',()=>{
   it('migração aditiva preserva registros e configuração existentes',async()=>{
     const db=await createPglite();
-    try{await migrateUp(db);await migrateDown(db,1);
+    try{await migrateUp(db);await migrateDown(db,2);
       await db.query("INSERT INTO ada.app_setting(key,value) VALUES('assistant_branding',$1)",[{name:'Nome preservado'}]);
       const saved=await db.query<{id:string}>("INSERT INTO ada.conversation(owner_user_id,unit_id,title) VALUES(1,1,'Histórico preservado') RETURNING id");
-      expect(await migrateUp(db)).toEqual(['0007_personal_workspace']);
+      expect(await migrateUp(db)).toEqual(['0007_personal_workspace','0008_study_offsets']);
       expect((await db.query('SELECT title FROM ada.conversation WHERE id=$1',[saved.rows[0]!.id])).rows[0]).toEqual({title:'Histórico preservado'});
       expect((await db.query("SELECT value FROM ada.app_setting WHERE key='assistant_branding'")).rows[0]).toEqual({value:{name:'Nome preservado'}});
     }finally{await db.close();}

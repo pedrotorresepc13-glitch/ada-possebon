@@ -66,6 +66,7 @@ export class DashboardService {
       `SELECT d.*, CASE WHEN d.owner_user_id = $2 THEN 'owner' ELSE 'shared' END AS access
        FROM ada.dashboard d
        WHERE d.id = $1 AND d.deleted_at IS NULL AND d.unit_id = $3
+         AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.dashboard_id=d.id AND pw.state<>'ready')
          AND (d.owner_user_id = $2 OR (d.share_policy = 'compartilhado' AND EXISTS (
                SELECT 1 FROM ada.dashboard_share s WHERE s.dashboard_id = d.id AND s.unit_id = $3 AND (
                  (s.target_type = 'unit' AND s.target_id = $3) OR
@@ -85,6 +86,7 @@ export class DashboardService {
               CASE WHEN d.owner_user_id = $1 THEN 'owner' ELSE 'shared' END AS access
        FROM ada.dashboard d
        WHERE d.deleted_at IS NULL AND d.unit_id = $2
+         AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.dashboard_id=d.id AND pw.state<>'ready')
          AND (d.owner_user_id = $1 OR (d.share_policy = 'compartilhado' AND EXISTS (
                SELECT 1 FROM ada.dashboard_share s WHERE s.dashboard_id = d.id AND s.unit_id = $2 AND (
                  (s.target_type = 'unit' AND s.target_id = $2) OR (s.target_type = 'user' AND s.target_id = $1) OR

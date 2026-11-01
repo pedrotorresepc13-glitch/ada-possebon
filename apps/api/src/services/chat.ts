@@ -269,6 +269,7 @@ export class ChatService {
         description: 'Consulta valores atuais de UMA métrica catalogada, com permissões do usuário. Retorna dados e proveniência.',
         parameters: js(z.object({ metric: z.string(), groupBy: z.array(z.string()).max(2).optional(), timeRange: TimeRange, timeGrain: z.enum(['day', 'week', 'month']).optional(), filters: z.array(DashboardFilter).max(5).optional() }))
       },
+      {name:'verificar_acesso_tabela',description:'Diagnostica existência e SELECT da credencial real para uma tabela. Use antes de declarar que procurement não está liberada. Não altera permissões.',parameters:js(z.object({tabela:z.string().regex(/^[a-z][a-z0-9_]{0,62}$/)}).strict())},
       { name: 'explorar_tabelas', description: 'Descobre automaticamente tabelas do PostgreSQL POSSEBON, campos permitidos e FK REAIS. Use ANTES de qualquer consulta operacional sobre colaboradores, RH, TI, equipes, projetos, materiais e qualquer módulo; não depende de cadastro de métricas.', parameters: js(z.object({ termo: z.string().max(80).optional(), tabela: z.string().max(63).optional() })) },
       { name: 'consultar_banco', description: 'Consulta dados operacionais REAIS no banco POSSEBON usando plano DECLARATIVO, NÃO SQL. A API confere nomes no schema PostgreSQL, FKs, unidade e permissões. Filtre o status de colaboradores pela regra comprovada; nunca confunda cadastro e efetivo. Use explorar_tabelas para descobrir campos.', parameters: js(OperationalPlan) },
       {name:'adicionar_painel',description:'Acrescenta um painel validado à tela própria já salva. Use para construir em etapas e preservar o trabalho entre mensagens.',parameters:js(z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict())},
@@ -296,6 +297,7 @@ export class ChatService {
     const catalog = this.d.catalog.catalog;
     const execute = async (name: string, args: unknown): Promise<unknown> => {
       switch (name) {
+        case 'verificar_acesso_tabela': {const a=z.object({tabela:z.string()}).parse(args);return this.d.operational.diagnoseTable(ctx,a.tabela);}
         case 'explorar_tabelas': {
           const a=z.object({termo:z.string().max(80).optional(),tabela:z.string().max(63).optional()}).parse(args);
           return this.d.operational.explore(ctx,a.termo??'',a.tabela??'');
@@ -432,8 +434,8 @@ export class ChatService {
     const policy=ctx.identitySource==='possebon'?await this.d.operationalAccess.policy(ctx):{admin:false,tables:{}};
     const usableReferences=references.rows.filter(r=>r.reference_key==='page_context'||policy.admin||Object.hasOwn(policy.tables,OperationalPlan.safeParse(r.plan).data?.from??''));
     let processContext='';
-    if(ctx.identitySource==='possebon'&&/\boc\b|compra|notebook|material|rdo|contrat|equipe|efetivo|produ[cç]/i.test(message)){
-      try{const map=await this.d.operational.processMap(ctx);processContext='MAPA OPERACIONAL VERIFICADO: '+JSON.stringify({unit:map.unitId,areas:map.areas,tables:map.tables.map(t=>({name:t.nome,area:t.area}))})+'. A conexão e a estrutura foram consultadas nesta pergunta. Use explorar_tabelas para campos e consultar_banco para registros. Nunca conclua indisponibilidade a partir do catálogo legado. Nomes e áreas são pistas, não prova de conteúdo. Se notebook tiver várias correspondências, pergunte qual registro.';}
+    if(ctx.identitySource==='possebon'&&/\boc\b|\bsc\b|procurement|compra|notebook|material|rdo|contrat|equipe|efetivo|produ[cç]/i.test(message)){
+      try{const map=await this.d.operational.processMap(ctx);processContext='MAPA OPERACIONAL VERIFICADO: '+JSON.stringify({unit:map.unitId,areas:map.areas,tables:map.tables.map(t=>({name:t.nome,area:t.area,queryable:t.consultavel}))})+'. queryable=false significa vínculo de unidade pendente de mapeamento, não comprova falta de SELECT. Use verificar_acesso_tabela antes de declarar uma tabela não liberada. A conexão e a estrutura foram consultadas nesta pergunta. Use explorar_tabelas para campos e consultar_banco para registros. Nunca conclua indisponibilidade a partir do catálogo legado. Nomes e áreas são pistas, não prova de conteúdo. Se notebook tiver várias correspondências, pergunte qual registro.';}
       catch{processContext='A verificação automática da estrutura operacional falhou nesta pergunta. Não alegue consulta de registros concluída nem prometa campos acessíveis; use as ferramentas para identificar a dependência real.';}
     }
     const branding = await this.d.branding.read();
