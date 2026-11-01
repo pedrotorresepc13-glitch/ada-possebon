@@ -45,6 +45,7 @@ export class CorporateMemoryService {
       'FROM ada.knowledge_document d JOIN ada.knowledge_source s ON s.id=d.source_id',
       'LEFT JOIN ada.corporate_study_progress p ON p.document_id=d.id',
       "WHERE d.status='indexado' AND s.status='ativo'",
+      "AND COALESCE(s.config->>'skip_ai_study','false')<>'true'",
       'AND (d.valid_until IS NULL OR d.valid_until>=current_date)',
       'AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]',
       "AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)",

@@ -16,6 +16,8 @@ export interface ArchitectureInventory {
   models: { model: string; table: string; fields: string[]; source: string }[];
   screens_by_area: Record<string, string[]>;
   custom_php_modules: string[];
+  screen_bindings?:{screen:string;area:string;table:string;source:string;title:string;defaults:{field:string;value:string}[]}[];
+  computed_models?:{name:string;fields:string[];source:string}[];
 }
 export interface GraphHit {
   kind: Kind; label: string; source: string;
@@ -68,6 +70,7 @@ export async function syncArchitectureGraph(q: Queryable, inventory: Architectur
   const snapshot = inventory.snapshot;
   for (const model of inventory.models) {
     const m = architectureNode('modelo', model.model, model.model, model.source, snapshot);
+    m.attributes.table=model.table;
     const table = architectureNode('tabela', model.table, model.table, model.source, snapshot);
     nodes.push(m,table);
     edges.push({ from_id: m.id,to_id: table.id,relation: 'representa',source_ref: model.source });
@@ -82,9 +85,16 @@ export async function syncArchitectureGraph(q: Queryable, inventory: Architectur
     nodes.push(a);
     for (const screen of screens) {
       const t = architectureNode('tela',screen,areaName+'/'+screen,'inventario:telas',snapshot);
+      t.attributes.area=areaName;
+      const binding=inventory.screen_bindings?.find(b=>b.screen===screen&&b.area===areaName);
+      if(binding){t.source_ref=binding.source;t.attributes.table=binding.table;t.attributes.title=binding.title;t.attributes.defaults=JSON.stringify(binding.defaults);edges.push({from_id:t.id,to_id:key('tabela',binding.table),relation:'representa',source_ref:binding.source});}
       nodes.push(t);
       edges.push({ from_id: a.id,to_id: t.id,relation: 'contem_tela',source_ref: 'inventario:telas' });
     }
+  }
+  for(const query of inventory.computed_models??[]){
+    const m=architectureNode('modelo',query.name,query.name,query.source,snapshot);m.attributes.computed='true';nodes.push(m);
+    for(const field of query.fields){const c=architectureNode('campo',field,'query:'+query.name+'.'+field,query.source,snapshot);nodes.push(c);edges.push({from_id:m.id,to_id:c.id,relation:'possui_campo',source_ref:query.source});}
   }
   for (const module of inventory.custom_php_modules) {
     nodes.push(architectureNode('modulo',module,module,module,snapshot));

@@ -254,6 +254,9 @@ export class KnowledgeService {
        JOIN ada.knowledge_source s ON s.id = d.source_id
        WHERE h.matched >= GREATEST(1, ceil(h.total / 2.0))
          AND d.status = 'indexado'
+         AND s.status = 'ativo'
+         AND (s.unit_id IS NULL OR s.unit_id=$2) AND (s.scope<>'unidade' OR s.unit_id=$2)
+         AND s.required_programs <@ $3::text[] AND (s.sensitivity<>'confidencial' OR cardinality(s.required_programs)>0)
          AND (d.valid_until IS NULL OR d.valid_until >= current_date)
          AND (d.unit_id IS NULL OR d.unit_id = $2)
          AND (d.scope <> 'unidade' OR d.unit_id = $2)

@@ -31,7 +31,7 @@ export class InstitutionalStudyService {
       COALESCE(sum(CASE WHEN p.source_checksum=d.checksum THEN p.facts_extracted ELSE 0 END),0)::int AS facts
       FROM ada.knowledge_document d JOIN ada.knowledge_source s ON s.id=d.source_id
       LEFT JOIN ada.corporate_study_progress p ON p.document_id=d.id
-      WHERE d.status='indexado' AND s.status='ativo' AND (d.valid_until IS NULL OR d.valid_until>=current_date)
+      WHERE d.status='indexado' AND s.status='ativo' AND COALESCE(s.config->>'skip_ai_study','false')<>'true' AND (d.valid_until IS NULL OR d.valid_until>=current_date)
       AND (d.unit_id IS NULL OR d.unit_id=$1) AND d.required_programs <@ $2::text[]
       AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)`,[ctx.activeUnitId,Object.keys(ctx.programs)]);
     return {...coverage.rows[0],state:job?.unit===ctx.activeUnitId?job.state:this.d.ai.configured?'pending':'not_configured',remaining:job?.unit===ctx.activeUnitId?job.remaining:0,phase:job?.unit===ctx.activeUnitId?(job.pauseRequested&&job.leaseUntil>Date.now()?'pause_requested':job.leaseUntil>Date.now()?'executing':'waiting'):'waiting',lastProgressAt:job?.unit===ctx.activeUnitId?job.lastProgressAt:undefined,nextAt:job?.unit===ctx.activeUnitId?job.nextAt:undefined,inputTokens:job?.unit===ctx.activeUnitId?job.inputTokens??0:0,outputTokens:job?.unit===ctx.activeUnitId?job.outputTokens??0:0,tokensSpent:job?.unit===ctx.activeUnitId?job.tokensSpent??0:0,tokenLimit:job?.unit===ctx.activeUnitId?job.tokenLimit??8000:8000,characters:job?.unit===ctx.activeUnitId?job.characters??0:0,error:job?.unit===ctx.activeUnitId?job.error:undefined};

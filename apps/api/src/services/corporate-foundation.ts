@@ -19,6 +19,7 @@ export class CorporateFoundationService{
   const docs=await this.d.db.query<Doc>(`SELECT d.id,d.title,d.domain,d.checksum,s.name AS source,COALESCE(s.uri,d.original_name) AS uri,d.observed_at
    FROM ada.knowledge_document d JOIN ada.knowledge_source s ON s.id=d.source_id
    WHERE d.status='indexado' AND s.status='ativo' AND (d.valid_until IS NULL OR d.valid_until>=current_date)
+   AND COALESCE(s.config->>'skip_ai_study','false')<>'true'
    AND (d.unit_id IS NULL OR d.unit_id=$1) AND (d.scope<>'unidade' OR d.unit_id=$1)
    AND d.required_programs <@ $2::text[] AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)
    AND (s.unit_id IS NULL OR s.unit_id=$1) AND (s.scope<>'unidade' OR s.unit_id=$1)

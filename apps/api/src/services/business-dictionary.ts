@@ -5,7 +5,7 @@ import type {Deps} from '../core.ts';
 import {audit} from '../audit.ts';
 const identifier=z.string().regex(/^[a-z][a-z0-9_]{0,62}$/);
 export const DefinitionInput=z.object({table:identifier,column:identifier,code:z.string().trim().min(1).max(50),label:z.string().trim().min(2).max(120).refine(v=>[...v].every(c=>c.charCodeAt(0)>=32)),documentId:z.uuid(),quote:z.string().min(12).max(700)}).strict();
-type Definition=z.infer<typeof DefinitionInput>&{checksum:string;approvedBy:number;approvedAt:string};
+type Definition=z.infer<typeof DefinitionInput>&{checksum:string;approvedBy:number;approvedAt:string;origin?:'manual'|'source_pack'};
 export const dictionaryKey=(table:string,column:string,code:string)=>JSON.stringify([table,column,code.trim()]);
 /** Aprendizagem sem inferir letras: aprovação administrativa + evidência documental vigente. */
 export class BusinessDictionaryService{
@@ -50,5 +50,25 @@ export class BusinessDictionaryService{
    await q.query('UPDATE ada.app_setting SET value=$2,updated_by=$3,updated_at=now() WHERE key=$1',[key,{ciphertext:this.d.cipher.encrypt(JSON.stringify([...filtered,item]))},ctx.systemUserId]);
    await audit(q,{actor:ctx.systemUserId,unit:ctx.activeUnitId,action:'dicionario.definicao_aprovada',outcome:'ok',details:{table:item.table,column:item.column,code:item.code,documentId:item.documentId,checksum:item.checksum}});
   });return {saved:true,definition:item};
+ }
+ async importSourceDefinitions(ctx:AuthContext,raw:unknown){
+  assertAdmin(ctx);if(this.d.config.isProduction&&ctx.identitySource!=='possebon')throw new Error('Importação exige identidade POSSEBON real.');
+  const input=z.array(DefinitionInput).max(1000).parse(raw);
+  const ids=[...new Set(input.map(i=>i.documentId))];
+  const docs=ids.length?await this.d.db.query<{id:string;checksum:string}>('SELECT id,checksum FROM ada.knowledge_document WHERE id=ANY($1::uuid[])',[ids]):{rows:[]};
+  const items:Definition[]=input.map(i=>({...i,checksum:docs.rows.find(d=>d.id===i.documentId)?.checksum??'',approvedBy:ctx.systemUserId,approvedAt:this.d.now().toISOString(),origin:'source_pack'}));
+  if(items.some(i=>!i.quote.includes(i.code)||!i.quote.includes(i.label))||(await this.valid(ctx,items)).length!==items.length)throw new Error('Definição extraída sem evidência vigente.');
+  const key='business_dictionary:'+ctx.activeUnitId;
+  return this.d.db.tx(async q=>{
+   await q.query('INSERT INTO ada.app_setting(key,value,updated_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[key,{ciphertext:this.d.cipher.encrypt('[]')},ctx.systemUserId]);
+   const r=await q.query<{value:{ciphertext:string}}>('SELECT value FROM ada.app_setting WHERE key=$1 FOR UPDATE',[key]);
+   const old=JSON.parse(this.d.cipher.decrypt(r.rows[0]!.value.ciphertext)) as Definition[];
+   const manual=old.filter(i=>i.origin!=='source_pack');const manualKeys=new Set(manual.map(i=>dictionaryKey(i.table,i.column,i.code)));
+   const imported=items.filter(i=>!manualKeys.has(dictionaryKey(i.table,i.column,i.code)));
+   if(manual.length+imported.length>1000)throw new Error('Dicionário excedeu mil definições.');
+   await q.query('UPDATE ada.app_setting SET value=$2,updated_by=$3,updated_at=now() WHERE key=$1',[key,{ciphertext:this.d.cipher.encrypt(JSON.stringify([...manual,...imported]))},ctx.systemUserId]);
+   await audit(q,{actor:ctx.systemUserId,unit:ctx.activeUnitId,action:'dicionario.importacao_codigo_fonte',outcome:'ok',details:{imported:imported.length,preservedManual:manual.length}});
+   return {imported:imported.length,preservedManual:manual.length};
+  });
  }
 }

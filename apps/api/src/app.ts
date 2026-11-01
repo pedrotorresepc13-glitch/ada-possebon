@@ -265,6 +265,8 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
   route('GET','/corporate-base','user',(req,_r,ctx)=>d.corporateFoundation.read(ctx,z.string().max(40).optional().parse(query(req).area)));
   route('GET','/business-dictionary','user',(_req,_r,ctx)=>d.businessDictionary.read(ctx));
+  route('GET','/system-knowledge','user',(req,_r,ctx)=>d.systemKnowledge.catalog(ctx,z.string().max(120).default('').parse(query(req).q),z.coerce.number().int().min(0).max(250).default(0).parse(query(req).page)));
+  route('GET','/system-knowledge/module','user',(req,_r,ctx)=>d.systemKnowledge.module(ctx,z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).parse(query(req).table)));
   route('PUT','/admin/business-dictionary','admin',(req,_r,ctx)=>d.businessDictionary.save(ctx,body(req)));
   route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
   route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));

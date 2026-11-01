@@ -2,6 +2,7 @@ import { useBranding } from '../branding.tsx';
 import { useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import {CorporateBase} from '../components/CorporateBase.tsx';
+import {SystemKnowledge} from '../components/SystemKnowledge.tsx';
 
 interface StudyStatus {
   state: 'running' | 'ready' | 'partial' | 'error';
@@ -59,6 +60,7 @@ export function StudyView() {
     <>
       <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>O que a IA aprendeu</h1></header>
       <div className="content grid" style={{ maxWidth: 1000 }}>
+        <SystemKnowledge/>
         <CorporateBase canApprove={Boolean(data?.authorizedPrograms.includes('AdaAdministracao'))}/>
         <section className="card">
           <div className="row">

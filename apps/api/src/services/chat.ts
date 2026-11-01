@@ -263,6 +263,7 @@ export class ChatService {
   private tools(): ToolSpec[] {
     const js = (s: z.ZodType) => z.toJSONSchema(s, { io: 'input', unrepresentable: 'any' }) as Record<string, unknown>;
     return [
+      {name:'conhecer_sistema',description:'Pesquisa o inventário completo autorizado de tabelas, campos, FKs, modelos, telas, módulos e fontes do sistema, sem limitar a módulos conhecidos previamente. termo pesquisa o catálogo paginado; tabela abre o dossiê de uma tabela exata com estrutura, referências, códigos e cobertura. Roteiros são orientação editorial, não regras locais comprovadas.',parameters:js(z.object({termo:z.string().max(120).optional(),tabela:z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).optional(),pagina:z.number().int().min(0).max(250).optional()}).strict())},
       {name:'consultar_base_corporativa',description:'Consulta a base estruturada por área com método de análise e trechos documentais autorizados, referências e revisões, sem nova chamada de estudo. Áreas: institucional, contratos, planejamento, producao, compras, materiais, financeiro, pessoas, sms, qualidade, engenharia, sistemas. Sem área retorna índice de cobertura; documento disponível não significa leitura integral.',parameters:js(z.object({area:z.string().max(40).optional()}).strict())},
       {name:'consultar_significado_codigo',description:'Consulta definição aprovada de um código POR tabela/campo na unidade atual. Use para status G e outros códigos desconhecidos. Se ausente, consulte o domínio relacionado ou documentação; não deduza significado pela letra.',parameters:js(z.object({tabela:z.string().max(63),campo:z.string().max(63),codigo:z.string().max(50)}).strict())},
       { name: 'buscar_catalogo', description: 'Lista métricas, dimensões e fontes monitoráveis que o usuário PODE usar. Use antes de propor dashboards, consultas ou monitores.', parameters: js(z.object({ texto: z.string().optional() })) },
@@ -299,6 +300,7 @@ export class ChatService {
     const catalog = this.d.catalog.catalog;
     const execute = async (name: string, args: unknown): Promise<unknown> => {
       switch (name) {
+        case 'conhecer_sistema': {const a=z.object({termo:z.string().optional(),tabela:z.string().optional(),pagina:z.number().optional()}).parse(args);if(a.tabela)return this.d.systemKnowledge.module(ctx,a.tabela);const index=await this.d.systemKnowledge.catalog(ctx,a.termo??'',a.pagina??0);return {...index,programs:undefined,programCount:index.programs.length};}
         case 'consultar_base_corporativa': {const a=z.object({area:z.string().max(40).optional()}).parse(args);return this.d.corporateFoundation.read(ctx,a.area);}
         case 'consultar_significado_codigo': {const a=z.object({tabela:z.string(),campo:z.string(),codigo:z.string()}).parse(args);return this.d.businessDictionary.resolve(ctx,a.tabela,a.campo,a.codigo);}
         case 'verificar_acesso_tabela': {const a=z.object({tabela:z.string()}).parse(args);return this.d.operational.diagnoseTable(ctx,a.tabela);}
@@ -437,11 +439,7 @@ export class ChatService {
     const references=await this.d.db.query<{reference_key:string;plan:unknown}>('SELECT reference_key,plan FROM ada.work_reference WHERE owner_user_id=$1 AND unit_id=$2 ORDER BY updated_at DESC LIMIT 8',[ctx.systemUserId,ctx.activeUnitId]);
     const policy=ctx.identitySource==='possebon'?await this.d.operationalAccess.policy(ctx):{admin:false,tables:{}};
     const usableReferences=references.rows.filter(r=>r.reference_key==='page_context'||policy.admin||Object.hasOwn(policy.tables,OperationalPlan.safeParse(r.plan).data?.from??''));
-    let processContext='';
-    if(ctx.identitySource==='possebon'&&/\boc\b|\bsc\b|procurement|compra|notebook|material|rdo|contrat|equipe|efetivo|produ[cç]|empresa|panorama|como (?:est[aá]|anda|vai)/i.test(message)){
-      try{const map=await this.d.operational.processMap(ctx);processContext='MAPA OPERACIONAL VERIFICADO: '+JSON.stringify({unit:map.unitId,scope:map.scope,areas:map.areas,tables:map.tables.map(t=>({name:t.nome,area:t.area,queryable:t.consultavel}))})+'. scope=all_units confirma autoridade administrativa: pode buscar tabelas de negócio sem vínculo de unidade. Use unitScope=current por padrão para perguntas da unidade atual; all somente para pedido entre unidades. Se a consulta retornar scope=unit_unverified, os registros foram encontrados mas NÃO podem ser atribuídos à unidade atual sem comprovar empresa/contrato/projeto. Para outros usuários, queryable=false significa vínculo de unidade pendente de mapeamento, não comprova falta de SELECT. Use verificar_acesso_tabela antes de declarar uma tabela não liberada. A conexão e a estrutura foram consultadas nesta pergunta. Use explorar_tabelas para campos e consultar_banco para registros. Nunca conclua indisponibilidade a partir do catálogo legado. Nomes e áreas são pistas, não prova de conteúdo. Se notebook tiver várias correspondências, pergunte qual registro.';}
-      catch{processContext='A verificação automática da estrutura operacional falhou nesta pergunta. Não alegue consulta de registros concluída nem prometa campos acessíveis; use as ferramentas para identificar a dependência real.';}
-    }
+    const processContext=ctx.identitySource==='possebon'?await this.d.systemKnowledge.context(ctx,message):'';
     const branding = await this.d.branding.read();
     const corporateContext = await this.d.corporateMemory.promptContext(ctx, message);
     // Contexto público editorial somente em perguntas corporativas. Não expor
@@ -449,7 +447,7 @@ export class ChatService {
     // "O que você sabe?" e "verifique seu conhecimento" precisam de um
     // índice autorizado, não de uma coincidência no mecanismo de busca FTS.
     const aboutCompany = /possebon|empresa|cons[oó]rcio|epc[ -]?13|boaventura|petrobras|institucional|site|linkedin|redes sociais|conhec|aprendeu|fontes|documentos|acesso|capacidad|estud|sabe|sistemas/i.test(message);
-    const foundationContext=aboutCompany||/status|situa[cç]|c[oó]digo|compra|rdo|contrat|planejam|finance|produ[cç]|panorama/i.test(message)?await this.d.corporateFoundation.context(ctx,message):'';
+    const foundationContext=aboutCompany||/status|situa[cç]|c[oó]digo|compra|\bsc\b|\boc\b|rdo|audcomp|ronda|\bsms\b|contrat|planejam|finance|produ[cç]|panorama/i.test(message)?await this.d.corporateFoundation.context(ctx,message):'';
     let publicContext = '';
     if (aboutCompany) {
       const overview = await this.d.knowledge.overview(ctx, 16);

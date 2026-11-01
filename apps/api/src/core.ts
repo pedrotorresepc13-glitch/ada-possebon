@@ -1,6 +1,7 @@
 import {WorkspaceBriefService} from './services/workspace-brief.ts';
 import {CorporateFoundationService} from './services/corporate-foundation.ts';
 import {BusinessDictionaryService} from './services/business-dictionary.ts';
+import {SystemKnowledgeService} from './services/system-knowledge.ts';
 import {InstitutionalStudyService} from './services/institutional-study.ts';
 import type { AdaConfig } from './config.ts';
 import { Cipher } from './crypto.ts';
@@ -59,6 +60,7 @@ export interface Deps {
   workspaceBrief: WorkspaceBriefService;
   corporateFoundation: CorporateFoundationService;
   businessDictionary: BusinessDictionaryService;
+  systemKnowledge: SystemKnowledgeService;
   institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
@@ -101,7 +103,9 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.operationalAccess = new OperationalAccessService(d);
   d.corporateFoundation=new CorporateFoundationService(d);
   d.businessDictionary=new BusinessDictionaryService(d);
-  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx),ctx=>d.businessDictionary.read(ctx));
+  d.systemKnowledge=new SystemKnowledgeService(d);
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx),ctx=>d.businessDictionary.read(ctx),
+    (ctx,tables,scope)=>d.systemKnowledge.recordRead(ctx,tables,scope).catch(()=>{d.log.warn({},'Registro de cobertura da consulta indisponível; leitura operacional preservada.');}));
   d.liveBoards = new OperationalBoardService(d);
   d.watches = new OperationalWatchService(d);
   d.sessions = new SessionService(d);

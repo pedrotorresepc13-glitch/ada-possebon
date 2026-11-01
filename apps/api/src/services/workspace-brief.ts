@@ -15,6 +15,7 @@ export class WorkspaceBriefService{
     const result=await this.d.db.query<Source>(`SELECT d.id,d.checksum,d.title,d.domain,c.ordinal,c.content FROM (
       SELECT d.* FROM ada.knowledge_document d JOIN ada.knowledge_source s ON s.id=d.source_id
       WHERE d.status='indexado' AND s.status='ativo' AND (d.valid_until IS NULL OR d.valid_until>=current_date)
+      AND COALESCE(s.config->>'skip_ai_study','false')<>'true'
       AND (d.unit_id IS NULL OR d.unit_id=$1) AND (d.scope<>'unidade' OR d.unit_id=$1)
       AND d.required_programs <@ $2::text[] AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)
       ORDER BY CASE WHEN COALESCE(d.domain,'')||' '||d.title ~* 'contrat|instituc|empresa|cons[oó]rcio|cliente' THEN 0 ELSE 1 END,d.title LIMIT 16

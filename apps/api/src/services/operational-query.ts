@@ -65,7 +65,8 @@ export class OperationalQueryService {
   private readonly schemaCache=new Map<number,{data:Schema;until:number}>();
   constructor(private readonly source: (unitId:number) => Promise<Read>,
     private readonly access?: (ctx:AuthContext)=>Promise<OperationalAccess>,
-    private readonly definitions?: (ctx:AuthContext)=>Promise<{table:string;column:string;code:string;label:string;documentId:string;checksum:string}[]>) {}
+    private readonly definitions?: (ctx:AuthContext)=>Promise<{table:string;column:string;code:string;label:string;documentId:string;checksum:string}[]>,
+    private readonly afterRead?: (ctx:AuthContext,tables:string[],scope:string)=>Promise<void>) {}
 
   /** Autoridade de uso: administração POSSEBON validada na sessão, nunca papel autoatribuído. */
   assertAllowed(ctx:AuthContext) {
@@ -253,7 +254,7 @@ export class OperationalQueryService {
       +' WHERE '+where.join(' AND ')+(group.length?' GROUP BY '+group.join(', '):'')
       +(order.length?' ORDER BY '+order.join(', '):'')
       +' LIMIT $'+params.length;
-    return {sql,params,columns:[...used],labels,sources,scope};
+    return {sql,params,columns:[...used],labels,sources,scope,tables};
   }
 
   async query(ctx:AuthContext,raw:unknown) {
@@ -265,7 +266,7 @@ export class OperationalQueryService {
     const definitions=this.definitions?await this.definitions(ctx):[];
     const dictionary=new Map(definitions.map(d=>[dictionaryKey(d.table,d.column,d.code),d]));
     const codes=new Map<string,unknown>();
-    return {
+    const data={
       rows:result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>{
         const source=compiled.sources[key];
         if(!source||source.aggregate||value==null)return [key,value];
@@ -283,6 +284,8 @@ export class OperationalQueryService {
         note:compiled.scope==='unit_unverified'?'Busca administrativa permitida, mas o vínculo destes registros com a unidade solicitada NÃO está confirmado. Verifique empresa, contrato, projeto ou outro vínculo real antes de atribuir à unidade solicitada.':undefined,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
     };
+    if(this.afterRead)await this.afterRead(ctx,compiled.tables,compiled.scope);
+    return data;
   }
 
   private async policy(ctx:AuthContext):Promise<OperationalAccess> {
