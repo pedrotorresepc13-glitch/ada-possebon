@@ -1,3 +1,4 @@
+import {PanelWidget,type Panel} from './LiveBoards.tsx';
 import { useCallback,useEffect,useState } from 'react';
 import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
@@ -14,6 +15,7 @@ export function WorkspaceView() {
   const {me,navigate,theme}=useApp();const {name}=useBranding();
   const [workspace,setWorkspace]=useState<Workspace|null>(null);
   const [dashboard,setDashboard]=useState<{spec:DashboardSpec;data:WidgetData[]}|null>(null);
+  const [operational,setOperational]=useState<Panel[]>([]);
   const [error,setError]=useState('');const [retrying,setRetrying]=useState(false);
   const load=useCallback(async()=>{
     try {setWorkspace(await api<Workspace>('/workspace'));setError('');}catch(e){setError((e as Error).message);}
@@ -28,6 +30,10 @@ export function WorkspaceView() {
     window.dispatchEvent(new CustomEvent('possebon:welcome',{detail:{id:workspace.conversationId}}));
     void api('/workspace/welcome',{body:{}}).catch(()=>{});
   },[workspace?.welcomePending,workspace?.conversationId]);
+  useEffect(()=>{let active=true;const id=workspace?.liveBoardId;if(!id){setOperational([]);return;}
+    const refresh=()=>api<{panels:Panel[]}>('/live-boards/'+id+'/data').then(r=>{if(active)setOperational(r.panels);}).catch(e=>{if(active)setError((e as Error).message);});
+    void refresh();const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30000);return()=>{active=false;window.clearInterval(timer);};
+  },[workspace?.liveBoardId]);
   const working=!workspace||['pending','running'].includes(workspace.state);
   const completed=workspace?.tasks.filter(t=>t.state==='done').length??0;
   const greeting=new Date().getHours()<12?'Bom dia':new Date().getHours()<18?'Boa tarde':'Boa noite';
@@ -46,7 +52,7 @@ export function WorkspaceView() {
       </section>
       <div className="workspace-columns"><section className="workspace-main">
         <div className="section-heading"><div><span className="eyebrow">INFORMAÇÕES DO SEU DIA</span><h2>Seu panorama</h2></div>{workspace?.dashboardId&&<button className="btn ghost sm" onClick={()=>navigate('/dashboards/'+workspace.dashboardId)}>Abrir dashboard<Icon name="arrow" size={16}/></button>}</div>
-        {dashboard?<DashboardCanvas spec={dashboard.spec} data={dashboard.data} theme={theme}/>:<section className="card preparation-card" aria-busy={working}><span className="preparation-icon"><Icon name={working?'spark':'chart'} size={28}/></span><h3>{working?'Estou preparando seu ambiente':'Seu espaço está organizado'}</h3><p>{working?'Conferindo seus acessos e validando as informações úteis para você. Cada etapa concluída fica salva.':'Os indicadores aparecem quando as fontes estiverem conectadas e autorizadas para seu perfil. Você já pode conversar e consultar seus documentos.'}</p></section>}
+        {dashboard?<DashboardCanvas spec={dashboard.spec} data={dashboard.data} theme={theme}/>:operational.length?<div className="grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))'}}>{operational.map((p,i)=><PanelWidget key={i} panel={p}/>)}</div>:<section className="card preparation-card" aria-busy={working}><span className="preparation-icon"><Icon name={working?'spark':'chart'} size={28}/></span><h3>{working?'Estou preparando seu ambiente':'Seu espaço está organizado'}</h3><p>{working?'Conferindo seus acessos e validando as informações úteis para você. Cada etapa concluída fica salva.':'Os indicadores aparecem quando as fontes estiverem conectadas e autorizadas para seu perfil. Você já pode conversar e consultar seus documentos.'}</p></section>}
         {workspace?.liveBoardId&&<button className="live-board-callout" onClick={()=>navigate('/telas/'+workspace.liveBoardId)}><span className="summary-icon"><Icon name="chart"/></span><span><strong>Panorama operacional</strong><small>Abra suas tabelas e indicadores com atualização automática.</small></span><Icon name="arrow"/></button>}
         <section className="card"><div className="section-heading"><h3>{working?'Preparação em andamento':'O que foi preparado'}</h3><span className="badge">{completed} de {workspace?.tasks.length??0}</span></div><progress className="preparation-progress" max={workspace?.tasks.length||1} value={completed} aria-label="Etapas concluídas"/><ul className="preparation-list">{workspace?.tasks.map((t,i)=><li key={i}><span className={'task-state '+t.state}><Icon name={t.state==='done'?'check':t.state==='error'?'close':'clock'} size={16}/></span><span>{t.label}{t.message&&<small>{t.message}</small>}</span></li>)}</ul>{workspace?.issues.map(issue=><p key={issue} className="small muted">{issue}</p>)}{workspace&&['partial','error'].includes(workspace.state)&&<button className="btn sm" disabled={retrying} onClick={()=>void retry()}>Tentar etapas pendentes</button>}</section>
       </section><aside className="workspace-aside">

@@ -9,7 +9,7 @@ import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
 
 type Cell=string|number|boolean|null;
-type Panel={
+export type Panel={
   title:string;type:'table'|'kpi'|'bar'|'line'|'pie';status:string;message?:string;
   rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;
   provenance?:{source:string;unitId:number;queriedAt:string};
@@ -52,7 +52,7 @@ function Graph({p}:{p:Panel}){
   return <div ref={ref} style={{width:'100%',height:320}} role="img" aria-label={p.title}/>;
 }
 
-function PanelWidget({panel:p}:{panel:Panel}){
+export function PanelWidget({panel:p}:{panel:Panel}){
   const numbers=p.columns.filter(c=>p.rows.some(r=>typeof r[c]==='number'));
   return <section className="widget" style={{minWidth:0}}>
     <h3>{p.title}</h3>

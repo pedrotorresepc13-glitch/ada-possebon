@@ -51,7 +51,7 @@ export class WorkspaceService {
     if(active) await active;
     const row=await this.row(ctx);
     if(row&&!restart) await this.d.db.query('UPDATE ada.personal_workspace SET tasks=$3,state=$4 WHERE owner_user_id=$1 AND unit_id=$2',
-      [ctx.systemUserId,ctx.activeUnitId,row.tasks.map(t=>t.state==='error'?{...t,state:'pending',message:undefined}:t),'pending']);
+      [ctx.systemUserId,ctx.activeUnitId,JSON.stringify(row.tasks.map(t=>t.state==='error'?{...t,state:'pending',message:undefined}:t)),'pending']);
     this.schedule(ctx);
     return {started:true};
   }
@@ -105,7 +105,7 @@ export class WorkspaceService {
     if(!row.profile_enc) {
       const found=await this.discover(ctx);
       await this.d.db.query(`UPDATE ada.personal_workspace SET tasks=$4,issues=$5,profile_enc=$6 WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3`,
-      [ctx.systemUserId,ctx.activeUnitId,token,found.tasks,found.issues,this.d.cipher.encrypt(JSON.stringify(found.profile))]);
+      [ctx.systemUserId,ctx.activeUnitId,token,JSON.stringify(found.tasks),JSON.stringify(found.issues),this.d.cipher.encrypt(JSON.stringify(found.profile))]);
       row=(await this.row(ctx))!;
     }
     for(let index=0;index<row.tasks.length;index++) {
@@ -136,7 +136,7 @@ export class WorkspaceService {
           } else await q.query('UPDATE ada.operational_board SET spec=$2,updated_at=now() WHERE id=$1',[current.live_board_id,spec]);
         }
         await q.query(`UPDATE ada.personal_workspace SET tasks=$4,step=$5,live_board_id=$6,updated_at=now(),lease_until=now()+interval '3 minutes'
-          WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3`,[ctx.systemUserId,ctx.activeUnitId,token,row.tasks,index+1,current.live_board_id]);
+          WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3`,[ctx.systemUserId,ctx.activeUnitId,token,JSON.stringify(row.tasks),index+1,current.live_board_id]);
       });
     }
     const widgets=row.tasks.filter(t=>t.kind==='metric'&&t.state==='done').map(t=>t.payload as WidgetSpec);
@@ -169,7 +169,7 @@ export class WorkspaceService {
         WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3`,[ctx.systemUserId,ctx.activeUnitId,token,partial?'partial':'ready',dashboardId,conversationId]);
     });
     } catch(error) {
-      await this.d.db.query("UPDATE ada.personal_workspace SET state='error',lease_token=NULL,lease_until=NULL,issues=$4 WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3",[ctx.systemUserId,ctx.activeUnitId,token,['A preparação foi interrompida. Suas etapas salvas foram preservadas; tente novamente.']]);
+      await this.d.db.query("UPDATE ada.personal_workspace SET state='error',lease_token=NULL,lease_until=NULL,issues=$4 WHERE owner_user_id=$1 AND unit_id=$2 AND lease_token=$3",[ctx.systemUserId,ctx.activeUnitId,token,JSON.stringify(['A preparação foi interrompida. Suas etapas salvas foram preservadas; tente novamente.'])]);
       throw error;
     }
   }
