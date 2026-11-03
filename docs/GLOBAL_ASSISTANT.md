@@ -39,6 +39,10 @@ node /opt/ada/current/scripts/deploy/install-global-assistant.mjs /PASTA/DO/POSS
 
 O auxiliar `scripts/deploy/enable-global-assistant.sh COMMIT check|apply` faz a descoberta da pasta com SSO em /var/www ou /srv/www, prepara a simulação a partir do commit, chama o atualizador existente da IA e só então instala a ponte. O padrão é check. `POSSEBON_WEB_ROOT` permite apontar a instalação existente quando a descoberta não for inequívoca. Não inicia conexão SSH ou lê senhas.
 
+O modo `bridge` repara somente a ponte quando a IA global já foi publicada: confere a ancestralidade da versão com SSO compacto e compara o JavaScript compilado antes de instalar. Não recompila, migra ou reinicia serviços. A CLI resolve caminhos reais para funcionar também pelo link `/opt/ada/current`. O auxiliar executa o instalador do pacote validado e confere os arquivos/inclusões antes da mensagem final de sucesso.
+
+A ferramenta de reversão fica copiada no próprio backup, fora do pacote temporário. O comando impresso continua funcionando depois que o diretório temporário da instalação é removido.
+
 Requer Node e PHP CLI. O caminho deve conter `init.php`, `app/custom/AdaIntegrationService.php` e `app/templates/*/libraries_user.html`. Os templates reais analisados carregam esse arquivo tanto no desktop quanto no mobile. A simulação valida sintaxe PHP e compatibilidade do emissor. Se já houver ponte ou inclusão, bloqueia para revisão em vez de sobrepor.
 
 Acrescenta `ada-assistant.php` na raiz e `app/custom/AdaAssistantBridge.php`. Preserva literalmente o conteúdo dos libraries_user.html e acrescenta um script com versão pelo hash. Não altera index.php, engine.php, login, serviços existentes, tabelas, .env, conversas ou dashboards. Arquivos gravados por renomeação; backup com hashes e metadados em `/var/backups/ada/possebon-global-assistant`. Falha restaura os arquivos instalados; não sobrepõe uma alteração concorrente. O comando de reversão é impresso ao concluir e exige que todos os arquivos ainda correspondam à instalação.

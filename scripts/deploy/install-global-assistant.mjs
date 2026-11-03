@@ -94,6 +94,10 @@ export function installGlobalAssistant(args) {
   fs.mkdirSync(resolvedParent, {recursive:true,mode:0o700});
   const backup = fs.mkdtempSync(path.join(resolvedParent, new Date().toISOString().replace(/[:.]/g,'-') + '-'));
   fs.chmodSync(backup,0o700);
+  // O pacote de instalação pode ser temporário; a reversão precisa sobreviver à sua remoção.
+  const rollbackTool = path.join(backup,'installer.mjs');
+  fs.copyFileSync(fileURLToPath(import.meta.url),rollbackTool);
+  fs.chmodSync(rollbackTool,0o600);
   for (const entry of entries) if (entry.existed) {
     const destination = inside(backup,entry.path);
     fs.mkdirSync(path.dirname(destination),{recursive:true,mode:0o700});
@@ -117,9 +121,9 @@ export function installGlobalAssistant(args) {
     throw error;
   }
   console.log('Botão global instalado. Backup: ' + backup);
-  console.log('Reversão: node ' + JSON.stringify(fileURLToPath(import.meta.url)) + ' ' + JSON.stringify(root) + ' rollback ' + JSON.stringify(backup));
+  console.log('Reversão: node ' + JSON.stringify(rollbackTool) + ' ' + JSON.stringify(root) + ' rollback ' + JSON.stringify(backup));
   console.log('Os próximos exports do MAD Builder devem preservar a inclusão em libraries_user.html.');
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.existsSync(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try { installGlobalAssistant(process.argv.slice(2)); } catch (error) { console.error(error.message); process.exitCode=1; }
 }
