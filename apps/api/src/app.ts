@@ -108,6 +108,11 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
     }
     const auth = await d.sessions.authenticate(req.cookies[COOKIE]);
     if (!auth) throw new HttpError(401, 'UNAUTHENTICATED', 'Sessão ausente ou expirada. Abra a assistente pelo POSSEBON Web.');
+    // Outra aba pode trocar o cookie SSO. Não responder com dados de outra unidade sob a tela anterior.
+    if ((req.headers['x-possebon-unit'] !== undefined && req.headers['x-possebon-unit'] !== String(auth.ctx.activeUnitId)) ||
+        (req.headers['x-possebon-user'] !== undefined && req.headers['x-possebon-user'] !== String(auth.ctx.systemUserId))) {
+      throw new HttpError(409, 'SESSION_CONTEXT_CHANGED', 'Seu usuário ou sua unidade mudou. Reconecte a assistente pelo POSSEBON Web.');
+    }
     req.ctx = auth.ctx;
     req.csrf = auth.csrfToken;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -170,11 +175,12 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- sessão / SSO */
   route('POST', '/session/exchange', 'none', async (req, reply) => {
-    const ticket = z.object({ ticket: z.string().min(20).max(4096) }).parse(body(req)).ticket;
-    const s = await d.sessions.exchangeTicket(ticket, req.headers['user-agent']);
+    if (!originAllowed(req)) throw new HttpError(403, 'CSRF', 'Origem não autorizada.');
+    const input = z.object({ ticket: z.string().min(20).max(4096), view: z.enum(['full', 'compact']).default('full') }).parse(body(req));
+    const s = await d.sessions.exchangeTicket(input.ticket, req.headers['user-agent']);
     reply.setCookie(COOKIE, s.token, cookieOpts());
     d.study.schedule(s.ctx);
-    if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(`${base}/`);
+    if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(input.view === 'compact' ? `${base}/compacto` : `${base}/`);
     return { ok: true };
   });
 

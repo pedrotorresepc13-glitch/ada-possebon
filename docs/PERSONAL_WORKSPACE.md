@@ -26,12 +26,12 @@ O dono pode compartilhar sua tela viva com outro usuário ativo da unidade. O de
 
 Um acompanhamento operacional identifica exatamente um registro por id, sem agregações. A IA propõe e o usuário ativa pelo botão. O worker compara os campos selecionados a cada intervalo, sem chamadas ao modelo. Alterações geram notificação privada; ausência de alteração não gera mensagens. A notificação não copia valores operacionais. Consultar agora revalida o acesso e busca o estado atual. Pausar interrompe verificações; retomar estabelece uma nova referência. Fonte indisponível, registro removido ou acesso revogado deixam o acompanhamento em estado de atenção, exigindo retomada após correção. São notificações internas; não há envio de WhatsApp/e-mail nem atualização instantânea por eventos.
 
-## Incorporação futura no POSSEBON Web
+## Conversa global no POSSEBON Web
 
-O painel completo e /ada/compacto usam a mesma API, sessão, conversas e permissões. O arquivo /ada/possebon-assistant.js está pronto para inclusão futura no layout global do MAD Builder, na mesma origem e após estabelecer a sessão SSO:
+O painel completo e /ada/compacto usam a mesma API, sessão, conversas e permissões. O botão global usa a ponte `ada-assistant.php` para conferir a sessão atual do POSSEBON e obter um ticket SSO somente ao abrir a conversa. Não exige abrir o painel antes. A instalação com backup e os limites estão em [GLOBAL_ASSISTANT.md](GLOBAL_ASSISTANT.md):
 
 ```html
-<script defer src="/ada/possebon-assistant.js" data-base="/ada/"></script>
+<script defer src="/ada/possebon-assistant.js" data-base="/ada/" data-bridge="ada-assistant.php"></script>
 ```
 
 O módulo que abre um registro pode fornecer uma pista de contexto:
@@ -42,7 +42,7 @@ window.PossebonAssistant.setContext({module:'Compras',table:'solicitacao_compra'
 window.PossebonAssistant.setContext(null);
 ```
 
-Mensagens entre janela e iframe verificam origem e janela emissora. O contexto da página nunca concede acesso nem substitui consulta ao registro. O botão carrega o nome da configuração administrativa. Não passe tokens na URL. A sessão SSO, o ponto de inclusão no layout e os nomes reais de tabelas devem ser validados na integração MAD Builder. Esta entrega não altera arquivos PHP nem habilita microfone/voz.
+Mensagens entre janela e iframe verificam origem e janela emissora. O contexto da página nunca concede acesso nem substitui consulta ao registro. O botão carrega o nome da configuração administrativa. Não passe tokens na URL. A inclusão ocorre uma vez nos `libraries_user.html` dos temas instalados, compartilhados pelos layouts desktop e mobile. A integração acrescenta dois arquivos PHP e não habilita microfone/voz. É necessário preservar essa inclusão no projeto MAD Builder para que uma nova exportação não a remova. A publicação real e o SSO do servidor exigem validação integrada; testes locais usam identidade sintética.
 
 ## Atualização e validação
 

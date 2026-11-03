@@ -4,6 +4,11 @@ import type { MeResponse } from '@ada/contracts';
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 const API = `${BASE}/api/ada`;
 let csrf = '';
+let sessionContext: { userId: number; unitId: number } | null = null;
+
+export function setSessionContext(me: MeResponse | null) {
+  sessionContext = me ? { userId: me.user.systemUserId, unitId: me.activeUnit.id } : null;
+}
 
 export function setCsrf(token: string) {
   csrf = token;
@@ -27,6 +32,10 @@ export function onUnauthenticated(fn: Listener): () => void {
 export async function api<T = unknown>(path: string, init: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
   const method = init.method ?? (init.body !== undefined || init.form ? 'POST' : 'GET');
   const headers: Record<string, string> = { Accept: 'application/json' };
+  if (sessionContext) {
+    headers['X-Possebon-User'] = String(sessionContext.userId);
+    headers['X-Possebon-Unit'] = String(sessionContext.unitId);
+  }
   if (method !== 'GET') headers['X-CSRF-Token'] = csrf;
   if (init.body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(API + path, {
@@ -38,8 +47,8 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401) unauthListeners.forEach((l) => l());
     const e = (data as { error?: { code?: string; message?: string; details?: unknown } }).error ?? {};
+    if (res.status === 401 || e.code === 'SESSION_CONTEXT_CHANGED') unauthListeners.forEach((l) => l());
     throw new ApiError(res.status, e.code ?? 'ERRO', e.message ?? `Falha (HTTP ${res.status})`, e.details);
   }
   return data as T;

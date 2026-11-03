@@ -43,6 +43,20 @@ describe('SSO por ticket de troca', () => {
     expect(res.headers.location).toBe('/ada/');
   });
 
+  it('botão global abre diretamente a conversa compacta e não aceita redirecionamento livre', async () => {
+    const payload = `ticket=${encodeURIComponent(ticket())}&view=compact`;
+    const headers = { 'content-type': 'application/x-www-form-urlencoded', origin: 'https://possebon.exemplo.com.br' };
+    const res = await h.app.inject({ method:'POST',url:`${API}/session/exchange`,headers,payload });
+    expect(res.statusCode).toBe(303);
+    expect(res.headers.location).toBe('/ada/compacto');
+    const me = await h.app.inject({method:'GET',url:`${API}/me`,headers:{cookie:cookieFrom(res.headers['set-cookie'])}});
+    expect(me.json()).toMatchObject({user:{systemUserId:9002},activeUnit:{id:1}});
+    const invalid = await h.app.inject({method:'POST',url:`${API}/session/exchange`,headers,payload:`ticket=${encodeURIComponent(ticket())}&view=https://outro.exemplo`});
+    expect(invalid.statusCode).toBe(400);
+    const crossOrigin = await h.app.inject({method:'POST',url:`${API}/session/exchange`,headers:{...headers,origin:'https://outro.exemplo'},payload:`ticket=${encodeURIComponent(ticket())}&view=compact`});
+    expect(crossOrigin.statusCode).toBe(403);
+  });
+
   it('rejeita replay do mesmo ticket', async () => {
     const t = ticket();
     expect((await exchange(t)).statusCode).toBe(200);
@@ -72,6 +86,14 @@ describe('SSO por ticket de troca', () => {
 });
 
 describe('sessão, CSRF, origem e revogação', () => {
+  it('recusa leitura com tela de outro usuário ou unidade após troca do cookie em outra aba',async()=>{
+    const c=await h.login('admin.demo');
+    const request=(user:string,unit:string)=>h.app.inject({method:'GET',url:`${API}/me`,headers:{cookie:c.cookie,'x-possebon-user':user,'x-possebon-unit':unit}});
+    expect((await request('9001','1')).statusCode).toBe(200);
+    const wrongUnit=await request('9001','2');
+    expect(wrongUnit.statusCode).toBe(409);expect(wrongUnit.json().error.code).toBe('SESSION_CONTEXT_CHANGED');
+    expect((await request('9002','1')).statusCode).toBe(409);
+  });
   it('mutação sem CSRF ou de origem não autorizada é recusada', async () => {
     const c = await h.login('gerente.a');
     const noCsrf = await h.app.inject({ method: 'POST', url: `${API}/conversations`, headers: { cookie: c.cookie, 'content-type': 'application/json' }, payload: '{}' });

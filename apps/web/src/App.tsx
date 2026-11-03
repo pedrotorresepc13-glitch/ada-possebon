@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { api, apiUrl, onUnauthenticated, setCsrf, type Me } from './api.ts';
+import { api, apiUrl, onUnauthenticated, setCsrf, setSessionContext, type Me } from './api.ts';
 import { Ctx, useRoute } from './app-context.ts';
 import { ChatView } from './views/Chat.tsx';
 import { ConversationsView } from './views/Conversations.tsx';
@@ -99,6 +99,7 @@ function AppContent() {
 
   const setMe = useCallback((m: Me) => {
     setCsrf(m.csrfToken);
+    setSessionContext(m);
     setMeState(m);
   }, []);
 
@@ -110,6 +111,10 @@ function AppContent() {
       })
       .catch(() => setInfo({ authenticated: false }));
     return onUnauthenticated(() => {
+      setSessionContext(null);
+      if (window.parent !== window && window.location.pathname.endsWith('/compacto')) {
+        window.parent.postMessage({ type: 'possebon:session-expired' }, window.location.origin);
+      }
       setMeState(null);
       setInfo((i) => ({ ...(i ?? { authenticated: false }), authenticated: false }));
     });
