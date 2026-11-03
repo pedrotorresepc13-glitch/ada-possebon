@@ -43,6 +43,8 @@ O modo `bridge` repara somente a ponte quando a IA global já foi publicada: con
 
 A ferramenta de reversão fica copiada no próprio backup, fora do pacote temporário. O comando impresso continua funcionando depois que o diretório temporário da instalação é removido.
 
+Permissões finais são aplicadas explicitamente após criar o arquivo temporário: a umask 077 do bootstrap não pode reduzir 0644 da ponte para 0600. Os dois arquivos PHP novos precisam ser legíveis pelo processo PHP; os layouts mantêm seus modos anteriores. Segredos/configuração não são incluídos nem têm permissões alteradas.
+
 Requer Node e PHP CLI. O caminho deve conter `init.php`, `app/custom/AdaIntegrationService.php` e `app/templates/*/libraries_user.html`. Os templates reais analisados carregam esse arquivo tanto no desktop quanto no mobile. A simulação valida sintaxe PHP e compatibilidade do emissor. Se já houver ponte ou inclusão, bloqueia para revisão em vez de sobrepor.
 
 Acrescenta `ada-assistant.php` na raiz e `app/custom/AdaAssistantBridge.php`. Preserva literalmente o conteúdo dos libraries_user.html e acrescenta um script com versão pelo hash. Não altera index.php, engine.php, login, serviços existentes, tabelas, .env, conversas ou dashboards. Arquivos gravados por renomeação; backup com hashes e metadados em `/var/backups/ada/possebon-global-assistant`. Falha restaura os arquivos instalados; não sobrepõe uma alteração concorrente. O comando de reversão é impresso ao concluir e exige que todos os arquivos ainda correspondam à instalação.

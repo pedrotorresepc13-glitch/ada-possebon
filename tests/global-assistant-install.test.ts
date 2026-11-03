@@ -54,3 +54,17 @@ it('executa a entrada CLI quando chamada pelo link current do release',async()=>
   expect(result.error).toBeUndefined();expect(result.status).toBe(1);expect(result.stderr).toContain('Uso:');
  }finally{fs.unlinkSync(current);}
 });
+it('aplica permissões finais da ponte e preserva o modo do layout mesmo com umask 077',()=>{
+ const {root,layout}=fixture();const layoutMode=fs.statSync(layout).mode&0o777;
+ const chmod=vi.spyOn(fs,'fchmodSync');const previousMask=process.umask(0o077);
+ try{
+  installGlobalAssistant([root,'apply']);
+  expect(chmod.mock.calls.filter(([,mode])=>mode===0o644).length).toBeGreaterThanOrEqual(2);
+  expect(chmod.mock.calls.some(([,mode])=>mode===layoutMode)).toBe(true);
+  if(process.platform!=='win32'){
+   expect(fs.statSync(path.join(root,'ada-assistant.php')).mode&0o777).toBe(0o644);
+   expect(fs.statSync(path.join(root,'app/custom/AdaAssistantBridge.php')).mode&0o777).toBe(0o644);
+   expect(fs.statSync(layout).mode&0o777).toBe(layoutMode);
+  }
+ }finally{process.umask(previousMask);chmod.mockRestore();}
+});

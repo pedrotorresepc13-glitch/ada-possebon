@@ -31,7 +31,12 @@ function writeAtomic(file, bytes, metadata) {
   const temporary = file + '.possebon-assistant-stage';
   if (fs.existsSync(temporary)) throw new Error('Arquivo temporário já existe: ' + temporary);
   const fd = fs.openSync(temporary, 'wx', metadata.mode & 0o777);
-  try { fs.writeFileSync(fd, bytes); if (process.getuid?.() === 0) fs.fchownSync(fd, metadata.uid, metadata.gid); }
+  try {
+    fs.writeFileSync(fd, bytes);
+    if (process.getuid?.() === 0) fs.fchownSync(fd, metadata.uid, metadata.gid);
+    // O bootstrap usa umask 077. open(mode) sozinho reduziria 0644 para 0600 e impediria o PHP de ler a ponte.
+    fs.fchmodSync(fd, metadata.mode & 0o777);
+  }
   finally { fs.closeSync(fd); }
   try { fs.renameSync(temporary, file); } catch (e) { fs.unlinkSync(temporary); throw e; }
 }
