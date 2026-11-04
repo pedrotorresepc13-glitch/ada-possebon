@@ -98,6 +98,49 @@ export class OpenAIResponsesProvider implements AiProvider {
         input.push({ type: 'function_call_output', call_id: c.call_id, output: JSON.stringify(result).slice(0, 60_000) });
       }
     }
-    return { text: 'Interrompi a análise porque ela excedeu o limite de etapas permitido. Tente um pedido mais específico.', usage, toolCalls, steps: maxSteps };
+    // Uma investigação que atingiu o limite ainda possui resultados de ferramentas.
+    // Em vez de descartá-los, conclui com uma síntese limitada e explícita.
+    // Este passo NÃO autoriza novas ferramentas nem aumenta indefinidamente o custo.
+    try {
+      const final = await this.call(
+        {
+          model: this.cfg.model,
+          instructions: args.instructions +
+            '\nA investigação atingiu o limite de etapas. Não solicite mais ferramentas. ' +
+            'Responda em português com os resultados confirmados das consultas já realizadas, ' +
+            'o que permanece sem comprovação e os próximos passos. ' +
+            'Comece por "Resultado parcial:" e não invente números, fontes ou conclusões.',
+          input: [...input, { role: 'user', content: 'Consolide os resultados já verificados; informe as pendências.' }],
+          tools: [],
+          tool_choice: 'none',
+          max_output_tokens: Math.min(this.cfg.maxOutputTokens, args.maxOutputTokens ?? this.cfg.maxOutputTokens),
+          store: false
+        },
+        args.signal
+      );
+      usage.input += final.usage?.input_tokens ?? 0;
+      usage.output += final.usage?.output_tokens ?? 0;
+      const summary = final.output
+        .filter((o) => o.type === 'message')
+        .flatMap((o) => o.content ?? [])
+        .filter((c) => c.type === 'output_text')
+        .map((c) => c.text ?? '')
+        .join('\n')
+        .trim();
+      return {
+        text: summary.startsWith('Resultado parcial:') ? summary : 'Resultado parcial: ' + (summary || 'A análise ainda não foi concluída.'),
+        usage, toolCalls, steps: maxSteps + 1, partial: true
+      };
+    } catch (err) {
+      if (args.signal?.aborted) throw err;
+      // Sem síntese do provedor: informe o progresso sem atribuir resultados fictícios.
+      const verified = [...new Set(toolCalls.filter((t) => t.ok).map((t) => t.name))];
+      return {
+        text: 'Resultado parcial: foram executadas ' + toolCalls.length +
+          ' verificações. ' + (verified.length ? 'Ferramentas consultadas: ' + verified.join(', ') + '. ' : '') +
+          'A conclusão não foi confirmada. A investigação pode ser aprofundada numa nova solicitação.',
+        usage, toolCalls, steps: maxSteps, partial: true
+      };
+    }
   }
 }
