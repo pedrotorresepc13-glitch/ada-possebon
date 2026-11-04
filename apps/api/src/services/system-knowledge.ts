@@ -95,9 +95,11 @@ export class SystemKnowledgeService{
   const ranked=s.tables.map(t=>({t,score:relevance(t.nome,question)+(bindings.get(t.nome)??0)*5})).filter(t=>t.score>0).sort((a,b)=>b.score-a.score||a.t.nome.localeCompare(b.t.nome));
   const selected=ranked.length?ranked.slice(0,8).map(t=>t.t):diverseTables(s.tables,8);
   const references=s.references.filter(r=>relevance(referenceText(r),question)>0).sort((a,b)=>relevance(referenceText(b),question)-relevance(referenceText(a),question)).slice(0,6).map(r=>({kind:r.kind,name:r.label.slice(0,120),title:r.title?.slice(0,120),table:r.table_name,declaredDefaults:r.defaults?.slice(0,500),source:r.source_ref.slice(0,160),snapshot:r.snapshot}));
+   const selectedNames=new Set(selected.map(t=>t.nome));
+   const knownCodes=s.definitions.filter(d=>selectedNames.has(d.table)).slice(0,24).map(d=>({table:d.table,column:d.column,code:d.code,label:d.label,documentId:d.documentId,sourceChecksum:d.checksum}));
   const data={unitId:ctx.activeUnitId,sourceState:s.sourceState,scope:s.scope,totalTables:s.tables.length,areas:[...new Set(s.tables.map(t=>t.area))],
    selectedTables:selected.map(t=>({name:t.nome,area:t.area,queryable:t.consultavel,unitVerified:t.unidadeVerificavel,columns:t.colunas.slice(0,15).map(c=>c.nome)})),references,
-   documentDomains:s.documents.slice(0,20)};
+   documentDomains:s.documents.slice(0,20),approvedCodeDefinitions:knownCodes};
   return 'MAPA OPERACIONAL VERIFICADO E INVENTÁRIO DO SISTEMA (zero chamadas de estudo; seleção para esta pergunta, não lista completa): '+wrapUntrusted('Estrutura autorizada',JSON.stringify(data))+
    '\nUse conhecer_sistema para pesquisar TODO o catálogo, inclusive módulos fora das áreas editoriais; não dependa de uma lista fixa nem só de RH. Use explorar_tabelas para campos completos e FKs e consultar_banco para registros atuais. Falha de esquema não prova que o módulo inexiste: consulte referências e documentos. scope=all_units confirma autoridade administrativa, sem exigir unidade em tabela de negócio. Use unitScope=current por padrão; all somente para pedido entre unidades. Se o retorno for unit_unverified, não atribua o registro à unidade atual sem confirmar o vínculo. Falta de métrica legada não significa falta de dados. Confirme SC versus OC no tipo/fluxo documentado. AUDCOMP não tem expansão ou escala presumida. Referências de tela/modelo não provam regras nem privilégios SELECT. Use verificar_acesso_tabela antes de declarar falta de leitura.';
  }
