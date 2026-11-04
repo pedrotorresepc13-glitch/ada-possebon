@@ -291,7 +291,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('GET','/watches/:id/current','user',(req,_r,ctx)=>d.watches.current(ctx,params(req).id!));
   route('POST','/watches','user',(req,_r,ctx)=>d.watches.create(ctx,body(req)));
   route('PUT','/watches/:id/state','user',(req,_r,ctx)=>d.watches.setState(ctx,params(req).id!,z.object({state:z.enum(['active','paused'])}).strict().parse(body(req)).state));
-    route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
+    route('GET', '/brain/coverage', 'user', (_req, _r, ctx) => d.brainCoverage.status(ctx));
+  route('GET', '/admin/brain-pulse', 'admin', () => d.brainCoverage.lastPulse());
+  route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
   route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
     const enabled = await d.catalog.enabledSourceIds();
