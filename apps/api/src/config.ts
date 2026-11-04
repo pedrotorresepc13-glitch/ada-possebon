@@ -55,8 +55,8 @@ const EnvSchema = z.object({
   ADA_OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   ADA_AI_TIMEOUT_MS: z.coerce.number().int().default(45000),
   ADA_AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().default(1500),
-  ADA_AI_DAILY_REQUESTS_PER_USER: z.coerce.number().int().default(200),
-  ADA_CHAT_PER_MINUTE: z.coerce.number().int().default(20),
+  ADA_AI_DAILY_REQUESTS_PER_USER: z.coerce.number().int().min(0).default(0),
+  ADA_CHAT_PER_MINUTE: z.coerce.number().int().min(0).default(0),
   ADA_UPLOAD_MAX_MB: z.coerce.number().default(20),
   ADA_WEB_DIST: z.string().optional(),
   ADA_LOG_LEVEL: z.string().default('info')
