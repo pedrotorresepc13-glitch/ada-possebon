@@ -9,7 +9,7 @@ const scripted:AiProvider={
   async run(){
     return {
       text:JSON.stringify({facts:[{
-        ordinal:0,category:'cliente',topic:'Petrobras',
+        ordinal:0,category:'clientes',topic:'Petrobras',
         statement:'Segundo o documento, o cliente contratante do consórcio EPC13 é a Petrobras.',
         evidence:excerpt,
         certainty:'documental'
@@ -62,6 +62,7 @@ describe('caderno institucional rastreável e segregado',()=>{
     expect(passage).toContain('cliente contratante');
     expect(passage).toContain('Documento de teste');
     expect(passage).not.toContain('vinte anos');
+    expect(await h.d.corporateMemory.promptContext(ctx,'Quem é nosso cliente?')).toContain('cliente contratante');
   });
   it('nao atravessa unidade, programa nem revisao do documento',async()=>{
     expect(await h.d.corporateMemory.promptContext(

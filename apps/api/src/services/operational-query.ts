@@ -1,8 +1,12 @@
+import {findUnitPath,unitPredicate,isProtectedTable} from './unit-path.ts';
+import {processArea} from './process-map.ts';
 import { z } from 'zod';
 import { businessColumnLabel, businessValue } from '@ada/domain';
 import type { AuthContext } from '@ada/contracts';
 import type { ReadonlyPostgresConnector } from './readonly-postgres.ts';
 import { forbidden } from '../errors.ts';
+import type { OperationalAccess } from './operational-access.ts';
+import {dictionaryKey} from './business-dictionary.ts';
 
 /**
  * Linguagem declarativa de consultas do POSSEBON.
@@ -16,6 +20,7 @@ const scalar = z.union([z.string().max(300), z.number().finite(), z.boolean()]);
 const joinSpec = z.union([identifier, z.object({table:identifier,via:identifier}).strict()]);
 export const OperationalPlan = z.object({
   from: identifier,
+  unitScope: z.enum(['current','all']).default('current'),
   joins: z.array(joinSpec).max(3).default([]),
   select: z.array(z.object({
     field, as: identifier.optional(),
@@ -46,8 +51,8 @@ interface ForeignKey { from_table: string; from_col: string; to_table: string; t
 type Schema = { columns: Map<string,Map<string,string>>; foreignKeys: ForeignKey[] };
 type Read = Pick<ReadonlyPostgresConnector,'executeRead'>;
 
-const BLOCKED = /(^|_)(senha|password|secret|token|hash|salt|cpf|cnpj|documento|rg|pis|pasep|nascimento|telefone|celular|email|endereco|cep|bairro|rua|complemento|salario|remuneracao|bancaria|conta|agencia|pix|chave|biometria|foto|imagem|anexo|arquivo|conteudo|observacao|obs|login|ip|cookie|jwt|autenticacao)(_|$)/i;
-const BLOCKED_TABLE = /^(system_|ada_|log_|audit_|migration|senha|usuario_senha)/i;
+const BLOCKED = /(^|_)(senha|pass|pwd|passwd|credential|password|secret|token|hash|salt|cpf|cnpj|documento|rg|pis|pasep|nascimento|telefone|celular|email|endereco|cep|bairro|rua|complemento|salario|remuneracao|bancaria|conta|agencia|pix|chave|biometria|foto|imagem|anexo|arquivo|conteudo|observacao|obs|login|ip|cookie|jwt|autenticacao)(_|$)/i;
+const BLOCKED_TABLE = {test:isProtectedTable};
 const quote = (s:string) => '"' + s.replaceAll('"','""') + '"';
 const protect = (name:string) => {
   if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) throw new Error('Identificador não permitido');
@@ -57,19 +62,23 @@ const isSafeColumn = (name:string) => !BLOCKED.test(name);
 const deny = (detail:string):never => {throw forbidden('Consulta POSSEBON não autorizada: '+detail);};
 
 export class OperationalQueryService {
-  private schemaCache?: {data:Schema;until:number};
-  constructor(private readonly source: (unitId:number) => Promise<Read>) {}
+  private readonly schemaCache=new Map<number,{data:Schema;until:number}>();
+  constructor(private readonly source: (unitId:number) => Promise<Read>,
+    private readonly access?: (ctx:AuthContext)=>Promise<OperationalAccess>,
+    private readonly definitions?: (ctx:AuthContext)=>Promise<{table:string;column:string;code:string;label:string;documentId:string;checksum:string}[]>,
+    private readonly afterRead?: (ctx:AuthContext,tables:string[],scope:string)=>Promise<void>) {}
 
   /** Autoridade de uso: administração POSSEBON validada na sessão, nunca papel autoatribuído. */
   assertAllowed(ctx:AuthContext) {
-    if (ctx.identitySource !== 'possebon' || !ctx.roles.includes('admin') || !ctx.programs.AdaAdministracao) {
+    if (ctx.identitySource !== 'possebon' || (!this.access && (!ctx.roles.includes('admin') || !ctx.programs.AdaAdministracao))) {
       deny('motor corporativo liberado inicialmente somente para AdaAdministracao com identidade real');
     }
     if (!ctx.allowedUnitIds.includes(ctx.activeUnitId)) deny('unidade não autorizada');
   }
 
-  private async schema(source:Read):Promise<Schema> {
-    if (this.schemaCache && this.schemaCache.until>Date.now()) return this.schemaCache.data;
+  private async schema(source:Read,unitId:number):Promise<Schema> {
+    const cached=this.schemaCache.get(unitId);
+    if (cached && cached.until>Date.now()) return cached.data;
     const [columns, keys] = await Promise.all([
       source.executeRead<Column>(
         "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position"),
@@ -94,16 +103,17 @@ export class OperationalQueryService {
       map.get(c.table_name)!.set(c.column_name,c.data_type);
     }
     const data={columns:map,foreignKeys:keys.rows};
-    this.schemaCache={data,until:Date.now()+60_000};
+    this.schemaCache.set(unitId,{data,until:Date.now()+60_000});
     return data;
   }
 
   async explore(ctx:AuthContext, term='', table='') {
     this.assertAllowed(ctx);
     const source=await this.source(ctx.activeUnitId);
-    const s=await this.schema(source);
+    const policy=await this.policy(ctx);
+    const s=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
     const search=term.toLowerCase().trim().slice(0,80);
-    const accessible=[...s.columns.entries()].filter(([,cols])=>cols.has('unit_id'));
+    const accessible=[...s.columns.entries()];
     const matching=accessible.filter(([name,cols])=>
       name.includes(search)||[...cols.keys()].some(k=>k.includes(search)));
     const matched=table ? accessible.filter(([name])=>name===table) :
@@ -118,17 +128,37 @@ export class OperationalQueryService {
           .map(k=>({campo:k.from_col,tabelaRelacionada:k.to_table,campoRelacionado:k.to_col,
             colunasRelacionadas:[...s.columns.get(k.to_table)!].filter(([col])=>isSafeColumn(col)).map(([col])=>col).slice(0,40)})).slice(0,30)
       })),
-      nota:'Somente tabelas públicas com unit_id podem iniciar consultas; tabelas relacionadas entram somente por FK real. Termos como TI podem ser VALORES de equipe/funcao, não nomes de tabela. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
+      nota:policy.admin?'Administração POSSEBON confirmada: permite consulta de negócio de todas as unidades desta conexão, inclusive tabelas sem unit_id. Por padrão usa unidade atual quando há vínculo verificável; unitScope=all amplia explicitamente. Sem vínculo, resultados não comprovam pertencer à unidade atual. JOINs exigem FK real. Colunas pessoais e credenciais são omitidas.':'Tabelas sem unit_id exigem caminho único de FK até uma tabela com unidade; tabelas relacionadas entram somente por FK real. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
     };
   }
 
+  async diagnoseTable(ctx:AuthContext,name:string){
+    this.assertAllowed(ctx);identifier.parse(name);const policy=await this.policy(ctx);
+    if(!policy.admin&&!Object.hasOwn(policy.tables,name))deny('tabela não autorizada para este usuário');
+    const source=await this.source(ctx.activeUnitId);
+    const result=await source.executeRead<{table_name:string;can_read:boolean;has_unit:boolean}>(`SELECT c.relname AS table_name,has_table_privilege(current_user,c.oid,'SELECT') AS can_read,
+      EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='unit_id' AND NOT a.attisdropped) AS has_unit
+      FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=$1 AND c.relkind IN ('r','p','v','m')`,[name]);
+    const row=result.rows[0];return row?{exists:true,...row,scope:policy.admin?'all_units':'unit',note:policy.admin?'Administração confirmada: ausência de unit_id não bloqueia consulta de negócio. A credencial PostgreSQL ainda precisa de SELECT.':'Diagnóstico da credencial real; falta de SELECT exige autorização no PostgreSQL. Falta de unit_id exige vínculo por FK ou mapeamento.'}:{exists:false,table_name:name,note:'Nome não encontrado no schema public desta conexão.'};
+  }
+  async processMap(ctx:AuthContext){
+    this.assertAllowed(ctx);const source=await this.source(ctx.activeUnitId);const policy=await this.policy(ctx);
+    const schema=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
+    const tables=[...schema.columns].map(([nome,cols])=>({nome,unidadeVerificavel:findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,consultavel:policy.admin||findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
+    return {unitId:ctx.activeUnitId,scope:policy.admin?'all_units':'unit',tables,areas:[...new Set(tables.map(t=>t.area))],note:policy.admin?'Administração confirmada: todas as unidades e tabelas de negócio desta conexão, sem exigir vínculo de unidade. Constarem no mapa não comprova SELECT.':'Mapa de estrutura autorizada. Nomes classificados são pistas; dados e regras exigem consulta. Tabelas sem caminho único de unidade exigem mapeamento; constar no mapa não comprova permissão SELECT.'};
+  }
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
-  private compile(planInput:unknown,s:Schema,unitId:number) {
+  private compile(planInput:unknown,s:Schema,unitId:number,access:OperationalAccess) {
     const p=OperationalPlan.parse(planInput);
     const tables=[p.from,...p.joins.map(j=>typeof j==='string'?j:j.table)];
     if (new Set(tables).size!==tables.length) deny('tabela repetida');
     const base=s.columns.get(p.from);
-    if (!base?.has('unit_id')) deny('tabela base sem unit_id');
+    if (!base) deny('tabela base inexistente ou sem metadados acessíveis');
+    if(p.unitScope==='all'&&!access.admin)deny('consulta entre unidades exige administração confirmada');
+    const path=findUnitPath(p.from,s.columns,s.foreignKeys);
+    if(!access.admin&&path===null)deny('tabela sem vínculo único de unidade; requer mapeamento: '+p.from);
+    const filterUnit=p.unitScope==='current'&&path!==null;
+    const scope=filterUnit?'unit':p.unitScope==='all'?'all_units':'unit_unverified';
     if (BLOCKED_TABLE.test(p.from)) deny('tabela protegida');
     const aliases=new Map<string,string>([[p.from,'t0']]);
     const joins:string[]=[];
@@ -156,7 +186,7 @@ export class OperationalQueryService {
       const alias='t'+(i+1);
       aliases.set(name,alias);
       const clause=[alias+'.'+protect(relation!.to_col)+' = t0.'+protect(relation!.from_col)];
-      if(cols!.has('unit_id')) clause.push(alias+'.unit_id = t0.unit_id');
+      if(filterUnit&&cols!.has('unit_id')) clause.push(alias+'.unit_id = $1');
       if(cols!.has('deletado_em')) clause.push(alias+'.deletado_em IS NULL');
       if(cols!.has('deleted_at')) clause.push(alias+'.deleted_at IS NULL');
       joins.push('LEFT JOIN public.'+protect(name)+' '+alias+' ON '+clause.join(' AND '));
@@ -184,8 +214,15 @@ export class OperationalQueryService {
       const e=item.aggregate ? item.aggregate.toUpperCase()+'('+f.expression+')' : f.expression;
       return e+' AS '+protect(alias);
     });
-    const params:unknown[]=[unitId];
-    const where=['t0.unit_id = $1'];
+    const params:unknown[]=filterUnit?[unitId]:[];
+    const where=filterUnit?[unitPredicate(p.from,'t0',s.columns,s.foreignKeys,protect,'$1')]:['TRUE'];
+    if(!access.admin) for(const table of tables) {
+      const grant=access.tables[table] ?? deny('módulo não liberado para este usuário');
+      if(grant.scopeColumn && grant.scopeValues) {
+        params.push(grant.scopeValues.map(String));
+        where.push(aliases.get(table)+'.'+protect(grant.scopeColumn)+'::text = ANY($'+params.length+'::text[])');
+      }
+    }
     if(base!.has('deletado_em')) where.push('t0.deletado_em IS NULL');
     if(base!.has('deleted_at')) where.push('t0.deleted_at IS NULL');
     for(const cond of p.where){
@@ -217,22 +254,51 @@ export class OperationalQueryService {
       +' WHERE '+where.join(' AND ')+(group.length?' GROUP BY '+group.join(', '):'')
       +(order.length?' ORDER BY '+order.join(', '):'')
       +' LIMIT $'+params.length;
-    return {sql,params,columns:[...used],labels,sources};
+    return {sql,params,columns:[...used],labels,sources,scope,tables};
   }
 
   async query(ctx:AuthContext,raw:unknown) {
     this.assertAllowed(ctx);
     const source=await this.source(ctx.activeUnitId);
-    const compiled=this.compile(raw,await this.schema(source),ctx.activeUnitId);
+    const policy=await this.policy(ctx);
+    const compiled=this.compile(raw,this.scoped(await this.schema(source,ctx.activeUnitId),policy),ctx.activeUnitId,policy);
     const result=await source.executeRead<Record<string,unknown>>(compiled.sql,compiled.params);
-    return {
+    const definitions=this.definitions?await this.definitions(ctx):[];
+    const dictionary=new Map(definitions.map(d=>[dictionaryKey(d.table,d.column,d.code),d]));
+    const codes=new Map<string,unknown>();
+    const data={
       rows:result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>{
         const source=compiled.sources[key];
-        return [key, source && !source.aggregate ? businessValue(source.table,source.column,value) : value];
+        if(!source||source.aggregate||value==null)return [key,value];
+        const definition=dictionary.get(dictionaryKey(source.table,source.column,String(value)));
+        const displayed=definition?.label??businessValue(source.table,source.column,value);
+        if(typeof value==='string'&&/(^|_)(status|situacao|situation|state)(_|$)/i.test(source.column)){
+          const unknown=displayed===value||String(displayed).startsWith('Situação sem descrição');
+          codes.set(dictionaryKey(source.table,source.column,value),{table:source.table,column:source.column,code:value,label:unknown?null:displayed,verified:Boolean(definition)||!unknown,documentId:definition?.documentId,checksum:definition?.checksum});
+        }
+        return [key,displayed];
       }))),
       columns:compiled.columns, labels:compiled.labels, rowCount:result.rows.length,
-      provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:ctx.activeUnitId,
+      codeDefinitions:[...codes.values()].slice(0,40),codeDefinitionsTruncated:codes.size>40,
+      provenance:{source:'POSSEBON PostgreSQL, transação READ ONLY',unitId:compiled.scope==='unit'?ctx.activeUnitId:null,requestedUnitId:ctx.activeUnitId,scope:compiled.scope,
+        note:compiled.scope==='unit_unverified'?'Busca administrativa permitida, mas o vínculo destes registros com a unidade solicitada NÃO está confirmado. Verifique empresa, contrato, projeto ou outro vínculo real antes de atribuir à unidade solicitada.':undefined,
         queriedAt:new Date().toISOString(),maxRows:200,synthetic:false}
     };
+    if(this.afterRead)await this.afterRead(ctx,compiled.tables,compiled.scope);
+    return data;
+  }
+
+  private async policy(ctx:AuthContext):Promise<OperationalAccess> {
+    return this.access ? this.access(ctx) : {admin:true,tables:{}};
+  }
+  private scoped(schema:Schema,policy:OperationalAccess):Schema {
+    if(policy.admin) return schema;
+    const columns=new Map<string,Map<string,string>>();
+    for(const [table,grant] of Object.entries(policy.tables)) {
+      const actual=schema.columns.get(table);
+      if(!actual || (grant.scopeColumn && !actual.has(grant.scopeColumn))) continue;
+      columns.set(table,new Map([...actual].filter(([c])=>c==='unit_id'||grant.columns.includes(c))));
+    }
+    return {columns,foreignKeys:schema.foreignKeys.filter(k=>columns.has(k.from_table)&&columns.has(k.to_table))};
   }
 }

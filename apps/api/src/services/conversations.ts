@@ -127,7 +127,7 @@ export class ConversationService {
 
   async preferences(ctx: AuthContext): Promise<Record<string, unknown>> {
     const r = await this.d.db.query<{ prefs: Record<string, unknown> }>(`SELECT prefs FROM ada.user_preference WHERE owner_user_id = $1`, [ctx.systemUserId]);
-    return { theme: 'auto', remember_conversations: true, quiet_hours: null, retention_days: 365, ...(r.rows[0]?.prefs ?? {}) };
+    return { theme: 'light', remember_conversations: true, quiet_hours: null, retention_days: 365, ...(r.rows[0]?.prefs ?? {}) };
   }
 
   async setPreferences(ctx: AuthContext, input: unknown) {

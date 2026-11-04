@@ -1,17 +1,22 @@
+import { BoardSharing } from '../components/BoardSharing.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { BarChart,LineChart,PieChart } from 'echarts/charts';
+import { GridComponent,LegendComponent,TooltipComponent,AriaComponent } from 'echarts/components';
+import { SVGRenderer } from 'echarts/renderers';
+echarts.use([BarChart,LineChart,PieChart,GridComponent,LegendComponent,TooltipComponent,AriaComponent,SVGRenderer]);
 import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
 
 type Cell=string|number|boolean|null;
-type Panel={
+export type Panel={
   title:string;type:'table'|'kpi'|'bar'|'line'|'pie';status:string;message?:string;
   rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;
-  provenance?:{source:string;unitId:number;queriedAt:string};
+  provenance?:{source:string;unitId:number|null;scope?:string;queriedAt:string};
 };
 interface Board{
   id:string;title:string;spec:{title:string;description:string;panels:unknown[]};
-  updated_at?:string;
+  updated_at?:string;owned?:boolean;
 }
 interface Data {board:Board;panels:Panel[];generatedAt:string}
 
@@ -21,7 +26,7 @@ function Graph({p}:{p:Panel}){
   useEffect(()=>{
     const node=ref.current;
     if(!node || !p.rows.length)return;
-    const obj=echarts.init(node);
+    const obj=echarts.init(node,undefined,{renderer:'svg'});
     const numeric=p.columns.filter(c=>p.rows.some(r=>typeof r[c]==='number'));
     const category=p.columns.find(c=>!numeric.includes(c))??p.columns[0]??'';
     const labels=p.rows.map((r,i)=>category&&category!==numeric[0]?fmt(r[category]):String(i+1));
@@ -47,7 +52,7 @@ function Graph({p}:{p:Panel}){
   return <div ref={ref} style={{width:'100%',height:320}} role="img" aria-label={p.title}/>;
 }
 
-function PanelWidget({panel:p}:{panel:Panel}){
+export function PanelWidget({panel:p}:{panel:Panel}){
   const numbers=p.columns.filter(c=>p.rows.some(r=>typeof r[c]==='number'));
   return <section className="widget" style={{minWidth:0}}>
     <h3>{p.title}</h3>
@@ -58,7 +63,7 @@ function PanelWidget({panel:p}:{panel:Panel}){
         <table className="data"><thead><tr>{p.columns.map(c=><th key={c}>{p.labels?.[c]??c}</th>)}</tr></thead>
         <tbody>{p.rows.map((r,i)=><tr key={i}>{p.columns.map(c=><td key={c}>{fmt(r[c])}</td>)}</tr>)}</tbody></table>
       </div>:<Graph p={p}/>}
-    {p.provenance&&<div className="widget-foot">Fonte: {p.provenance.source} · Unidade {p.provenance.unitId} · Consultado em {new Date(p.provenance.queriedAt).toLocaleString('pt-BR')}</div>}
+    {p.provenance&&<div className="widget-foot">Fonte: {p.provenance.source} · {p.provenance.scope==='unit_unverified'?'Vínculo com a unidade ainda não confirmado':p.provenance.scope==='all_units'?'Todas as unidades':`Unidade ${p.provenance.unitId}`} · Consultado em {new Date(p.provenance.queriedAt).toLocaleString('pt-BR')}</div>}
   </section>;
 }
 export function LiveBoardsList(){
@@ -105,9 +110,10 @@ export function LiveBoardDetail({id}:{id:string}){
     </header>
     <div className="content">
       {err&&<div className="error-box" role="alert">{err}</div>}
+      {d?.board.owned&&<BoardSharing id={id}/>}
       {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')} · Atualizado em {new Date(d.generatedAt).toLocaleString('pt-BR')}</p>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,440px),1fr))',gap:16}}>
-          {d.panels.map((p,i)=><PanelWidget key={i} panel={p}/>)}
+        <div className="live-board-grid" aria-label="Painéis de gestão">
+          {d.panels.map((p,i)=><div className={'live-board-cell '+(p.type==='kpi'?'live-board-cell-kpi':p.type==='table'?'live-board-cell-table':'live-board-cell-chart')} key={i}><PanelWidget panel={p}/></div>)}
         </div>
       </>:<div className="skeleton" style={{height:300}}/>}
     </div>

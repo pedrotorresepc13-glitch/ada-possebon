@@ -58,7 +58,7 @@ export function NotificationsView() {
           <ul className="list" style={{ listStyle: 'none', padding: 0 }}>
             {items.map((n) => {
               const [icon, label] = SEV[n.severity] ?? ['•', n.severity];
-              const ev = (n.evidence ?? {}) as { synthetic?: boolean };
+              const ev = (n.evidence ?? {}) as { synthetic?: boolean;watchId?:string };
               return (
                 <li key={n.id} className={`list-item ${n.readAt ? '' : 'unread'}`}>
                   <span className={`sev ${n.severity}`} aria-label={label}><span aria-hidden="true">{icon}</span>{label}</span>
@@ -70,7 +70,7 @@ export function NotificationsView() {
                       {n.acknowledgedAt ? ` · confirmada em ${formatDateTime(n.acknowledgedAt)}` : ''}
                     </div>
                     <div className="row" style={{ marginTop: 6 }}>
-                      {n.monitorId && <button className="btn ghost sm" onClick={() => navigate('/acompanhamentos')}>Ver acompanhamento</button>}
+                      {(n.monitorId || ev.watchId) && <button className="btn ghost sm" onClick={() => navigate('/acompanhamentos')}>Ver acompanhamento</button>}
                       {n.dashboardId && <button className="btn ghost sm" onClick={() => navigate(`/dashboards/${n.dashboardId}`)}>Abrir dashboard</button>}
                     </div>
                   </div>

@@ -20,7 +20,7 @@ export function useApp(): AppCtx {
 
 /** Rota relativa ao caminho base (/ada). */
 export function useRoute(): [string, (p: string) => void] {
-  const read = () => window.location.pathname.slice(BASE.length) || '/';
+  const read = () => (window.location.pathname.slice(BASE.length) || '/') + window.location.search;
   const [path, setPath] = useState(read);
   useEffect(() => {
     const on = () => setPath(read());
@@ -29,8 +29,8 @@ export function useRoute(): [string, (p: string) => void] {
   }, []);
   const navigate = useCallback((p: string) => {
     window.history.pushState(null, '', BASE + p);
-    setPath(p.split('?')[0]!);
+    setPath(read());
     window.scrollTo(0, 0);
   }, []);
-  return [path, navigate];
+  return [path.split('?')[0]!, navigate];
 }

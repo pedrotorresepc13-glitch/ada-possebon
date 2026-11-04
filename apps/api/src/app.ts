@@ -107,7 +107,12 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
       return;
     }
     const auth = await d.sessions.authenticate(req.cookies[COOKIE]);
-    if (!auth) throw new HttpError(401, 'UNAUTHENTICATED', 'Sessão ausente ou expirada. Abra a ADA pelo POSSEBON Web.');
+    if (!auth) throw new HttpError(401, 'UNAUTHENTICATED', 'Sessão ausente ou expirada. Abra a assistente pelo POSSEBON Web.');
+    // Outra aba pode trocar o cookie SSO. Não responder com dados de outra unidade sob a tela anterior.
+    if ((req.headers['x-possebon-unit'] !== undefined && req.headers['x-possebon-unit'] !== String(auth.ctx.activeUnitId)) ||
+        (req.headers['x-possebon-user'] !== undefined && req.headers['x-possebon-user'] !== String(auth.ctx.systemUserId))) {
+      throw new HttpError(409, 'SESSION_CONTEXT_CHANGED', 'Seu usuário ou sua unidade mudou. Reconecte a assistente pelo POSSEBON Web.');
+    }
     req.ctx = auth.ctx;
     req.csrf = auth.csrfToken;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -170,11 +175,12 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- sessão / SSO */
   route('POST', '/session/exchange', 'none', async (req, reply) => {
-    const ticket = z.object({ ticket: z.string().min(20).max(4096) }).parse(body(req)).ticket;
-    const s = await d.sessions.exchangeTicket(ticket, req.headers['user-agent']);
+    if (!originAllowed(req)) throw new HttpError(403, 'CSRF', 'Origem não autorizada.');
+    const input = z.object({ ticket: z.string().min(20).max(4096), view: z.enum(['full', 'compact']).default('full') }).parse(body(req));
+    const s = await d.sessions.exchangeTicket(input.ticket, req.headers['user-agent']);
     reply.setCookie(COOKIE, s.token, cookieOpts());
     d.study.schedule(s.ctx);
-    if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(`${base}/`);
+    if (String(req.headers['content-type'] ?? '').includes('application/x-www-form-urlencoded')) return reply.code(303).redirect(input.view === 'compact' ? `${base}/compacto` : `${base}/`);
     return { ok: true };
   });
 
@@ -263,9 +269,31 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   /* ------------------------------------------------------------- conhecimento e catálogo */
   route('GET', '/knowledge/search', 'user', (req, _r, ctx) => d.knowledge.search(ctx, String(query(req).q ?? ''), 10));
+  route('GET','/corporate-base','user',(req,_r,ctx)=>d.corporateFoundation.read(ctx,z.string().max(40).optional().parse(query(req).area)));
+  route('GET','/business-dictionary','user',(_req,_r,ctx)=>d.businessDictionary.read(ctx));
+  route('GET','/system-knowledge','user',(req,_r,ctx)=>d.systemKnowledge.catalog(ctx,z.string().max(120).default('').parse(query(req).q),z.coerce.number().int().min(0).max(250).default(0).parse(query(req).page)));
+  route('GET','/system-knowledge/module','user',(req,_r,ctx)=>d.systemKnowledge.module(ctx,z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).parse(query(req).table)));
+  route('PUT','/admin/business-dictionary','admin',(req,_r,ctx)=>d.businessDictionary.save(ctx,body(req)));
   route('GET', '/study/status', 'user', (_req, _r, ctx) => d.study.status(ctx));
   route('POST', '/study/refresh', 'user', (_req, _r, ctx) => d.study.refresh(ctx));
-    route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
+  route('POST','/workspace/welcome','user',async(_req,_r,ctx)=>{await d.db.query('UPDATE ada.personal_workspace SET welcomed_at=now() WHERE owner_user_id=$1 AND unit_id=$2 AND conversation_id IS NOT NULL',[ctx.systemUserId,ctx.activeUnitId]);return {ok:true};});
+  route('GET','/institutional-study','user',(_req,_r,ctx)=>d.institutionalStudy.status(ctx));
+  route('POST','/institutional-study/control','admin',(req,_r,ctx)=>d.institutionalStudy.control(ctx,z.object({action:z.enum(['continue','pause'])}).strict().parse(body(req)).action));
+  route('GET','/workspace','user',(_req,_r,ctx)=>d.workspace.status(ctx));
+  route('POST','/workspace/retry','user',(req,_r,ctx)=>d.workspace.retry(ctx,z.object({restart:z.boolean().default(false)}).strict().parse(body(req)).restart));
+  route('GET','/admin/operational-access','admin',()=>d.operationalAccess.read());
+  route('PUT','/admin/operational-access','admin',(req,_r,ctx)=>d.operationalAccess.save(ctx,body(req)));
+  route('GET','/sharing/recipients','user',async(_req,_r,ctx)=>{
+    const r=await d.db.query('SELECT DISTINCT u.system_user_id AS id,u.display_name AS name FROM ada.user_identity_map u JOIN ada.permission_cache p ON p.system_user_id=u.system_user_id WHERE p.unit_id=$1 AND u.system_user_id<>$2 ORDER BY u.display_name LIMIT 100',[ctx.activeUnitId,ctx.systemUserId]);
+    return r.rows;
+  });
+  route('GET','/watches','user',(_req,_r,ctx)=>d.watches.list(ctx));
+  route('GET','/watches/:id/current','user',(req,_r,ctx)=>d.watches.current(ctx,params(req).id!));
+  route('POST','/watches','user',(req,_r,ctx)=>d.watches.create(ctx,body(req)));
+  route('PUT','/watches/:id/state','user',(req,_r,ctx)=>d.watches.setState(ctx,params(req).id!,z.object({state:z.enum(['active','paused'])}).strict().parse(body(req)).state));
+    route('GET', '/brain/coverage', 'user', (_req, _r, ctx) => d.brainCoverage.status(ctx));
+  route('GET', '/admin/brain-pulse', 'admin', () => d.brainCoverage.lastPulse());
+  route('GET', '/brain/status', 'user', (_req, _r, ctx) => ({ configured: d.brain.configured, allowed: Boolean(ctx.programs.AdaConhecimentoTecnico || ctx.programs.AdaAdministracao), activeUnitId: ctx.activeUnitId }));
   route('GET', '/brain/context', 'user', (req, _r, ctx) => d.brain.search(ctx, String(query(req).q ?? '')));
   route('GET', '/metrics', 'user', async (_req, _r, ctx) => {
     const enabled = await d.catalog.enabledSourceIds();
@@ -288,6 +316,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('GET', '/live-boards/:id', 'user', (req, _r, ctx) => d.liveBoards.get(ctx,params(req).id!));
   route('GET', '/live-boards/:id/data', 'user', (req, _r, ctx) => d.liveBoards.data(ctx,params(req).id!));
+  route('GET','/live-boards/:id/shares','user',(req,_r,ctx)=>d.liveBoards.shares(ctx,params(req).id!));
+  route('POST','/live-boards/:id/shares','user',(req,_r,ctx)=>d.liveBoards.share(ctx,params(req).id!,z.object({userId:z.number().int().positive()}).strict().parse(body(req)).userId));
+  route('DELETE','/live-boards/:id/shares/:userId','user',(req,_r,ctx)=>d.liveBoards.unshare(ctx,params(req).id!,z.coerce.number().int().positive().parse(params(req).userId)));
 
   /* ------------------------------------------------------------- dashboards */
   route('GET', '/dashboards', 'user', (_req, _r, ctx) => d.dashboards.list(ctx));
@@ -454,6 +485,11 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/admin/email/accounts/:id/test', 'admin', (req, _r, ctx) => d.email.test(ctx, params(req).id!));
   route('DELETE', '/admin/email/accounts/:id', 'admin', (req, _r, ctx) => d.email.remove(ctx, params(req).id!));
   route('GET', '/admin/ai', 'admin', () => d.aiSettings.read());
+  route('GET', '/branding', 'none', (_req, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return d.branding.read();
+  });
+  route('PUT', '/admin/branding', 'admin', (req, _r, ctx) => d.branding.save(ctx, body(req)));
   route('PUT', '/admin/ai/settings', 'admin', (req, _r, ctx) => d.aiSettings.save(ctx, body(req)));
   route('DELETE', '/admin/ai/settings', 'admin', (_req, _r, ctx) => d.aiSettings.clear(ctx));
   route('POST', '/admin/ai/test', 'admin', (_req, _r, ctx) => d.aiSettings.test(ctx));
@@ -481,7 +517,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
       if (req.url.startsWith(api)) return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Rota inexistente.' } });
       return reply
         .type('text/html; charset=utf-8')
-        .send('<!doctype html><meta charset="utf-8"><title>ADA</title><p>Frontend não compilado. Execute <code>npm run build -w @ada/web</code> ou use <code>npm run dev:web</code>.</p>');
+        .send('<!doctype html><meta charset="utf-8"><title>Assistente</title><p>Frontend não compilado. Execute <code>npm run build -w @ada/web</code> ou use <code>npm run dev:web</code>.</p>');
     });
   }
 

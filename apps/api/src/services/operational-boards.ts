@@ -2,6 +2,9 @@ import type { AuthContext } from '@ada/contracts';
 import type { Deps } from '../core.ts';
 import { LiveBoardSpec } from './operational-query.ts';
 import { notFound } from '../errors.ts';
+import { forbidden } from '../errors.ts';
+import { buildAuthContext } from '../identity.ts';
+import { audit } from '../audit.ts';
 
 interface BoardRow {
   id:string; owner_user_id:number; unit_id:number; title:string;
@@ -30,7 +33,8 @@ export class OperationalBoardService {
     const r=await this.d.db.query<BoardRow>(
       `SELECT id,owner_user_id,unit_id,title,spec,created_at,updated_at
        FROM ada.operational_board
-       WHERE unit_id=$1 AND owner_user_id=$2 AND deleted_at IS NULL
+       WHERE unit_id=$1 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.live_board_id=ada.operational_board.id AND pw.state<>'ready') AND (owner_user_id=$2 OR EXISTS
+         (SELECT 1 FROM ada.operational_board_share s WHERE s.board_id=ada.operational_board.id AND s.target_user_id=$2))
        ORDER BY updated_at DESC LIMIT 100`,[ctx.activeUnitId,ctx.systemUserId]
     );
     return r.rows;
@@ -42,7 +46,8 @@ export class OperationalBoardService {
     const r=await this.d.db.query<BoardRow>(
       `SELECT id,owner_user_id,unit_id,title,spec,created_at,updated_at
        FROM ada.operational_board
-       WHERE id=$1 AND unit_id=$2 AND owner_user_id=$3 AND deleted_at IS NULL`,
+       WHERE id=$1 AND unit_id=$2 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM ada.personal_workspace pw WHERE pw.live_board_id=ada.operational_board.id AND pw.state<>'ready') AND (owner_user_id=$3 OR EXISTS
+         (SELECT 1 FROM ada.operational_board_share s WHERE s.board_id=ada.operational_board.id AND s.target_user_id=$3))`,
       [id,ctx.activeUnitId,ctx.systemUserId]
     );
     if(!r.rows[0]) throw notFound('Painel');
@@ -62,6 +67,47 @@ export class OperationalBoardService {
           message:(err as Error).message,rows:[],columns:[],rowCount:0};
       }
     }));
-    return {board:{id:board.id,title:board.title,spec},panels,generatedAt:new Date().toISOString()};
+    return {board:{id:board.id,title:board.title,spec,owned:board.owner_user_id===ctx.systemUserId},panels,generatedAt:new Date().toISOString()};
+  }
+
+  async append(ctx:AuthContext,id:string,panel:unknown) {
+    const board=await this.get(ctx,id);
+    if(board.owner_user_id!==ctx.systemUserId) throw forbidden('Somente o dono pode editar a tela.');
+    const parsed=LiveBoardSpec.shape.panels.element.parse(panel);
+    await this.d.operational.query(ctx,parsed.plan);
+    await this.d.db.tx(async q=>{
+      const r=await q.query<BoardRow>('SELECT * FROM ada.operational_board WHERE id=$1 FOR UPDATE',[id]);
+      const spec=LiveBoardSpec.parse(r.rows[0]!.spec);
+      if(spec.panels.some(p=>JSON.stringify(p)===JSON.stringify(parsed))) return;
+      spec.panels.push(parsed);
+      const validated=LiveBoardSpec.parse(spec);
+      await q.query('UPDATE ada.operational_board SET spec=$2,updated_at=now() WHERE id=$1',[id,validated]);
+    });
+    return this.get(ctx,id);
+  }
+
+  async share(ctx:AuthContext,id:string,targetUserId:number) {
+    const board=await this.get(ctx,id);
+    if(board.owner_user_id!==ctx.systemUserId) throw forbidden('Somente o dono pode compartilhar a tela.');
+    const identity=await this.d.identity.resolve(targetUserId);
+    if(!identity || !identity.active || targetUserId===ctx.systemUserId) throw forbidden('Escolha outro usuário ativo desta unidade.');
+    buildAuthContext(identity,ctx.activeUnitId,'sharing',this.d.config.programs,this.d.identity.kind);
+    await this.d.db.tx(async q=>{
+      await q.query('INSERT INTO ada.operational_board_share(board_id,target_user_id,created_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,targetUserId,ctx.systemUserId]);
+      await audit(q,{actor:ctx.systemUserId,unit:ctx.activeUnitId,action:'tela.compartilhada',targetType:'operational_board',targetId:id,outcome:'ok',details:{targetUserId}});
+    });
+    return {shared:true};
+  }
+  async unshare(ctx:AuthContext,id:string,targetUserId:number) {
+    const board=await this.get(ctx,id);
+    if(board.owner_user_id!==ctx.systemUserId) throw forbidden('Somente o dono pode remover compartilhamentos.');
+    await this.d.db.query('DELETE FROM ada.operational_board_share WHERE board_id=$1 AND target_user_id=$2',[id,targetUserId]);
+    return {shared:false};
+  }
+  async shares(ctx:AuthContext,id:string) {
+    const board=await this.get(ctx,id);
+    if(board.owner_user_id!==ctx.systemUserId) throw forbidden('Somente o dono pode consultar os destinatários.');
+    const r=await this.d.db.query('SELECT s.target_user_id AS id,u.display_name AS name FROM ada.operational_board_share s LEFT JOIN ada.user_identity_map u ON u.system_user_id=s.target_user_id WHERE s.board_id=$1',[id]);
+    return r.rows;
   }
 }

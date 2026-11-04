@@ -1,3 +1,9 @@
+import {BrainCoverageService} from './services/brain-coverage.ts';
+import {WorkspaceBriefService} from './services/workspace-brief.ts';
+import {CorporateFoundationService} from './services/corporate-foundation.ts';
+import {BusinessDictionaryService} from './services/business-dictionary.ts';
+import {SystemKnowledgeService} from './services/system-knowledge.ts';
+import {InstitutionalStudyService} from './services/institutional-study.ts';
 import type { AdaConfig } from './config.ts';
 import { Cipher } from './crypto.ts';
 import { createDb, type Db } from './db.ts';
@@ -17,6 +23,10 @@ import { ChatService } from './services/chat.ts';
 import { PossebonBrainClient } from './services/brain.ts';
 import { AdminService } from './services/admin.ts';
 import { AiSettingsService } from './services/ai-settings.ts';
+import { BrandingService } from './services/branding.ts';
+import { OperationalAccessService } from './services/operational-access.ts';
+import { OperationalWatchService } from './services/operational-watches.ts';
+import { WorkspaceService } from './services/workspace.ts';
 import { InitialStudyService } from './services/initial-study.ts';
 import { CorporateMemoryService } from './services/corporate-memory.ts';
 import { OperationalQueryService } from './services/operational-query.ts';
@@ -44,6 +54,16 @@ export interface Deps {
   chat: ChatService;
   admin: AdminService;
   aiSettings: AiSettingsService;
+  branding: BrandingService;
+  operationalAccess: OperationalAccessService;
+  watches: OperationalWatchService;
+  workspace: WorkspaceService;
+  workspaceBrief: WorkspaceBriefService;
+  corporateFoundation: CorporateFoundationService;
+  businessDictionary: BusinessDictionaryService;
+  systemKnowledge: SystemKnowledgeService;
+  brainCoverage: BrainCoverageService;
+  institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
   operational: OperationalQueryService;
@@ -82,8 +102,15 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
     now: o.now ?? (() => new Date())
   } as Deps;
   d.catalog = new CatalogService(d);
-  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId));
+  d.operationalAccess = new OperationalAccessService(d);
+  d.corporateFoundation=new CorporateFoundationService(d);
+  d.businessDictionary=new BusinessDictionaryService(d);
+  d.systemKnowledge=new SystemKnowledgeService(d);
+  d.brainCoverage=new BrainCoverageService(d);
+  d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx),ctx=>d.businessDictionary.read(ctx),
+    (ctx,tables,scope)=>d.systemKnowledge.recordRead(ctx,tables,scope).catch(()=>{d.log.warn({},'Registro de cobertura da consulta indisponível; leitura operacional preservada.');}));
   d.liveBoards = new OperationalBoardService(d);
+  d.watches = new OperationalWatchService(d);
   d.sessions = new SessionService(d);
   d.dashboards = new DashboardService(d);
   d.monitors = new MonitorService(d);
@@ -95,9 +122,13 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.email = new EmailService(d);
   d.chat = new ChatService(d);
   d.aiSettings = new AiSettingsService(d, Boolean(o.ai));
+  d.branding = new BrandingService(d);
   d.study = new InitialStudyService(d);
   d.corporateMemory = new CorporateMemoryService(d);
   d.admin = new AdminService(d);
+  d.workspaceBrief = new WorkspaceBriefService(d);
+  d.workspace = new WorkspaceService(d);
+  d.institutionalStudy = new InstitutionalStudyService(d);
   return d;
 }
 

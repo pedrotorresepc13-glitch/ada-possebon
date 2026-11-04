@@ -1,3 +1,5 @@
+import { RecordWatches } from '../components/RecordWatches.tsx';
+import { useBranding } from '../branding.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { RuleDefinition } from '@ada/contracts';
 import { formatDateTime } from '@ada/domain/format';
@@ -33,6 +35,7 @@ interface History {
 }
 
 export function MonitorsView() {
+  const { name } = useBranding();
   const { navigate } = useApp();
   const [items, setItems] = useState<MonitorRow[] | null>(null);
   const [err, setErr] = useState('');
@@ -71,6 +74,7 @@ export function MonitorsView() {
         <button className="btn primary sm" onClick={() => navigate('/?nova=' + Date.now())}>Criar pela conversa</button>
       </header>
       <div className="content">
+        <RecordWatches/>
         <p className="muted small">A IA apenas ajuda a escrever a regra. As verificações são feitas por um motor determinístico, sem IA, e os alertas chegam somente para você.</p>
         {msg && <div className="note-box" role="status" style={{ marginBottom: 10 }}>{msg}</div>}
         {err && <div className="error-box" role="alert" style={{ marginBottom: 10 }}>{err}</div>}
@@ -166,7 +170,7 @@ export function MonitorsView() {
             <label className="field">Nome<input name="name" className="input" defaultValue={editing.name} maxLength={120} required /></label>
             <label className="field">Verificar a cada (minutos)<input name="every" type="number" min={5} max={1440} className="input" defaultValue={editing.check_every_minutes} /></label>
             <label className="field">Intervalo mínimo entre alertas iguais (minutos)<input name="cooldown" type="number" min={0} max={10080} className="input" defaultValue={editing.definition.cooldown_minutes} /></label>
-            <p className="muted small">Para mudar gatilhos, descreva a mudança na conversa — a ADA propõe uma nova regra para você confirmar.</p>
+            <p className="muted small">Para mudar gatilhos, descreva a mudança na conversa — {name} propõe uma nova regra para você confirmar.</p>
             <div className="row"><button className="btn primary">Salvar</button><button type="button" className="btn" onClick={() => editDlg.current?.close()}>Cancelar</button></div>
           </form>
         )}

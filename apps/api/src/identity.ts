@@ -1,5 +1,6 @@
 import type { AdaRole, AuthContext, IntegrationStatus } from '@ada/contracts';
 import type { AdaConfig } from './config.ts';
+import { z } from 'zod';
 
 /**
  * Identidade e permissões resolvidas pela AUTORIDADE (POSSEBON Web).
@@ -17,6 +18,7 @@ export interface ResolvedIdentity {
   /** Unidades com escopo gerencial, calculadas pelo POSSEBON (gerência/equipe/cargo). */
   managerUnitIds: number[];
   permissionsVersion: string;
+  workContexts?: Record<string,NonNullable<AuthContext['workContext']>>;
 }
 
 export interface IdentityProvider {
@@ -63,6 +65,10 @@ export class PossebonIdentityProvider implements IdentityProvider {
 
 /** Valida estritamente o payload do contrato v1 (docs/openapi-possebon-identity.yaml). */
 export function parseIdentityPayload(d: Record<string, unknown>): ResolvedIdentity {
+  const work = z.array(z.object({unit_id:z.number().int().positive(),title:z.string().max(120).optional(),
+    subject_id:z.number().int().positive().optional(),team_ids:z.array(z.number().int().positive()).max(500).default([]),
+    report_user_ids:z.array(z.number().int().positive()).max(500).default([])}).strict()).max(100).safeParse(d.work_contexts??[]);
+  if(!work.success) throw new IdentityUnavailableError('Vínculos de trabalho inválidos no endpoint de identidade');
   const num = (v: unknown) => {
     const n = Number(v);
     if (!Number.isInteger(n) || n <= 0) throw new IdentityUnavailableError('Payload de identidade inválido');
@@ -77,6 +83,7 @@ export function parseIdentityPayload(d: Record<string, unknown>): ResolvedIdenti
     }
   }
   return {
+    workContexts:Object.fromEntries(work.data.map(w=>[String(w.unit_id),{title:w.title,subjectId:w.subject_id,teamIds:w.team_ids,reportUserIds:w.report_user_ids}])),
     systemUserId: num(d.system_user_id),
     login: String(d.login ?? ''),
     displayName: String(d.name ?? d.login ?? ''),
@@ -189,5 +196,6 @@ export function buildAuthContext(
     permissionsVersion: identity.permissionsVersion,
     resolvedAt: new Date().toISOString(),
     identitySource: source
+    ,workContext: identity.workContexts?.[String(activeUnitId)]
   };
 }

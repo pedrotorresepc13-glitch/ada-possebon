@@ -131,7 +131,7 @@ export class AdminService {
       },
       permissionCacheTtlSeconds: this.d.config.permissionTtlSeconds,
       sharing: 'Dashboards privados por padrão; publicação somente por gestores/admin; quem recebe precisa de permissão em cada métrica.',
-      privacy: 'Conversas e memórias são privadas do dono. A administração não acessa conteúdo de conversas pela ADA. Auditoria excepcional exige procedimento separado (não implementado).',
+      privacy: 'Conversas e memórias são privadas do dono. A administração não acessa conteúdo de conversas pela assistente. Auditoria excepcional exige procedimento separado (não implementado).',
       monitoring: 'Regras declarativas; execução determinística sem IA; notificações somente ao dono; cooldown e deduplicação.',
       myEffectiveContext: { ...ctx, sessionId: undefined }
     };

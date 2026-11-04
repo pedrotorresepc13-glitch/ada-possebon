@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 // Empacota a API em um único módulo ESM para execução persistente (systemd) com Node 22+.
 mkdirSync('dist', { recursive: true });
 await build({
-  entryPoints: { server: 'src/server.ts', migrate: 'src/cli/migrate.ts', 'study-corporate': 'src/cli/study-corporate.ts' },
+  entryPoints: { server: 'src/server.ts', migrate: 'src/cli/migrate.ts', 'study-corporate': 'src/cli/study-corporate.ts', 'import-system-source':'src/cli/import-system-source.ts' },
   outdir: 'dist',
   outExtension: { '.js': '.mjs' },
   bundle: true,
