@@ -112,8 +112,8 @@ export function LiveBoardDetail({id}:{id:string}){
       {err&&<div className="error-box" role="alert">{err}</div>}
       {d?.board.owned&&<BoardSharing id={id}/>}
       {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')} · Atualizado em {new Date(d.generatedAt).toLocaleString('pt-BR')}</p>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,440px),1fr))',gap:16}}>
-          {d.panels.map((p,i)=><PanelWidget key={i} panel={p}/>)}
+        <div className="live-board-grid" aria-label="Painéis de gestão">
+          {d.panels.map((p,i)=><div className={'live-board-cell '+(p.type==='kpi'?'live-board-cell-kpi':p.type==='table'?'live-board-cell-table':'live-board-cell-chart')} key={i}><PanelWidget panel={p}/></div>)}
         </div>
       </>:<div className="skeleton" style={{height:300}}/>}
     </div>
