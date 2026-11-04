@@ -60,6 +60,7 @@ export class ChatService {
   constructor(private readonly d: Deps) {}
 
   private checkRate(userId: number) {
+    if (this.d.config.ai.chatPerMinute === 0) return;
     const now = Date.now();
     const arr = (rate.get(userId) ?? []).filter((t) => now - t < 60_000);
     if (arr.length >= this.d.config.ai.chatPerMinute) throw new HttpError(429, 'RATE_LIMITED', 'Muitas mensagens em pouco tempo. Aguarde um minuto.');
@@ -68,6 +69,7 @@ export class ChatService {
   }
 
   private async aiQuotaAvailable(ctx: AuthContext): Promise<boolean> {
+    if (this.d.config.ai.dailyRequestsPerUser === 0) return true;
     const r = await this.d.db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM ada.ai_usage WHERE user_id = $1 AND created_at > now() - interval '1 day'`,
       [ctx.systemUserId]
