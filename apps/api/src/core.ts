@@ -1,3 +1,4 @@
+import {BrainCoverageService} from './services/brain-coverage.ts';
 import {WorkspaceBriefService} from './services/workspace-brief.ts';
 import {CorporateFoundationService} from './services/corporate-foundation.ts';
 import {BusinessDictionaryService} from './services/business-dictionary.ts';
@@ -61,6 +62,7 @@ export interface Deps {
   corporateFoundation: CorporateFoundationService;
   businessDictionary: BusinessDictionaryService;
   systemKnowledge: SystemKnowledgeService;
+  brainCoverage: BrainCoverageService;
   institutionalStudy: InstitutionalStudyService;
   study: InitialStudyService;
   corporateMemory: CorporateMemoryService;
@@ -104,6 +106,7 @@ export async function createDeps(config: AdaConfig, o: DepsOverrides = {}): Prom
   d.corporateFoundation=new CorporateFoundationService(d);
   d.businessDictionary=new BusinessDictionaryService(d);
   d.systemKnowledge=new SystemKnowledgeService(d);
+  d.brainCoverage=new BrainCoverageService(d);
   d.operational = new OperationalQueryService((unitId) => d.catalog.operationalSource(unitId),ctx=>d.operationalAccess.policy(ctx),ctx=>d.businessDictionary.read(ctx),
     (ctx,tables,scope)=>d.systemKnowledge.recordRead(ctx,tables,scope).catch(()=>{d.log.warn({},'Registro de cobertura da consulta indisponível; leitura operacional preservada.');}));
   d.liveBoards = new OperationalBoardService(d);
