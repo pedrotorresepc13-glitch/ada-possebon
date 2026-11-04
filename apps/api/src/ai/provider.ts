@@ -23,6 +23,8 @@ export interface AiRunResult {
   usage: { input: number; output: number };
   toolCalls: { name: string; ok: boolean }[];
   steps: number;
+  /** A resposta usa resultados verificados, mas a investigação ainda pode exigir aprofundamento. */
+  partial?: boolean;
 }
 
 export interface AiProvider {
