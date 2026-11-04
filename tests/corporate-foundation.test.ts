@@ -48,6 +48,9 @@ it('dicionário aprende código aprovado por campo/unidade e perde validade com 
  await h.d.db.exec("CREATE TABLE public.colaborador(id integer,unit_id integer,status text); INSERT INTO public.colaborador VALUES(1,1,'G')");
  const op=new OperationalQueryService(async()=>({executeRead:<T>(sql:string,p:unknown[]=[])=>h.d.db.query<T>(sql,p)}),async()=>({admin:true,tables:{}}),c=>h.d.businessDictionary.read(c));
  const real={...ctx,identitySource:'possebon'} as AuthContext;
+ const contextualized=await h.d.systemKnowledge.context(real,'Qual significado de G em colaborador.status?');
+ expect(contextualized).toContain('Grupo de teste');
+ expect(contextualized).toContain('approvedCodeDefinitions');
  const result=await op.query(real,{from:'colaborador',select:[{field:'colaborador.status',as:'situacao'}]});
  expect(result.rows).toEqual([{situacao:'Grupo de teste'}]);expect(result.codeDefinitions).toEqual([expect.objectContaining({code:'G',verified:true,documentId:doc.id})]);
  await h.d.db.query("UPDATE ada.knowledge_document SET checksum='alterado' WHERE id=$1",[doc.id]);
