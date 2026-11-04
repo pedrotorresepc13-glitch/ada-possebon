@@ -17,6 +17,10 @@ export async function runCycle(d: Deps, workerId: string): Promise<CycleResult> 
   const documents = await d.knowledge.processPending(5);
   await d.watches.runDue(15);
   await d.institutionalStudy.runDue();
+  // Mantém apenas agregados de cobertura no banco próprio, sem OpenAI ou dados pessoais.
+  await d.brainCoverage.tick().catch((err: unknown) => {
+    d.log.warn({ err: (err as Error).message }, 'pulso do cérebro indisponível; demais rotinas preservadas');
+  });
   return { inbound, monitors: runs.map((r) => ({ id: r.monitorId, status: r.status, events: r.eventsCreated })), documents };
 }
 
