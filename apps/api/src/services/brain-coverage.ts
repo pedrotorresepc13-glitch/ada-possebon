@@ -73,7 +73,7 @@ export class BrainCoverageService {
     // Descoberta aberta: não limitar o inventário às doze categorias editoriais.
     // Domínios e tabelas sem classificação continuam visíveis para investigação.
     const normalize = (value: string) => value.trim().toLocaleLowerCase('pt-BR');
-    const knownAreas = new Set(CORPORATE_AREAS.map(area => area.id));
+    const knownAreas = new Set<string>(CORPORATE_AREAS.map(area => area.id));
     const discoveredDomains = [...new Set(docs.map(doc => doc.domain?.trim()).filter((v): v is string => Boolean(v)))];
     const uncategorizedDomains = discoveredDomains.filter(domain => {
       const matched = CORPORATE_AREAS.some(area => area.match.test(domain));
