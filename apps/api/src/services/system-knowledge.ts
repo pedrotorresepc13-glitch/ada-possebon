@@ -96,7 +96,9 @@ export class SystemKnowledgeService{
   const selected=ranked.length?ranked.slice(0,8).map(t=>t.t):diverseTables(s.tables,8);
   const references=s.references.filter(r=>relevance(referenceText(r),question)>0).sort((a,b)=>relevance(referenceText(b),question)-relevance(referenceText(a),question)).slice(0,6).map(r=>({kind:r.kind,name:r.label.slice(0,120),title:r.title?.slice(0,120),table:r.table_name,declaredDefaults:r.defaults?.slice(0,500),source:r.source_ref.slice(0,160),snapshot:r.snapshot}));
    const selectedNames=new Set(selected.map(t=>t.nome));
-   const knownCodes=s.definitions.filter(d=>selectedNames.has(d.table)).slice(0,24).map(d=>({table:d.table,column:d.column,code:d.code,label:d.label,documentId:d.documentId,sourceChecksum:d.checksum}));
+   const mentionedTables=new Set(question.toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean));
+   const knownCodes=s.definitions.filter(d=>selectedNames.has(d.table)||mentionedTables.has(d.table)).slice(0,24)
+    .map(d=>({table:d.table,column:d.column,code:d.code,label:d.label,documentId:d.documentId,sourceChecksum:d.checksum,liveSchemaVerified:selectedNames.has(d.table)}));
   const data={unitId:ctx.activeUnitId,sourceState:s.sourceState,scope:s.scope,totalTables:s.tables.length,areas:[...new Set(s.tables.map(t=>t.area))],
    selectedTables:selected.map(t=>({name:t.nome,area:t.area,queryable:t.consultavel,unitVerified:t.unidadeVerificavel,columns:t.colunas.slice(0,15).map(c=>c.nome)})),references,
    documentDomains:s.documents.slice(0,20),approvedCodeDefinitions:knownCodes};
