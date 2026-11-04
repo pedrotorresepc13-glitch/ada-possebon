@@ -95,6 +95,8 @@ export class BrainCoverageService {
       areas,
       discoveredDomains: discovered,
       unclassifiedTables: unclassifiedTables.map(table => table.nome),
+      discoveredDomainCount: discovered.length,
+      unclassifiedTableCount: unclassifiedTables.length,
       discoveryComplete: !limited && operationalSource === 'available',
       note:'A cobertura mostra referências autorizadas e estrutura acessível, não conhecimento integral nem saúde da operação. Consultas atuais e regras comprovadas são necessárias para concluir.'
     };
