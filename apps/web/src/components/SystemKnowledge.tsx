@@ -7,14 +7,23 @@ interface Catalog{sourceState:string;totalTables:number;matchingTables:number;ma
 interface Profile{table:string;liveMetadataAvailable:boolean;guide:{checks:string[]};coverage:{documentMatches:number;approvedCodes:number;allRulesValidated:boolean};
  references:{kind:string;label:string;title:string|null;table_name:string|null;defaults:string|null;source_ref:string}[];
  structure:{colunas:{nome:string;tipo:string}[]}|null;lastRead:{at:string;scope:string}|null;note:string}
+interface BrainCoverage { modelCalls:number; operationalSource:string; indexedDocuments:number; catalogTruncated:boolean; areas:{id:string;name:string;indexedDocuments:number;authorizedTables:number;coverage:string}[] }
 export function SystemKnowledge(){
  const {me}=useApp();const [text,setText]=useState('');const [term,setTerm]=useState('');const [page,setPage]=useState(0);const [refresh,setRefresh]=useState(0);
+ const [coverage,setCoverage]=useState<BrainCoverage|null>(null);
  const [data,setData]=useState<Catalog|null>(null);const [detail,setDetail]=useState<Profile|null>(null);const [selected,setSelected]=useState('');const [error,setError]=useState('');
  useEffect(()=>{let active=true;setData(null);setError('');void api<Catalog>('/system-knowledge?q='+encodeURIComponent(term)+'&page='+page).then(r=>{if(active)setData(r);}).catch(e=>{if(active)setError((e as Error).message);});return()=>{active=false;};},[term,page,refresh,me.activeUnit.id]);
+ useEffect(()=>{let active=true;void api<BrainCoverage>('/brain/coverage').then(r=>{if(active)setCoverage(r);}).catch(()=>{if(active)setCoverage(null);});return()=>{active=false;};},[refresh,me.activeUnit.id]);
  useEffect(()=>{let active=true;setDetail(null);if(selected)void api<Profile>('/system-knowledge/module?table='+encodeURIComponent(selected)).then(r=>{if(active)setDetail(r);}).catch(e=>{if(active)setError((e as Error).message);});return()=>{active=false;};},[selected,me.activeUnit.id]);
  return <section className="card" aria-label="Conhecimento de todo o sistema">
   <h2>Conhecimento de todo o sistema</h2>
   <p className="muted small">Inventário autorizado de estruturas, telas, modelos e fontes. Inclui módulos fora das áreas editoriais. Estrutura descoberta, regras documentadas e leitura real são verificações diferentes.</p>
+  {coverage&&<details><summary>Cobertura viva do cérebro: {coverage.indexedDocuments} documentos autorizados · {coverage.areas.length} áreas · sem consumo de tokens</summary>
+   <p className="muted small">Esta visão mostra documentação e tabelas acessíveis. Não mede saúde da empresa nem afirma que todo processo foi compreendido.</p>
+   <ul className="list">{coverage.areas.map(a=><li className="list-item" key={a.id}><span><strong>{a.name}</strong><span className="muted small"> · {a.indexedDocuments} documentos · {a.authorizedTables} tabelas identificadas · {a.coverage.replaceAll('_',' ')}</span></span></li>)}</ul>
+   {coverage.operationalSource!=='available'&&<p className="note-box">O esquema operacional não pôde ser verificado nesta sessão; a ausência de tabelas aqui não prova falta de dados.</p>}
+   {coverage.catalogTruncated&&<p className="note-box">Acervo acima do limite de listagem: cobertura documental parcial.</p>}
+  </details>}
   <form className="row" onSubmit={e=>{e.preventDefault();setSelected('');setTerm(text.trim());setPage(0);setRefresh(r=>r+1);}}>
    <label className="field grow">Pesquisar no sistema<input className="input" maxLength={120} value={text} onChange={e=>setText(e.target.value)} placeholder="RDO, AUDCOMP, ronda, compras ou outro módulo"/></label>
    <button className="btn" type="submit">Pesquisar e atualizar</button>
