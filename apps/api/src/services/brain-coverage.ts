@@ -70,11 +70,32 @@ export class BrainCoverageService {
           : relatedTables.length>0 ? 'sem_documentacao_aprovada' : 'sem_referencia_confirmada'
       };
     });
+    // Descoberta aberta: não limitar o inventário às doze categorias editoriais.
+    // Domínios e tabelas sem classificação continuam visíveis para investigação.
+    const normalize = (value: string) => value.trim().toLocaleLowerCase('pt-BR');
+    const knownAreas = new Set(CORPORATE_AREAS.map(area => area.id));
+    const discoveredDomains = [...new Set(docs.map(doc => doc.domain?.trim()).filter((v): v is string => Boolean(v)))];
+    const uncategorizedDomains = discoveredDomains.filter(domain => {
+      const matched = CORPORATE_AREAS.some(area => area.match.test(domain));
+      return !matched && !knownAreas.has(normalize(domain));
+    }).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const unclassifiedTables = tables.filter(table => !CORPORATE_AREAS.some(area => area.match.test(table.nome)));
+    const discovered = uncategorizedDomains.map(domain => ({
+      id: `dominio:${normalize(domain)}`, name: domain,
+      indexedDocuments: docs.filter(doc => normalize(doc.domain ?? '') === normalize(domain)).length,
+      availableSources: new Set(docs.filter(doc => normalize(doc.domain ?? '') === normalize(domain)).map(doc => doc.source_id)).size,
+      authorizedTables: 0,
+      latestDocumentObservedAt: docs.find(doc => normalize(doc.domain ?? '') === normalize(domain))?.observed_at?.toISOString() ?? null,
+      coverage: 'dominio_descoberto' as const
+    }));
     return {
       unitId:ctx.activeUnitId,checkedAt:this.d.now().toISOString(),modelCalls:0,
       operationalSource, indexedDocuments:docs.length,catalogTruncated:limited,
       authorizedGraphNodes:graph.rows[0]?.nodes??0,authorizedGraphEdges:graph.rows[0]?.edges??0,
       areas,
+      discoveredDomains: discovered,
+      unclassifiedTables: unclassifiedTables.map(table => table.nome),
+      discoveryComplete: !limited && operationalSource === 'available',
       note:'A cobertura mostra referências autorizadas e estrutura acessível, não conhecimento integral nem saúde da operação. Consultas atuais e regras comprovadas são necessárias para concluir.'
     };
   }
