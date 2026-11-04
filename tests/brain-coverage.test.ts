@@ -50,3 +50,29 @@ it('worker publica pulso com estatísticas sem cópia de dados e sem tokens', as
     await h.close();
   }
 });
+
+
+it('descobre dominios adicionais sem tratar as doze categorias como limite de conhecimento', async () => {
+  const h = await setup();
+  try {
+    const source = await h.d.db.query<{id:string}>(
+      "INSERT INTO ada.knowledge_source(kind,name,scope,unit_id,domain,required_programs,created_by) VALUES('manual','Fonte de logística','unidade',1,'logistica_maritima',ARRAY['AdaAdministracao'],9001) RETURNING id"
+    );
+    await h.d.db.query(
+      "INSERT INTO ada.knowledge_document(source_id,title,mime_type,checksum,status,scope,unit_id,domain,required_programs,created_by) VALUES($1,'Plano de logística marítima','text/plain','brain-logistica-v1','indexado','unidade',1,'logistica_maritima',ARRAY['AdaAdministracao'],9001)",
+      [source.rows[0]!.id]
+    );
+    const admin = await h.login('admin.demo');
+    const response = await admin.get('/brain/coverage');
+    expect(response.status).toBe(200);
+    expect(response.json.discoveredDomains).toEqual(expect.arrayContaining([
+      expect.objectContaining({name:'logistica_maritima',indexedDocuments:1})
+    ]));
+    expect(response.json.modelCalls).toBe(0);
+    const restricted = await h.login('colab.a');
+    const other = await restricted.get('/brain/coverage');
+    expect(JSON.stringify(other.json.discoveredDomains)).not.toContain('logistica_maritima');
+  } finally {
+    await h.close();
+  }
+});
