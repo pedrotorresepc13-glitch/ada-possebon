@@ -506,6 +506,7 @@ export class ChatService {
         maxSteps: 12
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
+      if (r.partial) (meta.notes ??= []).push('investigacao_parcial: síntese dos dados obtidos; ainda pode exigir aprofundamento.');
       return { text: r.text || 'Não consegui produzir uma resposta.', meta };
     } catch (err) {
       status = 'erro';
