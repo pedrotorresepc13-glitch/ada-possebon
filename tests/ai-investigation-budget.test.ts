@@ -14,6 +14,32 @@ const response = (output: unknown[], inputTokens = 10, outputTokens = 5) =>
   });
 
 describe('Investigação da Ada com limite de etapas', () => {
+  it.each(['leitura', 'escrita', 'duplicata'])('restringe a continuação a leituras inéditas: %s', async (action) => {
+    const requests: Record<string, unknown>[] = [];
+    const executed: string[] = [];
+    const provider = new OpenAIResponsesProvider(providerConfig, async (_url, options) => {
+      requests.push(JSON.parse(String(options?.body)));
+      const step = requests.length;
+      if (step > 2) return response([{ type: 'message', content: [{ type: 'output_text', text: 'Síntese.' }] }]);
+      return response([{
+        type: 'function_call', call_id: 'c' + step,
+        name: step === 2 && action === 'escrita' ? 'salvar' : 'consultar',
+        arguments: JSON.stringify({ pagina: action === 'duplicata' ? 1 : step })
+      }]);
+    });
+    const result = await provider.run({
+      instructions: 'Investigue.', input: [{ role: 'user', content: 'Confira os dados.' }],
+      tools: ['consultar', 'salvar'].map(name => ({ name, description: name, parameters: { type: 'object' } })),
+      execute: async (name) => { executed.push(name); return { ok: true }; },
+      maxSteps: 1, continuation: { steps: 2, readTools: ['consultar'] }
+    });
+    expect(requests[1]?.tools).toEqual([expect.objectContaining({ name: 'consultar' })]);
+    expect(requests[1]?.input).toContainEqual({ type: 'function_call_output', call_id: 'c1', output: '{"ok":true}' });
+    expect(executed).toEqual(action === 'leitura' ? ['consultar', 'consultar'] : ['consultar']);
+    expect(result.partial).toBe(action === 'leitura' ? undefined : true);
+    expect(requests[2]?.tool_choice).toBe(action === 'leitura' ? 'auto' : 'none');
+  });
+
   it('preserva resultados, pede síntese sem novas ferramentas e registra todo o consumo', async () => {
     const requests: Record<string, unknown>[] = [];
     const executed: string[] = [];

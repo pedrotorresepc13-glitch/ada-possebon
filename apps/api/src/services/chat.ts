@@ -280,6 +280,7 @@ export class ChatService {
       {name:'adicionar_painel',description:'Acrescenta um painel validado à tela própria já salva. Use para construir em etapas e preservar o trabalho entre mensagens.',parameters:js(z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict())},
       { name: 'criar_tela', description: 'Cria e SALVA imediatamente uma tela corporativa viva com gráficos, indicadores e tabelas. Define vários painéis, cada um com consulta declarativa validada e atualizada automaticamente. Somente quando o usuário solicitar uma tela/dashboard.', parameters: js(LiveBoardSpec) },
       { name: 'consultar_cerebro', description: 'Pesquisa entidades e RELAÇÕES do grafo corporativo indexado (modelos, tabelas, campos, áreas, telas, módulos, documentos). Fornece fontes; não presume que nomes *_id sejam FKs validadas, nem retorna dados operacionais.', parameters: js(z.object({ termo: z.string().min(2).max(120) })) },
+      { name: 'ver_cobertura_cerebro', description: 'Lista áreas e domínios descobertos, tabelas ainda sem classificação e lacunas nas fontes autorizadas da unidade. Use para perguntas sobre cobertura e domínios novos.', parameters: js(z.object({}).strict()) },
       { name: 'buscar_conhecimento', description: 'Pesquisa trechos em documentos corporativos indexados e no Brain. Para perguntas amplas sobre o que a assistente sabe, prefira listar_conhecimento.', parameters: js(z.object({ consulta: z.string() })) },
       { name: 'listar_conhecimento', description: 'Mostra o catálogo REAL dos documentos estudados que o usuário pode ler na unidade atual, com origem e amostra autorizada. Use para responder sobre conhecimentos, fontes, empresa e o que já foi estudado, mesmo quando a busca textual não encontra termos.', parameters: js(z.object({})) },
       { name: 'propor_dashboard', description: 'Cria/substitui o rascunho de dashboard desta conversa com uma especificação declarativa validada.', parameters: js(DashboardSpec) },
@@ -368,6 +369,7 @@ export class ChatService {
             aviso: UNTRUSTED_DATA_POLICY
           };
         }
+        case 'ver_cobertura_cerebro': return this.d.brainCoverage.status(ctx);
         case 'consultar_cerebro': {
           const a = z.object({ termo: z.string().min(2).max(120) }).parse(args);
           const items = await searchCorporateGraph(this.d.db, ctx, a.termo, 12);
@@ -505,7 +507,16 @@ export class ChatService {
         input: [...history.slice(0, -1).map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
         tools: this.tools(),
         execute,
-        maxSteps: 12
+        maxSteps: 12,
+        continuation: {
+          steps: 4,
+          readTools: [
+            'conhecer_sistema', 'consultar_base_corporativa', 'consultar_significado_codigo',
+            'buscar_catalogo', 'consultar_metrica', 'verificar_acesso_tabela', 'explorar_tabelas',
+            'consultar_banco', 'consultar_cerebro', 'ver_cobertura_cerebro',
+            'buscar_conhecimento', 'listar_conhecimento'
+          ]
+        }
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
       if (r.partial) (meta.notes ??= []).push('investigacao_parcial: síntese dos dados obtidos; ainda pode exigir aprofundamento.');

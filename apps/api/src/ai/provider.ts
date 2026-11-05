@@ -14,6 +14,8 @@ export interface AiTurnInput {
   tools: ToolSpec[];
   execute: (name: string, args: unknown) => Promise<unknown>;
   maxSteps?: number;
+  /** Etapas adicionais na mesma execução, restritas a ferramentas de leitura. */
+  continuation?: { steps: number; readTools: readonly string[] };
   maxOutputTokens?: number;
   signal?: AbortSignal;
 }

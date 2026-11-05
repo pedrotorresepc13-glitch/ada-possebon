@@ -55,13 +55,21 @@ export class OpenAIResponsesProvider implements AiProvider {
     const usage = { input: 0, output: 0 };
     const toolCalls: { name: string; ok: boolean }[] = [];
     const maxSteps = args.maxSteps ?? 6;
-    for (let step = 1; step <= maxSteps; step++) {
+    const readTools = tools.filter((tool) => args.continuation?.readTools.includes(tool.name));
+    const completedReads = new Set<string>();
+    let steps = 0;
+    for (let step = 1; step <= maxSteps + (args.continuation?.steps ?? 0); step++) {
+      const continuing = step > maxSteps;
+      const available = continuing ? readTools : tools;
+      if (continuing && (!readTools.length || !toolCalls.at(-1)?.ok ||
+        !readTools.some((tool) => tool.name === toolCalls.at(-1)?.name))) break;
+      args.signal?.throwIfAborted();
       const r = await this.call(
         {
           model: this.cfg.model,
           instructions: args.instructions,
           input,
-          tools,
+          tools: available,
           tool_choice: 'auto',
           parallel_tool_calls: false,
           max_output_tokens: Math.min(this.cfg.maxOutputTokens,args.maxOutputTokens??this.cfg.maxOutputTokens),
@@ -70,6 +78,7 @@ export class OpenAIResponsesProvider implements AiProvider {
         },
         args.signal
       );
+      steps = step;
       usage.input += r.usage?.input_tokens ?? 0;
       usage.output += r.usage?.output_tokens ?? 0;
       const calls = r.output.filter((o) => o.type === 'function_call');
@@ -85,17 +94,27 @@ export class OpenAIResponsesProvider implements AiProvider {
       }
       input.push(...r.output);
       for (const c of calls) {
+        args.signal?.throwIfAborted();
         let result: unknown;
         let ok = true;
         try {
+          if (!available.some((tool) => tool.name === c.name)) throw new Error('Ferramenta indisponível nesta etapa.');
           const parsed = c.arguments ? JSON.parse(c.arguments) : {};
+          const read = readTools.some((tool) => tool.name === c.name);
+          const key = JSON.stringify([c.name, parsed], (_name, value: unknown) =>
+            value && typeof value === 'object' && !Array.isArray(value)
+              ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
+          if (continuing && completedReads.has(key)) throw new Error('Consulta já realizada nesta investigação.');
           result = await args.execute(c.name ?? '', parsed);
+          if (read) completedReads.add(key);
         } catch (err) {
           ok = false;
           result = { erro: (err as Error).message };
         }
         toolCalls.push({ name: c.name ?? '', ok });
-        input.push({ type: 'function_call_output', call_id: c.call_id, output: JSON.stringify(result).slice(0, 60_000) });
+        const output = JSON.stringify(result ?? null);
+        input.push({ type: 'function_call_output', call_id: c.call_id, output: output.length > 60_000
+          ? JSON.stringify({ truncado: true, amostra: output.slice(0, 30_000) }) : output });
       }
     }
     // Uma investigação que atingiu o limite ainda possui resultados de ferramentas.
@@ -129,7 +148,7 @@ export class OpenAIResponsesProvider implements AiProvider {
         .trim();
       return {
         text: summary.startsWith('Resultado parcial:') ? summary : 'Resultado parcial: ' + (summary || 'A análise ainda não foi concluída.'),
-        usage, toolCalls, steps: maxSteps + 1, partial: true
+        usage, toolCalls, steps: steps + 1, partial: true
       };
     } catch (err) {
       if (args.signal?.aborted) throw err;
@@ -139,7 +158,7 @@ export class OpenAIResponsesProvider implements AiProvider {
         text: 'Resultado parcial: foram executadas ' + toolCalls.length +
           ' verificações. ' + (verified.length ? 'Ferramentas consultadas: ' + verified.join(', ') + '. ' : '') +
           'A conclusão não foi confirmada. A investigação pode ser aprofundada numa nova solicitação.',
-        usage, toolCalls, steps: maxSteps, partial: true
+        usage, toolCalls, steps, partial: true
       };
     }
   }

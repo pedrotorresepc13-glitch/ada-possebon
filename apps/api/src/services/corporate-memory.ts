@@ -92,14 +92,21 @@ export class CorporateMemoryService {
     const offset=partial?(doc.start_offset??0)+length:0;
     const more=await this.d.db.query(
       'SELECT 1 FROM ada.knowledge_chunk WHERE document_id=$1 AND ordinal>=$2 LIMIT 1',[doc.id,next]);
-    await this.d.db.tx(async tx=>{
+    const saved = await this.d.db.tx(async tx=>{
       const current=await tx.query<{checksum:string;status:string}>(
         'SELECT checksum,status FROM ada.knowledge_document WHERE id=$1 FOR UPDATE',[doc.id]);
       if(current.rows[0]?.checksum!==doc.checksum || current.rows[0]?.status!=='indexado')
         throw new Error('Documento alterado durante estudo.');
+      const progress = await tx.query<{next_ordinal:number;next_char_offset:number;state:string}>(
+        'SELECT next_ordinal,next_char_offset,state FROM ada.corporate_study_progress WHERE document_id=$1 AND source_checksum=$2',
+        [doc.id,doc.checksum]);
+      const cursor = progress.rows[0];
+      if (cursor?.state === 'complete' || (cursor?.next_ordinal ?? 0) !== doc.start_ordinal ||
+        (cursor?.next_char_offset ?? 0) !== (doc.start_offset ?? 0)) return null;
+      let inserted = 0;
       for(const fact of facts){
         const chunk=q.rows.find(c=>c.ordinal===fact.ordinal)!;
-        await tx.query([
+        const result = await tx.query([
           'INSERT INTO ada.corporate_fact',
           '(document_id,chunk_id,source_checksum,fact_hash,unit_id,required_programs,',
           'sensitivity,topic,category,statement_enc,evidence_enc,certainty,observed_at)',
@@ -110,6 +117,7 @@ export class CorporateMemoryService {
           this.d.cipher.encrypt(fact.statement),this.d.cipher.encrypt(fact.evidence),
           fact.certainty,doc.observed_at
         ]);
+        inserted += result.rowCount ?? 0;
       }
       await tx.query([
         'INSERT INTO ada.corporate_study_progress',
@@ -120,10 +128,12 @@ export class CorporateMemoryService {
         'facts_extracted=CASE WHEN ada.corporate_study_progress.source_checksum=EXCLUDED.source_checksum',
         'THEN ada.corporate_study_progress.facts_extracted+EXCLUDED.facts_extracted',
         'ELSE EXCLUDED.facts_extracted END'
-      ].join(' '),[doc.id,doc.checksum,next,more.rowCount?'partial':'complete',facts.length]);
+      ].join(' '),[doc.id,doc.checksum,next,more.rowCount?'partial':'complete',inserted]);
       await tx.query('UPDATE ada.corporate_study_progress SET next_char_offset=$2 WHERE document_id=$1',[doc.id,offset]);
+      return inserted;
     });
-    return {processed:true,documentId:doc.id,chunks:q.rows.length,facts:facts.length,complete:more.rowCount===0,inputTokens:answer.usage.input,outputTokens:answer.usage.output,characters:length};
+    if (saved === null) return {processed:false,reason:'O estudo avançou em outra execução.',inputTokens:answer.usage.input,outputTokens:answer.usage.output};
+    return {processed:true,documentId:doc.id,chunks:q.rows.length,facts:saved,complete:more.rowCount===0,inputTokens:answer.usage.input,outputTokens:answer.usage.output,characters:length};
   }
 
   /** Usa memoria documentada somente se a fonte continuar autorizada e atual. */
