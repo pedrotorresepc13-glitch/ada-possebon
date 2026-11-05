@@ -202,3 +202,30 @@ pre.code { background: var(--surface-2); padding: 10px; border-radius: var(--rad
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @media (forced-colors: active) { .legend span::before { forced-color-adjust: none; } }
+.dashboard-print-heading { display: none; }
+
+@media print {
+  body:has(.dashboard-print) :not(.dashboard-print):not(.dashboard-print *):not(:has(.dashboard-print)) {
+    display: none !important;
+  }
+  body:has(.dashboard-print) :has(.dashboard-print) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    color: #111;
+    background: #fff;
+  }
+  .dashboard-print-heading { display: block; }
+  .dashboard-print .widget {
+    color: #111;
+    background: #fff;
+    break-inside: avoid;
+    print-color-adjust: exact;
+  }
+  .dashboard-print .widget:has(table) { break-inside: auto; }
+  .dashboard-print .widget div:has(> table) {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}

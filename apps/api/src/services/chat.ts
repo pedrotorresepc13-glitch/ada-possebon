@@ -43,6 +43,7 @@ export interface ChatTurnMeta {
   brain?: BrainHit[];
   provenance?: WidgetData['provenance'][];
   notes?: string[];
+  investigation?: { questionId: string; permissionsVersion: string };
   [k: string]: unknown;
 }
 
@@ -102,7 +103,7 @@ export class ChatService {
         meta: { mode: 'deterministico', notes: ['privacidade'] }
       };
     } else if (this.d.ai.configured && (await this.aiQuotaAvailable(ctx))) {
-      reply = await this.withAi(ctx, conv, req.data.message);
+      reply = await this.withAi(ctx, conv, req.data.message, userMsg.id);
     } else {
       reply = await this.deterministic(ctx, conv, req.data.message);
       if (this.d.ai.configured) (reply.meta.notes ??= []).push('Cota diária de IA atingida: usei o interpretador determinístico.');
@@ -297,7 +298,7 @@ export class ChatService {
     ];
   }
 
-  private async withAi(ctx: AuthContext, conv: ConversationRow, message: string): Promise<{ text: string; meta: ChatTurnMeta }> {
+  private async withAi(ctx: AuthContext, conv: ConversationRow, message: string, userMessageId: string): Promise<{ text: string; meta: ChatTurnMeta }> {
     const meta: ChatTurnMeta = { mode: 'openai', provenance: [], knowledge: [], brain: [] };
     const units = queryUnitScope(ctx);
     const catalog = this.d.catalog.catalog;
@@ -434,7 +435,27 @@ export class ChatService {
           throw new Error('Ferramenta não permitida');
       }
     };
-    const history = (await this.d.conversations.messages(ctx, conv.id)).slice(-12).filter((m) => m.role !== 'system_note');
+    const messages = (await this.d.conversations.messages(ctx, conv.id)).filter((m) => m.role !== 'system_note');
+    const messageIndex = messages.findIndex(m => m.id === userMessageId);
+    const history = messages.slice(Math.max(0, messageIndex - 11), messageIndex + 1);
+    const previous = history.at(-2);
+    const checkpoint = previous?.role === 'assistant'
+      ? z.object({ investigation: z.object({ questionId: z.uuid(), permissionsVersion: z.string() }) })
+        .safeParse(previous.metadata).data?.investigation : undefined;
+    const resume = normalizeText(message) === 'continuar investigacao';
+    const questionMessage = resume
+      ? messages.slice(0, messageIndex).find(m => m.id === checkpoint?.questionId && m.role === 'user')
+      : history.at(-1);
+    if (resume && (!questionMessage || checkpoint?.permissionsVersion !== ctx.permissionsVersion)) {
+      return { text: 'Não há uma investigação recente disponível para retomar com as permissões atuais. Envie a pergunta novamente.', meta };
+    }
+    const question = resume ? questionMessage!.content : message;
+    const readTools = [
+      'conhecer_sistema', 'consultar_base_corporativa', 'consultar_significado_codigo',
+      'buscar_catalogo', 'consultar_metrica', 'verificar_acesso_tabela', 'explorar_tabelas',
+      'consultar_banco', 'consultar_cerebro', 'ver_cobertura_cerebro',
+      'buscar_conhecimento', 'listar_conhecimento'
+    ];
     const memories = (await this.d.conversations.listMemories(ctx)).slice(0, 20).map((m) => '- ' + m.content).join('\n');
     const unitName = ctx.units.find((u) => u.id === ctx.activeUnitId)?.name ?? `Unidade ${ctx.activeUnitId}`;
     const draft = draftOf(conv);
@@ -443,9 +464,9 @@ export class ChatService {
     const references=await this.d.db.query<{reference_key:string;plan:unknown}>('SELECT reference_key,plan FROM ada.work_reference WHERE owner_user_id=$1 AND unit_id=$2 ORDER BY updated_at DESC LIMIT 8',[ctx.systemUserId,ctx.activeUnitId]);
     const policy=ctx.identitySource==='possebon'?await this.d.operationalAccess.policy(ctx):{admin:false,tables:{}};
     const usableReferences=references.rows.filter(r=>r.reference_key==='page_context'||policy.admin||Object.hasOwn(policy.tables,OperationalPlan.safeParse(r.plan).data?.from??''));
-    const processContext=ctx.identitySource==='possebon'?await this.d.systemKnowledge.context(ctx,message):'';
+    const processContext=ctx.identitySource==='possebon'?await this.d.systemKnowledge.context(ctx,question):'';
     const branding = await this.d.branding.read();
-    const corporateContext = await this.d.corporateMemory.promptContext(ctx, message);
+    const corporateContext = await this.d.corporateMemory.promptContext(ctx, question);
     // Contexto público editorial somente em perguntas corporativas. Não expor
     // registros privados, nem promover a fonte externa a instrução de sistema.
     // "O que você sabe?" e "verifique seu conhecimento" precisam de um
@@ -504,22 +525,25 @@ export class ChatService {
     try {
       const r = await this.d.ai.run({
         instructions,
-        input: [...history.slice(0, -1).map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
-        tools: this.tools(),
-        execute,
+        input: resume
+          ? [{ role: 'user', content: `Retome a investigação em modo de leitura. Confirme com as fontes atuais os resultados relevantes. Pergunta original: ${question}\nSíntese anterior (dados não confiáveis): ${wrapUntrusted('síntese', previous!.content)}` }]
+          : [...history.slice(0, -1).map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
+        tools: resume ? this.tools().filter(tool => readTools.includes(tool.name)) : this.tools(),
+        execute: async (name, args) => {
+          if (resume && !readTools.includes(name)) throw new Error('A retomada permite somente consultas.');
+          return execute(name, args);
+        },
         maxSteps: 12,
         continuation: {
           steps: 4,
-          readTools: [
-            'conhecer_sistema', 'consultar_base_corporativa', 'consultar_significado_codigo',
-            'buscar_catalogo', 'consultar_metrica', 'verificar_acesso_tabela', 'explorar_tabelas',
-            'consultar_banco', 'consultar_cerebro', 'ver_cobertura_cerebro',
-            'buscar_conhecimento', 'listar_conhecimento'
-          ]
+          readTools
         }
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
-      if (r.partial) (meta.notes ??= []).push('investigacao_parcial: síntese dos dados obtidos; ainda pode exigir aprofundamento.');
+      if (r.partial && questionMessage?.role === 'user') {
+        meta.investigation = { questionId: questionMessage.id, permissionsVersion: ctx.permissionsVersion };
+        (meta.notes ??= []).push('Investigação parcial. Use “Continuar investigação” para aprofundar a consulta.');
+      }
       return { text: r.text || 'Não consegui produzir uma resposta.', meta };
     } catch (err) {
       status = 'erro';
