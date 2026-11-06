@@ -133,6 +133,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
 
   const cookieSecure = e.ADA_COOKIE_SECURE ? e.ADA_COOKIE_SECURE !== 'false' : isProduction;
   if (e.ADA_COOKIE_SAMESITE === 'None' && !cookieSecure) throw new ConfigError('SameSite=None exige cookie Secure');
+  const allowedOrigins = new Set(e.ADA_ALLOWED_ORIGINS.split(/\s+/).filter(Boolean));
+  const possebonOrigins = [
+    'https://app.possebon.com.br',
+    'https://app.possebon.com.br:19305',
+    'https://app.possebon.com.br:19302'
+  ];
+  if (isProduction && possebonOrigins.some(origin => allowedOrigins.has(origin))) {
+    for (const origin of possebonOrigins) allowedOrigins.add(origin);
+  }
 
   return {
     env: e.ADA_ENV,
@@ -140,7 +149,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
     host: e.ADA_HOST,
     port: e.ADA_PORT,
     basePath: e.ADA_BASE_PATH.replace(/\/$/, ''),
-    allowedOrigins: new Set(e.ADA_ALLOWED_ORIGINS.split(/\s+/).filter(Boolean)),
+    allowedOrigins,
     frameAncestors: normalizeSources(e.ADA_FRAME_ANCESTORS),
     db: { driver, url: e.DATABASE_URL, pgliteDir: path.resolve(REPO_ROOT, e.ADA_PGLITE_DIR) },
     encryptionKey,

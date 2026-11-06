@@ -181,6 +181,11 @@ describe('incorporação (iframe) e cabeçalhos', () => {
     expect(() => loadConfig({ ...prod, ADA_ENCRYPTION_KEY: '' })).toThrow(/ENCRYPTION/);
     expect(() => loadConfig({ ...prod, DATABASE_URL: '' })).toThrow(/PostgreSQL/);
     expect(loadConfig(prod).session.cookieSecure).toBe(true);
+    expect([...loadConfig({ ...prod, ADA_ALLOWED_ORIGINS: 'https://app.possebon.com.br' }).allowedOrigins]).toEqual([
+      'https://app.possebon.com.br', 'https://app.possebon.com.br:19305', 'https://app.possebon.com.br:19302'
+    ]);
+    expect([...loadConfig({ ...prod, ADA_ALLOWED_ORIGINS: 'https://possebon.exemplo.com.br' }).allowedOrigins])
+      .toEqual(['https://possebon.exemplo.com.br']);
     // .env remove aspas simples: palavras-chave CSP são normalizadas
     expect(loadConfig({ ...prod, ADA_FRAME_ANCESTORS: 'self https://possebon.exemplo.com.br' }).frameAncestors).toBe("'self' https://possebon.exemplo.com.br");
   });
