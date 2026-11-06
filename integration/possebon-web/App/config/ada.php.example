@@ -1,0 +1,11 @@
+<?php
+// Copiar para app/config/ada.php NO SERVIDOR (nunca versionar). Permissões de arquivo restritas.
+return [
+    'ada_url'              => 'https://<DOMINIO_POSSEBON>/ada',
+    'issuer'               => 'possebon-web',
+    'audience'             => 'ada-possebon',
+    // MESMO valor de ADA_SSO_HS256_SECRET no /etc/ada/ada.env (>= 32 caracteres aleatórios)
+    'sso_secret'           => '<SEGREDO_COMPARTILHADO>',
+    // sha256 do POSSEBON_SERVICE_TOKEN configurado na ADA: php -r "echo hash('sha256','<token>');"
+    'service_token_sha256' => '<SHA256_DO_TOKEN>',
+];

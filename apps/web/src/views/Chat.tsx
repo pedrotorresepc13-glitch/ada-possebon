@@ -1,0 +1,333 @@
+import { LiveVoice } from '../components/LiveVoice.tsx';
+import { useBranding } from '../branding.tsx';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DashboardSpec, RuleDefinition, WidgetData } from '@ada/contracts';
+import { formatDateTime } from '@ada/domain/format';
+import { api, ApiError } from '../api.ts';
+import { useApp } from '../app-context.ts';
+import { DashboardCanvas } from '../components/DashboardCanvas.tsx';
+import { Icon } from '../components/Icon.tsx';
+
+interface Msg {
+  id: string;
+  role: 'user' | 'assistant' | 'system_note';
+  content: string;
+  metadata?: {
+    onboarding?: boolean;
+    mode?: string;
+    notes?: string[];
+    dashboardDraft?: DashboardSpec;
+    savedDashboardId?: string;
+    liveBoardId?: string;
+    monitorProposal?: { definition: RuleDefinition; preview: { summary: string[]; warnings: string[] } };
+    investigation?: { questionId: string };
+    knowledge?: { title: string; source: string; excerpt: string; observedAt: string; uri: string | null }[];
+    operationalWatchProposal?:{input:unknown;summary:string};
+    operationalEvidence?:{source:string;unitId:number;queriedAt:string}[];
+  };
+  createdAt?: string;
+}
+
+const SUGGESTIONS = [
+  'cria efetivo por equipe nos últimos seis meses',
+  'mostra os por status nos últimos seis meses',
+  'cria solicitações de compra por categoria nos últimos seis meses',
+  'monitore a OS 123 e me avise quando mudarem o prazo ou quando ficar 48h sem avanço',
+  'ajuda'
+];
+
+function MonitorProposal({ m }: { m: NonNullable<NonNullable<Msg['metadata']>['monitorProposal']> }) {
+  const { navigate } = useApp();
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'discarded'>('idle');
+  const [err, setErr] = useState('');
+  if (state === 'discarded') return <div className="msg-meta">Proposta descartada.</div>;
+  return (
+    <div className="proposal" aria-label="Proposta de acompanhamento">
+      <strong>Acompanhamento proposto — {m.definition.name}</strong>
+      <ul>{m.preview.summary.map((s) => <li key={s}>{s}</li>)}</ul>
+      {m.preview.warnings.map((w) => <div key={w} className="small">⚠ {w}</div>)}
+      {state === 'done' ? (
+        <div className="row" style={{ marginTop: 8 }}>
+          <span className="badge good">✓ Ativado</span>
+          <button className="btn sm" onClick={() => navigate('/acompanhamentos')}>Ver acompanhamentos</button>
+        </div>
+      ) : (
+        <div className="row" style={{ marginTop: 8 }}>
+          <button
+            className="btn primary sm"
+            disabled={state === 'saving'}
+            onClick={async () => {
+              setState('saving');
+              try {
+                await api('/monitors', { body: { definition: m.definition, activate: true } });
+                setState('done');
+              } catch (e) {
+                setErr((e as Error).message);
+                setState('idle');
+              }
+            }}
+          >
+            Confirmar e ativar
+          </button>
+          <button className="btn ghost sm" onClick={() => setState('discarded')}>Descartar</button>
+        </div>
+      )}
+      {err && <div className="error-box small" role="alert">{err}</div>}
+    </div>
+  );
+}
+
+function WatchProposal({proposal}:{proposal:{input:unknown;summary:string}}){
+  const [state,setState]=useState('idle');const [error,setError]=useState('');
+  return <div className="proposal"><strong>Acompanhar este registro</strong><p>{proposal.summary}</p>{state==='done'?<p role="status">Acompanhamento ativo. Você receberá uma notificação quando houver mudança confirmada.</p>:<button className="btn primary sm" disabled={state==='saving'} onClick={()=>{setState('saving');void api('/watches',{body:proposal.input}).then(()=>setState('done')).catch(e=>{setError((e as Error).message);setState('idle');});}}>Confirmar e acompanhar</button>}{error&&<p role="alert">{error}</p>}</div>;
+}
+
+export function ChatView({compact=false,initialConversationId}:{compact?:boolean;initialConversationId?:string}) {
+  const { name } = useBranding();
+  const { me, theme, navigate } = useApp();
+  const params = new URLSearchParams(window.location.search);
+  const storageKey='possebon:conversation:'+me.user.systemUserId+':'+me.activeUnit.id;
+  const stored=()=>{try{return sessionStorage.getItem(storageKey)??undefined;}catch{return undefined;}};
+  const [conversationId, setConversationId] = useState<string | undefined>(()=>initialConversationId??params.get('c')??(compact?stored():undefined));
+  const [pageContext,setPageContext]=useState<{module:string;table?:string;recordId?:number}>();
+  const [pendingDashboardId, setPendingDashboardId] = useState<string | undefined>(params.get('dashboard') ?? undefined);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState<DashboardSpec | null>(null);
+  const [savedId, setSavedId] = useState<string | undefined>();
+  const [data, setData] = useState<WidgetData[] | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataErr, setDataErr] = useState('');
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(conversationId){try{sessionStorage.setItem(storageKey,conversationId);}catch{/* Sessão continua sem persistência do navegador. */}
+      if(compact)window.parent.postMessage({type:'possebon:conversation',id:conversationId},window.location.origin);}
+  },[conversationId,storageKey,compact]);
+  useEffect(()=>{if(!compact)return;window.parent.postMessage({type:'possebon:ready'},window.location.origin);const receive=(event:MessageEvent)=>{
+    if(event.origin!==window.location.origin||event.source!==window.parent||event.data?.type!=='possebon:context')return;
+    const data=event.data.context;
+    if(data===null){setPageContext(undefined);return;}
+    if(data&&typeof data.module==='string'&&data.module.length<=120)setPageContext({module:data.module,table:typeof data.table==='string'?data.table:undefined,recordId:Number.isSafeInteger(data.recordId)?data.recordId:undefined});
+  };window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);},[compact]);
+
+  useEffect(()=>{if(!compact)return;const key=(event:KeyboardEvent)=>{if(event.key==='Escape')window.parent.postMessage({type:'possebon:close'},window.location.origin);};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[compact]);
+  const loadData = useCallback(async (spec: DashboardSpec, refresh = false) => {
+    setDataLoading(true);
+    setDataErr('');
+    try {
+      const r = await api<{ data: WidgetData[] }>('/dashboards/preview', { body: { spec, refresh } });
+      setData(r.data);
+    } catch (e) {
+      setDataErr((e as Error).message);
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (conversationId) {
+      api<{ messages: Msg[]; draft: { spec: DashboardSpec; savedDashboardId?: string } | null }>(`/conversations/${conversationId}`)
+        .then((r) => {
+          setMessages(compact && !me.isAdmin ? r.messages.filter(message => !message.metadata?.onboarding) : r.messages);
+          if (r.draft) {
+            setDraft(r.draft.spec);
+            setSavedId(r.draft.savedDashboardId);
+            void loadData(r.draft.spec);
+          }
+        })
+        .catch((e) => {
+          if (compact && e instanceof ApiError && e.status === 404) {
+            try {
+              if (sessionStorage.getItem(storageKey) === conversationId) sessionStorage.removeItem(storageKey);
+            } catch { /* A conversa nova também funciona sem acesso ao armazenamento. */ }
+            const url = new URL(window.location.href);
+            url.searchParams.delete('c');
+            window.history.replaceState(window.history.state, '', url);
+            setConversationId(id => id === conversationId ? undefined : id);
+            window.parent.postMessage({ type: 'possebon:conversation-unavailable', id: conversationId }, window.location.origin);
+            return;
+          }
+          setErr(e instanceof ApiError && e.status === 404 ? 'Conversa não encontrada.' : (e as Error).message);
+        });
+    } else if (pendingDashboardId) {
+      api<{ spec: DashboardSpec; id: string }>(`/dashboards/${pendingDashboardId}`)
+        .then((d) => {
+          setDraft(d.spec);
+          setSavedId(d.id);
+          void loadData(d.spec);
+        })
+        .catch((e) => setErr((e as Error).message));
+    }
+    // carregamento inicial apenas
+  }, []);
+
+  // Corpo em bloco: em navegadores recentes scrollIntoView() retorna Promise, que não pode virar "cleanup" do efeito.
+  useEffect(() => {
+    void endRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages]);
+
+  async function send(text: string) {
+    const message = text.trim();
+    if (!message || busy) return;
+    setBusy(true);
+    setErr('');
+    setInput('');
+    const tmp: Msg = { id: 'tmp-' + Date.now(), role: 'user', content: message };
+    setMessages((m) => [...m, tmp]);
+    try {
+      const r = await api<{ conversationId: string; message: Msg }>('/chat', { body: { message, conversationId, dashboardId: conversationId ? undefined : pendingDashboardId,pageContext } });
+      if (!conversationId) {
+        setConversationId(r.conversationId);
+        window.history.replaceState(null, '', `${window.location.pathname}?c=${r.conversationId}`);
+      }
+      if(!compact)window.dispatchEvent(new CustomEvent('possebon:conversation-updated',{detail:{id:r.conversationId}}));
+      setPendingDashboardId(undefined);
+      setMessages((m) => [...m, r.message]);
+      const meta = r.message.metadata ?? {};
+      if (meta.savedDashboardId) setSavedId(meta.savedDashboardId);
+      if (meta.dashboardDraft && JSON.stringify(meta.dashboardDraft) !== JSON.stringify(draft)) {
+        setDraft(meta.dashboardDraft);
+        void loadData(meta.dashboardDraft);
+      }
+    } catch (e) {
+      setErr((e as Error).message);
+      setMessages((m) => m.filter((x) => x.id !== tmp.id));
+      setInput(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {!compact&&<header className="topbar">
+        <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a {name}</h1>
+        <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
+      </header>}
+
+      <div className={`chat-layout ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
+        <section className="chat-pane" aria-label="Conversa">
+          <div className="messages" role="log" aria-live="polite" aria-busy={busy}>
+            {messages.length === 0 && !err && (
+              <div className="empty" style={{ marginTop: 20 }}>
+                <span className="chat-welcome-symbol"><Icon name="spark" size={30}/></span><strong>Olá, {me.user.displayName.trim() || me.user.login}.</strong>
+                Peça uma consulta, personalize sua Tela Viva ou acompanhe um assunto da unidade{' '}
+                <strong style={{ display: 'inline' }}>{me.activeUnit.name}</strong>.
+                {me.demoData && <p className="small">Este ambiente usa DADOS SINTÉTICOS de demonstração.</p>}
+              </div>
+            )}
+            {messages.map((m) => (
+              <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'assistant'}`}>
+                {m.content}
+                {m.metadata?.monitorProposal && <MonitorProposal m={m.metadata.monitorProposal} />}
+                {m.metadata?.investigation && m.id === messages.at(-1)?.id &&
+                  <button className="btn sm" disabled={busy} onClick={() => void send('Continuar investigação')}>Continuar investigação</button>}
+                {m.metadata?.operationalWatchProposal&&<WatchProposal proposal={m.metadata.operationalWatchProposal}/>}
+                {!!m.metadata?.operationalEvidence?.length&&<details className="query-details"><summary>Detalhes da consulta</summary>{m.metadata.operationalEvidence.map((e,i)=><p key={i}>{e.source} · Unidade {e.unitId} · {formatDateTime(e.queriedAt)}</p>)}</details>}
+                {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>{me.isAdmin ? 'Abrir tela viva' : 'Abrir meu Dashboard'}</button></div>}
+                {m.metadata?.knowledge && m.metadata.knowledge.length > 0 && (
+                  <ol className="citations" aria-label="Fontes consultadas">
+                    {m.metadata.knowledge.slice(0, 5).map((k, i) => (
+                      <li key={i}>
+                        {k.uri ? <a href={k.uri} target="_blank" rel="noopener noreferrer">{k.title}</a> : k.title} — {k.source} · observado em {formatDateTime(k.observedAt)}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {m.role === 'assistant' && (
+                  <div className="msg-meta">
+                    <span>{name}</span>
+                    {m.createdAt && <span>{formatDateTime(m.createdAt)}</span>}
+                    {m.metadata?.notes?.filter((n) => n.length > 25 && !m.content.includes(n)).map((n) => <span key={n}>· {n}</span>)}
+                  </div>
+                )}
+              </div>
+            ))}
+            {busy && <div className="msg assistant" aria-label={`${name} está respondendo`}><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
+            {err && <div className="error-box" role="alert">{err}</div>}
+            <div ref={endRef} />
+          </div>
+          {!compact && messages.length === 0 && (
+            <div className="suggestions" aria-label="Sugestões">
+              {SUGGESTIONS.map((s) => (
+                <button key={s} className="chip" onClick={() => void send(s)}>{s}</button>
+              ))}
+            </div>
+          )}
+          {me.ai.configured && <LiveVoice conversationId={conversationId} onAnswer={answer => {
+            setConversationId(answer.conversationId);
+            setMessages(previous => [...previous,
+              { id: 'voice-' + answer.message.id, role: 'user', content: answer.userText },
+              answer.message as Msg
+            ]);
+          }} />}
+          <form
+            className="composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(input);
+            }}
+          >
+            <label htmlFor="chat-input" className="sr-only">Mensagem para a {name}</label>
+            <textarea
+              id="chat-input"
+              className="textarea"
+              rows={2}
+              value={input}
+              maxLength={4000}
+              placeholder={draft ? 'Refine: "muda para linhas", "compara com o previsto", "salva como …"' : 'Pergunte ou peça um dashboard…'}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void send(input);
+                }
+              }}
+            />
+            <button className="btn primary" disabled={busy || !input.trim()} aria-label="Enviar mensagem">Enviar</button>
+          </form>
+        </section>
+        {draft && (
+          <section className="canvas-pane" aria-label="Dashboard em edição">
+            <div className="dash-head">
+              <div className="grow">
+                <h2>{draft.title}</h2>
+                <div className="muted small">{savedId ? 'Salvo — alterações nesta conversa geram nova revisão ao salvar novamente' : 'Rascunho (não salvo)'}</div>
+              </div>
+              <button className="btn sm" onClick={() => void loadData(draft, true)} disabled={dataLoading}>↻ Atualizar</button>
+              {conversationId && (
+                <button
+                  className="btn sm"
+                  onClick={async () => {
+                    try {
+                      const r = await api<{ draft: { spec: DashboardSpec } }>(`/conversations/${conversationId}/undo`, { body: {} });
+                      setDraft(r.draft.spec);
+                      void loadData(r.draft.spec);
+                    } catch (e) {
+                      setErr((e as Error).message);
+                    }
+                  }}
+                >
+                  ↶ Desfazer
+                </button>
+              )}
+              <button
+                className="btn primary sm"
+                onClick={() => {
+                  const title = window.prompt('Salvar dashboard como:', draft.title);
+                  if (title?.trim()) void send(`salva como ${title.trim()}`);
+                }}
+              >
+                Salvar
+              </button>
+            </div>
+            {dataErr && <div className="error-box" role="alert">{dataErr}</div>}
+            <DashboardCanvas spec={draft} data={data} theme={theme} loading={dataLoading && !data} />
+          </section>
+        )}
+      </div>
+    </>
+  );
+}
