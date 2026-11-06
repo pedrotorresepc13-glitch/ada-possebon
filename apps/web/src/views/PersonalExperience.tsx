@@ -6,7 +6,7 @@ import { LiveBoardDetail } from './LiveBoards.tsx';
 import { MonitorsView } from './Monitors.tsx';
 import { NotificationsView } from './Notifications.tsx';
 
-type Panel = 'monitors' | 'notifications';
+type Panel = 'monitors' | 'notifications' | 'dashboard';
 interface PersonalAssets {
   state: string;
   liveBoardId: string | null;
@@ -28,7 +28,7 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'possebon:show-panel') return;
       const next = event.data.panel;
-      if (next === 'monitors' || next === 'notifications') setPanel(current => current === next ? null : next);
+      if (next === 'monitors' || next === 'notifications' || next === 'dashboard') setPanel(current => current === next ? null : next);
     };
     window.addEventListener('message', receive);
     window.parent.postMessage({ type: 'possebon:ready', personal: true }, window.location.origin);
@@ -55,7 +55,7 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
 
   const navigate = (path: string) => {
     if (path.startsWith('/telas') || path.startsWith('/dashboards')) {
-      if (window.parent !== window) window.parent.postMessage({ type: 'possebon:open-dashboard' }, location.origin);
+      setPanel('dashboard');
     } else if (path === '/acompanhamentos') setPanel('monitors');
     else if (path === '/notificacoes') setPanel('notifications');
   };
@@ -63,9 +63,9 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
   return <Ctx.Provider value={{ ...app, navigate }}>
     <div className="compact-app personal-experience">
       {error && <div className="error-box" role="alert">{error}</div>}
-      {compact && panel && <section className="personal-side-panel" aria-label={panel === 'monitors' ? 'Acompanhamentos' : 'Notificações'}>
+      {compact && panel && <section className="personal-side-panel" aria-label={panel === 'monitors' ? 'Acompanhamentos' : panel === 'notifications' ? 'Notificações' : 'Meu Dashboard'}>
         <button className="btn sm personal-panel-close" onClick={() => setPanel(null)}>Fechar</button>
-        {panel === 'monitors' ? <MonitorsView /> : <NotificationsView />}
+        {panel === 'monitors' ? <MonitorsView /> : panel === 'notifications' ? <NotificationsView /> : assets?.liveBoardId ? <LiveBoardDetail id={assets.liveBoardId} personal /> : <div className="empty" role="status">Preparando seu Dashboard.</div>}
       </section>}
       {compact ? (assets?.conversationId
         ? <ChatView compact initialConversationId={assets.conversationId} />

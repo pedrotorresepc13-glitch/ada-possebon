@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { api, apiUrl, onUnauthenticated, reconnectPossebon, setCsrf, setSessionContext, type Me } from './api.ts';
 import { Ctx, useRoute } from './app-context.ts';
 import { ChatView } from './views/Chat.tsx';
+import { CompactChat } from './views/CompactChat.tsx';
 import { ConversationsView } from './views/Conversations.tsx';
 import { DashboardsView, DashboardView } from './views/Dashboards.tsx';
 import { MonitorsView } from './views/Monitors.tsx';
@@ -177,7 +178,6 @@ function AppContent() {
   if (!me) return <Login info={info} onLogged={setMe} />;
 
   const go = (p: string) => {
-    if(path==='/compacto'&&window.parent!==window){window.parent.postMessage({type:'possebon:navigate',path:p},window.location.origin);return;}
     navigate(p);
     setMenuOpen(false);
   };
@@ -186,7 +186,7 @@ function AppContent() {
   const liveMatch = /^\/telas\/([0-9a-f-]{36})$/.exec(path);
   const compact=path==='/compacto';
   const hasConversation=new URLSearchParams(window.location.search).has('c')||new URLSearchParams(window.location.search).has('nova')||new URLSearchParams(window.location.search).has('dashboard');
-  if(compact)view=<ChatView compact key={me.user.systemUserId+':'+me.activeUnit.id}/>;
+  if(compact)view=<CompactChat key={me.user.systemUserId+':'+me.activeUnit.id}/>;
   else if(path==='/inicio'||((path==='/'||path==='')&&!hasConversation))view=<WorkspaceView key={me.user.systemUserId+':'+me.activeUnit.id}/>;
   else if (path === '/' || path === '') view = <ChatView key={window.location.search+me.activeUnit.id} />;
   else if (path === '/conversas') view = <ConversationsView />;
@@ -203,7 +203,7 @@ function AppContent() {
 
   return (
     <Ctx.Provider value={{ me, theme, setTheme, navigate: go, unread, refreshUnread, setMe }}>
-      {!me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : compact?<div className="compact-app">{view}</div>:<>
+      {!me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : compact?view:<>
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">

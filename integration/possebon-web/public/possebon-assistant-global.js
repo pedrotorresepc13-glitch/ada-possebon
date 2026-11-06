@@ -6,11 +6,9 @@
   const base = new URL(script.dataset.base || '/ada/', location.origin);
   const bridge = script.dataset.bridge ? new URL(script.dataset.bridge, document.baseURI) : new URL('../ada-assistant.php', base);
   if (base.origin !== location.origin || bridge.origin !== location.origin || !base.pathname.endsWith('/')) return;
-  let identity, host, root, frame, launcher, panel, status, retry, full, title, bell, badge, chatBadge;
-  let personal = false, dashboardView;
+  let identity, host, root, frame, launcher, panel, status, retry, title, bell, badge, chatBadge;
   let context = null, opened = false, connecting = false, ready = false;
   let generation = 0, timeout, checking, brandingRevision = 0;
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   async function request(url, options = {}) {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(12000), ...options });
@@ -24,11 +22,8 @@
   function dispose() {
     generation++;
     clearTimeout(timeout);
-    dashboardView?.remove();
-    dashboardView = undefined;
-    personal = false;
     host?.remove();
-    identity = host = root = frame = launcher = panel = status = retry = full = title = undefined;
+    identity = host = root = frame = launcher = panel = status = retry = title = undefined;
     opened = connecting = ready = false;
     context = null;
   }
@@ -46,29 +41,6 @@
   }
   function showPanel(name) {
     if (ready) frame?.contentWindow?.postMessage({type:'possebon:show-panel',panel:name}, location.origin);
-  }
-
-  function openDashboard() {
-    const container = document.getElementById('adianti_div_content');
-    if (!personal || !container) {
-      if (status) { status.hidden = false; status.textContent = 'Abra uma página do POSSEBON para ver o Dashboard.'; }
-      return;
-    }
-    if (dashboardView?.isConnected) return;
-    dashboardView = document.createElement('section');
-    dashboardView.dataset.possebonPersonalDashboard = '';
-    const style = document.createElement('style');
-    style.textContent = '#adianti_div_content:has(> [data-possebon-personal-dashboard]) > :not([data-possebon-personal-dashboard]){display:none!important}';
-    const back = document.createElement('button');
-    back.type = 'button'; back.className = 'btn btn-default';
-    back.textContent = 'Fechar Dashboard';
-    back.onclick = () => dashboardView?.remove();
-    const dashboard = document.createElement('iframe');
-    dashboard.title = 'Meu Dashboard';
-    dashboard.src = new URL('painel-pessoal', base).href;
-    dashboard.style.cssText = 'display:block;width:100%;height:calc(100dvh - 160px);min-height:360px;border:0';
-    dashboardView.append(style, back, dashboard);
-    container.prepend(dashboardView);
   }
 
   function contextFromPage() {
@@ -200,13 +172,13 @@
       *{box-sizing:border-box}[hidden]{display:none!important}button,a{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}
       .launcher{display:flex;align-items:center;gap:12px;max-width:300px;margin-left:auto;background:#204be5;color:#fff;border:0;border-radius:999px;padding:18px 24px;font-weight:700;box-shadow:0 8px 24px #1d4ed833}.launcher span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.launcher svg{flex-shrink:0}
       section.expanded{width:min(900px,calc(100vw - 32px));height:calc(100dvh - 120px)}.badge{background:#dc2626;color:white;border-radius:99px;font-size:11px;padding:2px 5px;min-width:18px;text-align:center}.bell{display:inline-flex;align-items:center;gap:3px}.expand{font-size:20px}section{display:flex;flex-direction:column;width:min(430px,calc(100vw - 32px));height:min(660px,calc(100dvh - 120px));margin-bottom:12px;background:#fff;border:1px solid #dce4f1;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px #0f172a26}
-      header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e2e8f0}strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header button,header a{padding:6px;border:0;border-radius:6px;background:transparent;color:#334155;text-decoration:none}iframe{flex:1;width:100%;min-height:0;border:0}p{margin:24px;line-height:1.5}.retry{margin:0 24px 24px;padding:12px;background:#204be5;color:#fff;border:0;border-radius:8px}
+      header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e2e8f0}strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header button{padding:6px;border:0;border-radius:6px;background:transparent;color:#334155;text-decoration:none}header button:disabled{opacity:.45;cursor:default}iframe{flex:1;width:100%;min-height:0;border:0}p{margin:24px;line-height:1.5}.retry{margin:0 24px 24px;padding:12px;background:#204be5;color:#fff;border:0;border-radius:8px}
       @media(max-width:600px){:host{right:12px;bottom:max(12px,env(safe-area-inset-bottom))}section{width:calc(100vw - 24px);height:calc(100dvh - 110px)}.launcher{padding:14px 20px}}
-    </style><section hidden role="dialog" aria-label="Conversa com Posso"><header><strong>Posso - IA Possebon</strong><a class="bell" target="_blank" rel="noopener" aria-label="Notificações" title="Notificações"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="badge" hidden></span></a><button class="expand" type="button" aria-label="Expandir conversa" title="Expandir conversa" aria-pressed="false">⛶</button><a class="full" target="_blank" rel="noopener" aria-label="Abrir painel completo em outra aba" title="Abrir painel completo">↗</a><button type="button" aria-label="Minimizar conversa" title="Minimizar">✕</button></header><p role="status"></p><button type="button" class="retry" hidden>Tentar novamente</button></section><button type="button" class="launcher" aria-controls="possebon-global-chat" aria-expanded="false" aria-label="Conversar com Posso"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg><span>Posso</span><b class="badge" hidden></b></button>`;
+    </style><section hidden role="dialog" aria-label="Conversa com Posso"><header><strong>Posso - IA Possebon</strong><button type="button" class="bell" disabled aria-label="Notificações" title="Notificações"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="badge" hidden></span></button><button class="expand" type="button" aria-label="Expandir conversa" title="Expandir conversa" aria-pressed="false">⛶</button><button type="button" aria-label="Minimizar conversa" title="Minimizar">✕</button></header><p role="status"></p><button type="button" class="retry" hidden>Tentar novamente</button></section><button type="button" class="launcher" aria-controls="possebon-global-chat" aria-expanded="false" aria-label="Conversar com Posso"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg><span>Posso</span><b class="badge" hidden></b></button>`;
     panel = root.querySelector('section'); panel.id = 'possebon-global-chat';
     launcher = root.querySelector('.launcher'); status = root.querySelector('[role=status]');
-    retry = root.querySelector('.retry'); full = root.querySelector('.full'); full.href = base.href;
-    bell = root.querySelector('.bell'); bell.href = new URL('notificacoes', base).href;
+    retry = root.querySelector('.retry');
+    bell = root.querySelector('.bell');
     badge = bell.querySelector('.badge'); chatBadge = launcher.querySelector('.badge');
     const expand = root.querySelector('.expand');
     const addAction = (label, icon, onClick) => {
@@ -215,18 +187,14 @@
       button.className = 'personal-action';
       button.title = label;
       button.setAttribute('aria-label', label);
-      button.hidden = !personal;
+      button.disabled = true;
       button.innerHTML = icon;
       button.addEventListener('click', onClick);
       expand.before(button);
     };
     addAction('Acompanhamentos', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', () => showPanel('monitors'));
-    addAction('Dashboard', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg>', openDashboard);
-    bell.addEventListener('click', event => {
-      if (!personal) return;
-      event.preventDefault();
-      showPanel('notifications');
-    });
+    addAction('Dashboard', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg>', () => showPanel('dashboard'));
+    bell.addEventListener('click', () => showPanel('notifications'));
     expand.addEventListener('click', () => { const expanded = panel.classList.toggle('expanded'); expand.setAttribute('aria-pressed', String(expanded)); expand.setAttribute('aria-label', expanded ? 'Reduzir conversa' : 'Expandir conversa'); expand.title = expanded ? 'Reduzir conversa' : 'Expandir conversa'; });
     title = root.querySelector('strong');
     launcher.addEventListener('click', () => { if (opened) close(); else void open(); });
@@ -244,35 +212,24 @@
     }
     if (!frame || event.source !== frame.contentWindow) return;
     if (event.data?.type === 'possebon:ready') {
-      if (event.data.personal === true) {
-        personal = true;
-        full.hidden = true;
-        for (const action of root.querySelectorAll('.personal-action')) action.hidden = false;
-      }
+      for (const action of root.querySelectorAll('.bell, .personal-action')) action.disabled = false;
       clearTimeout(timeout); connecting = false; ready = true;
       status.hidden = true; retry.hidden = true; frame.hidden = false;
       sendContext(); if (opened) frame.focus();
     }
     if (event.data?.type === 'possebon:session-expired') showError('Sua sessão mudou ou expirou. Conecte novamente para continuar a conversa.');
     if (event.data?.type === 'possebon:close') close();
-    if (event.data?.type === 'possebon:open-dashboard' && personal) openDashboard();
-    if (event.data?.type === 'possebon:conversation' && uuid.test(String(event.data.id))) full.href = new URL('?c=' + event.data.id, base).href;
-    if (event.data?.type === 'possebon:conversation-unavailable' && new URL(full.href).searchParams.get('c') === event.data.id) full.href = base.href;
-    if (event.data?.type === 'possebon:navigate' && /^\/(?:telas\/[0-9a-f-]{36}|dashboards\/[0-9a-f-]{36}|acompanhamentos)$/.test(String(event.data.path))) {
-      full.href = new URL(event.data.path.slice(1), base).href;
-      status.hidden = false; status.textContent = 'Abra o painel completo pelo botão ↗ para ver esta tela.';
-    }
   });
   function refresh() { void checkAccess().then(() => { void branding(); void notifications(); }).catch(() => undefined); }
   let previousUrl = location.href, observed;
   new MutationObserver(() => {
     clearTimeout(observed);
     observed = setTimeout(() => {
-      if (previousUrl !== location.href) { dashboardView?.remove(); previousUrl = location.href; updateContext(contextFromPage()); refresh(); }
+      if (previousUrl !== location.href) { previousUrl = location.href; updateContext(contextFromPage()); refresh(); }
       suppressDuplicate();
     }, 150);
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'name'] });
-  window.addEventListener('popstate', () => { dashboardView?.remove(); updateContext(contextFromPage()); refresh(); });
+  window.addEventListener('popstate', () => { updateContext(contextFromPage()); refresh(); });
   window.addEventListener('focus', refresh);
   const refreshVisible = () => { if (document.visibilityState !== 'hidden') refresh(); };
   document.addEventListener('visibilitychange', refreshVisible);

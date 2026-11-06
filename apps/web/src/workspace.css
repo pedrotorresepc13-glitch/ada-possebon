@@ -40,3 +40,11 @@
 .personal-panel-close {margin:8px 12px}
 .personal-side-panel .topbar {padding:8px 12px}
 .personal-experience .chat-layout {height:auto}
+
+.compact-window.expanded {width:min(900px,calc(100vw - 48px));height:calc(100dvh - 120px)}
+.compact-title,.compact-actions {display:flex;align-items:center;gap:4px}
+.compact-title {min-width:0}
+.compact-title svg {flex-shrink:0}
+.compact-actions {flex-shrink:0}
+.compact-actions .btn {padding:5px}
+@media(max-width:760px){.compact-window.expanded {width:calc(100vw - 24px);height:calc(100dvh - 100px)}}
