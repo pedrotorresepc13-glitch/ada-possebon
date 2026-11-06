@@ -14,8 +14,13 @@
   async function request(url, options = {}) {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(12000), ...options });
     if (response.status === 401 || response.status === 403) {
-      if (new URL(url).href === bridge.href) dispose();
-      throw new Error('Abra novamente o POSSEBON Web com um usuário autorizado.');
+      if (new URL(url).href === bridge.href) {
+        if (!options.method) dispose();
+        throw new Error(response.status === 401
+          ? 'Entre no POSSEBON Web para usar a Posso.'
+          : 'O POSSEBON Web recusou o acesso da Posso para esta sessão ou unidade.');
+      }
+      throw new Error('O POSSEBON Web reconheceu a sessão, mas a Posso não conseguiu validá-la. Tente novamente.');
     }
     if (!response.ok) throw new Error('Não foi possível conectar. Tente novamente.');
     return response.json();
@@ -77,8 +82,13 @@
   }
   async function ensureSession() {
     if (await sessionMatches()) return;
+    const previous = identity;
+    const current = await checkAccess();
+    if (!previous || previous.userId !== current.userId || previous.unitId !== current.unitId) {
+      throw new Error('O usuário ou a unidade mudou. Abra a Posso novamente.');
+    }
     frame?.remove(); frame = undefined; ready = false;
-    const response = await request(bridge, { method: 'POST', headers: { 'X-Possebon-CSRF': identity.csrf } });
+    const response = await request(bridge, { method: 'POST', headers: { 'X-Possebon-CSRF': current.csrf } });
     const action = new URL(response.action);
     if (action.href !== new URL('api/ada/session/exchange', base).href || typeof response.ticket !== 'string' || response.ticket.length > 4096) throw new Error('Resposta de integração inválida.');
     await request(action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: response.ticket }) });
@@ -101,7 +111,7 @@
       const value = await request(new URL('api/ada/branding', base));
       if (!host || revision !== brandingRevision || typeof value.name !== 'string') return;
       const name = value.name.slice(0, 80);
-      title.textContent = name;
+      title.textContent = name + ' - IA Possebon';
       launcher.querySelector('span').textContent = name;
       launcher.setAttribute('aria-label', 'Conversar com ' + name);
       panel.setAttribute('aria-label', 'Conversa com ' + name);
@@ -170,7 +180,7 @@
       section.expanded{width:min(900px,calc(100vw - 32px));height:calc(100dvh - 120px)}.badge{background:#dc2626;color:white;border-radius:99px;font-size:11px;padding:2px 5px;min-width:18px;text-align:center}.bell{display:inline-flex;align-items:center;gap:3px}.expand{font-size:20px}section{display:flex;flex-direction:column;width:min(430px,calc(100vw - 32px));height:min(660px,calc(100dvh - 120px));margin-bottom:12px;background:#fff;border:1px solid #dce4f1;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px #0f172a26}
       header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e2e8f0}strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header button,header a{padding:6px;border:0;border-radius:6px;background:transparent;color:#334155;text-decoration:none}iframe{flex:1;width:100%;min-height:0;border:0}p{margin:24px;line-height:1.5}.retry{margin:0 24px 24px;padding:12px;background:#204be5;color:#fff;border:0;border-radius:8px}
       @media(max-width:600px){:host{right:12px;bottom:max(12px,env(safe-area-inset-bottom))}section{width:calc(100vw - 24px);height:calc(100dvh - 110px)}.launcher{padding:14px 20px}}
-    </style><section hidden role="dialog" aria-label="Conversa com IA POSSEBON"><header><strong>IA POSSEBON</strong><a class="bell" target="_blank" rel="noopener" aria-label="Notificações" title="Notificações"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="badge" hidden></span></a><button class="expand" type="button" aria-label="Expandir conversa" title="Expandir conversa" aria-pressed="false">⛶</button><a class="full" target="_blank" rel="noopener" aria-label="Abrir painel completo em outra aba" title="Abrir painel completo">↗</a><button type="button" aria-label="Minimizar conversa" title="Minimizar">✕</button></header><p role="status"></p><button type="button" class="retry" hidden>Tentar novamente</button></section><button type="button" class="launcher" aria-controls="possebon-global-chat" aria-expanded="false" aria-label="Conversar com IA POSSEBON"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg><span>IA POSSEBON</span><b class="badge" hidden></b></button>`;
+    </style><section hidden role="dialog" aria-label="Conversa com Posso"><header><strong>Posso - IA Possebon</strong><a class="bell" target="_blank" rel="noopener" aria-label="Notificações" title="Notificações"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="badge" hidden></span></a><button class="expand" type="button" aria-label="Expandir conversa" title="Expandir conversa" aria-pressed="false">⛶</button><a class="full" target="_blank" rel="noopener" aria-label="Abrir painel completo em outra aba" title="Abrir painel completo">↗</a><button type="button" aria-label="Minimizar conversa" title="Minimizar">✕</button></header><p role="status"></p><button type="button" class="retry" hidden>Tentar novamente</button></section><button type="button" class="launcher" aria-controls="possebon-global-chat" aria-expanded="false" aria-label="Conversar com Posso"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg><span>Posso</span><b class="badge" hidden></b></button>`;
     panel = root.querySelector('section'); panel.id = 'possebon-global-chat';
     launcher = root.querySelector('.launcher'); status = root.querySelector('[role=status]');
     retry = root.querySelector('.retry'); full = root.querySelector('.full'); full.href = base.href;

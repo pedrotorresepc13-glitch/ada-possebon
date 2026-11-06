@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { api, apiUrl, onUnauthenticated, setCsrf, setSessionContext, type Me } from './api.ts';
+import { api, apiUrl, onUnauthenticated, reconnectPossebon, setCsrf, setSessionContext, type Me } from './api.ts';
 import { Ctx, useRoute } from './app-context.ts';
 import { ChatView } from './views/Chat.tsx';
 import { ConversationsView } from './views/Conversations.tsx';
@@ -27,6 +27,15 @@ interface SessionInfo {
 function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => void }) {
   const { name } = useBranding();
   const [err, setErr] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const canReconnect = info.ssoConfigured && window.parent === window;
+  const reconnect = async () => {
+    setConnecting(true);
+    setErr('');
+    try { onLogged(await reconnectPossebon()); }
+    catch (error) { setErr((error as Error).message); }
+    finally { setConnecting(false); }
+  };
   const users = [
     ['admin.demo', 'Administração (2 unidades)'],
     ['gerente.a', 'Gerente A — Unidade Norte'],
@@ -40,11 +49,14 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
           <div className="brand-mark" aria-hidden="true">IA</div>
           <div>
-            <strong>{name}</strong>
+            <strong>{name} - IA Possebon</strong>
             <small>Inteligência empresarial</small>
           </div>
         </div>
-        <p>Abra {name} pelo <strong>POSSEBON Web</strong>: o acesso usa o mesmo login e as mesmas permissões, sem outra senha.</p>
+        <p>{name} usa a sessão e as permissões do <strong>POSSEBON Web</strong>.</p>
+        {canReconnect && <button className="btn primary" disabled={connecting} onClick={() => void reconnect()}>
+          {connecting ? 'Conectando…' : 'Entrar com POSSEBON Web'}
+        </button>}
         {!info.ssoConfigured && <p className="note-box small">O SSO com o POSSEBON ainda não está configurado neste ambiente.</p>}
         {info.devLogin && (
           <section style={{ marginTop: 16 }}>
