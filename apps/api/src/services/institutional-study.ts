@@ -54,9 +54,16 @@ export class InstitutionalStudyService {
       const ctx=await this.d.sessions.resolveContext(job.owner,job.unit,'institutional-study',{force:true});assertAdmin(ctx);
       const result=await this.d.corporateMemory.studyBatch(ctx);
       job.processed+=result.processed?1:0;
-      if(result.processed){job.inputTokens=(job.inputTokens??0)+(result.inputTokens??0);job.outputTokens=(job.outputTokens??0)+(result.outputTokens??0);job.tokensSpent=(job.tokensSpent??7000)-7000+(result.inputTokens??0)+(result.outputTokens??0);job.characters=(job.characters??0)+(result.characters??0);job.lastProgressAt=new Date().toISOString();}else job.tokensSpent=(job.tokensSpent??7000)-7000;
-      if(!result.processed)job.remaining++; // Busca sem documento não consome chamada ao modelo.
-      job.state=!result.processed?'complete':job.remaining===0?'budget':'running';
+      const calledModel=result.inputTokens!==undefined;
+      job.inputTokens=(job.inputTokens??0)+(result.inputTokens??0);
+      job.outputTokens=(job.outputTokens??0)+(result.outputTokens??0);
+      job.tokensSpent=(job.tokensSpent??7000)-7000+(result.inputTokens??0)+(result.outputTokens??0);
+      if(result.processed){
+        job.characters=(job.characters??0)+(result.characters??0);
+        job.lastProgressAt=new Date().toISOString();
+      }
+      if(!calledModel)job.remaining++; // Busca sem documento não consome chamada ao modelo.
+      job.state=!result.processed&&!calledModel?'complete':job.remaining===0?'budget':'running';
     }catch(error){const e=error as {name?:string;code?:string;message?:string};const http=e.message?.match(/HTTP (\d{3})/)?.[1];job.state='error';job.error=e.name==='ZodError'||e.name==='SyntaxError'?'O provedor retornou um formato inválido. O trecho não foi marcado como concluído.':e.code==='42501'?'A credencial da aplicação não tem permissão para persistir o estudo.':http?'O provedor respondeu HTTP '+http+'. Confira a configuração administrativa.':'O estudo parou durante a verificação de acesso ou processamento. O orçamento da tentativa foi reservado; o progresso anterior foi preservado.';}
     job.leaseUntil=0;job.nextAt=Date.now()+(job.state==='complete'?600000:3000);
     await this.d.db.tx(async q=>{const r=await q.query<{value:Job}>('SELECT value FROM ada.app_setting WHERE key=$1 FOR UPDATE',[KEY]);const current=r.rows[0]?.value;if(current?.token!==token)return;if(current.pauseRequested){job.pauseRequested=true;job.state='paused';}await q.query('UPDATE ada.app_setting SET value=$2,updated_at=now() WHERE key=$1',[KEY,job]);});

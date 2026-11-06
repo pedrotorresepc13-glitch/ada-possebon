@@ -17,6 +17,12 @@
 7. **Aceite:** seguir o roteiro manual de `docs/ADA_TEST_PLAN.md`.
 
 ## Operação
+
+### Entradas oficiais do POSSEBON Web
+
+As origens HTTPS `https://app.possebon.com.br`, `https://app.possebon.com.br:19305` e `https://app.possebon.com.br:19302` publicam a Posso em `/ada/`. Cada entrada precisa servir `/ada-assistant.php` e encaminhar `/ada/` no próprio endereço. Em produção, incluir uma dessas origens em `ADA_ALLOWED_ORIGINS` habilita as três para a API. A integração PHP, quando configurada com uma dessas entradas em `ada_url`, emite o endereço da Posso na origem oficial em que o usuário abriu o POSSEBON Web. O proxy deve preservar o host e a porta públicos.
+
+A atualização da API não copia `AdaIntegrationService.php` para o POSSEBON Web. Aplique e valide a alteração PHP separadamente no aplicativo, depois confirme a abertura da Posso com um usuário autorizado nas três origens.
 | Tarefa | Comando |
 |---|---|
 | Atualizar | `sudo -E scripts/deploy/update.sh <tag>` |

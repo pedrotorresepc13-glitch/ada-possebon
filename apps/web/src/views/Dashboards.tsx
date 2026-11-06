@@ -75,6 +75,7 @@ export function DashboardView({ id }: { id: string }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [renderedFilters, setRenderedFilters] = useState<Record<string, string>>({});
   const [options, setOptions] = useState<Record<string, string[]>>({});
   const [holo, setHolo] = useState(false);
   const [revisions, setRevisions] = useState<{ revision: number; change_summary: string; created_at: string }[] | null>(null);
@@ -93,6 +94,7 @@ export function DashboardView({ id }: { id: string }) {
         const r = await api<{ data: WidgetData[]; generatedAt: string }>(`/dashboards/${id}/data?${q}`);
         setData(r.data);
         setGeneratedAt(r.generatedAt);
+        setRenderedFilters(f);
       } catch (e) {
         setErr((e as Error).message);
       } finally {
@@ -150,6 +152,7 @@ export function DashboardView({ id }: { id: string }) {
         <span className="muted small" aria-label="Atualização automática a cada 30 segundos">⟳ Automático · 30 s</span>
         <button className="btn sm" onClick={() => void load(true)} disabled={loading} aria-label="Atualizar valores na fonte">↻ Atualizar</button>
         <a className="btn sm" href={apiUrl(`/dashboards/${id}/export.csv`)} download>Exportar CSV</a>
+        <button className="btn sm" disabled={loading || !data || !!err} onClick={() => window.print()}>Salvar PDF</button>
         <button className="btn sm" onClick={() => setHolo((v) => !v)} aria-pressed={holo}>Modo HOLO 3D</button>
         {dash.access === 'owner' && <button className="btn sm" onClick={() => navigate(`/?dashboard=${id}`)}>Editar pela conversa</button>}
       </header>
@@ -183,7 +186,16 @@ export function DashboardView({ id }: { id: string }) {
             </Suspense>
           </div>
         )}
-        <DashboardCanvas spec={dash.spec} data={data} theme={theme} loading={loading && !data} />
+        <section className="dashboard-print">
+          <div className="dashboard-print-heading">
+            <h1>{dash.title}</h1>
+            {generatedAt && <p>Valores gerados em {formatDateTime(generatedAt)}</p>}
+            {Object.entries(renderedFilters).filter(([, value]) => value).map(([dim, value]) =>
+              <p key={dim}>{dimLabel[dim] ?? dim}: {value}</p>
+            )}
+          </div>
+          <DashboardCanvas spec={dash.spec} data={data} theme={theme} loading={loading && !data} />
+        </section>
         {dash.access === 'owner' && (
           <section className="card" style={{ marginTop: 16 }}>
             <h2>Gestão</h2>

@@ -9,7 +9,7 @@ const Input = z.object({
   name: z.string().trim().min(1).max(60)
     .regex(/^[\p{L}\p{N}][\p{L}\p{M}\p{N} .&'’()_-]*$/u)
 }).strict();
-const DEFAULT_NAME = 'IA POSSEBON';
+const DEFAULT_NAME = 'Posso';
 
 /** Identidade visual global, independente de unidade e da configuração do provedor. */
 export class BrandingService {
@@ -20,7 +20,7 @@ export class BrandingService {
       'SELECT value FROM ada.app_setting WHERE key = $1', ['assistant_branding']
     );
     const parsed = Input.safeParse(r.rows[0]?.value);
-    return parsed.success ? parsed.data : { name: DEFAULT_NAME };
+    return parsed.success && parsed.data.name !== 'IA POSSEBON' ? parsed.data : { name: DEFAULT_NAME };
   }
 
   async save(ctx: AuthContext, raw: unknown) {

@@ -6,6 +6,7 @@ import { audit } from '../audit.ts';
 import { sha256 } from '../crypto.ts';
 import { HttpError, invalid, notFound } from '../errors.ts';
 import { htmlToText, isAllowedContentType, robotsAllows, safeFetch } from '../web-fetch.ts';
+import { documentExtractors, extractDocumentText } from './document-extraction.ts';
 
 export const SourceInput = z
   .object({
@@ -37,7 +38,7 @@ const TEXT_TYPES: Record<string, string> = {
   '.html': 'text/html',
   '.htm': 'text/html'
 };
-const PENDING_EXTRACTOR = ['.pdf', '.docx', '.xlsx', '.doc', '.xls', '.pptx'];
+const PENDING_EXTRACTOR = ['.doc', '.xls', '.pptx'];
 
 interface SourceRow {
   id: string;
@@ -102,13 +103,13 @@ export class KnowledgeService {
     if (file.data.length > this.d.config.uploadMaxBytes) throw invalid('Arquivo excede o tamanho máximo.');
     const name = file.filename.replace(/[^\w.\- ()À-ú]/g, '_').slice(0, 200);
     const ext = (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerCase();
-    if (!TEXT_TYPES[ext] && !PENDING_EXTRACTOR.includes(ext)) throw invalid(`Tipo de arquivo não aceito: ${ext || 'sem extensão'}`);
+    if (!TEXT_TYPES[ext] && !documentExtractors[ext] && !PENDING_EXTRACTOR.includes(ext)) throw invalid(`Tipo de arquivo não aceito: ${ext || 'sem extensão'}`);
     const checksum = sha256(file.data);
     const r = await this.d.db.query<{ id: string }>(
       `INSERT INTO ada.knowledge_document (source_id, title, mime_type, original_name, size_bytes, checksum, status, scope, unit_id, domain, sensitivity, required_programs, valid_until, raw_content, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,'aguardando',$7,$8,$9,$10,$11,$12,$13,$14)
        ON CONFLICT (source_id, checksum) DO NOTHING RETURNING id`,
-      [src.id, meta.data.title || name, TEXT_TYPES[ext] ?? 'application/octet-stream', name, file.data.length, checksum, src.scope, src.unit_id, src.domain, src.sensitivity, src.required_programs, meta.data.valid_until ?? null, file.data, ctx.systemUserId]
+      [src.id, meta.data.title || name, TEXT_TYPES[ext] ?? documentExtractors[ext] ?? 'application/octet-stream', name, file.data.length, checksum, src.scope, src.unit_id, src.domain, src.sensitivity, src.required_programs, meta.data.valid_until ?? null, file.data, ctx.systemUserId]
     );
     await audit(this.d.db, { actor: ctx.systemUserId, unit: ctx.activeUnitId, action: 'conhecimento.upload', targetType: 'knowledge_source', targetId: src.id, outcome: 'ok', details: { file: name, checksum, duplicate: !r.rows[0] } });
     return { id: r.rows[0]?.id ?? null, duplicate: !r.rows[0], checksum };
@@ -147,9 +148,10 @@ export class KnowledgeService {
     }
     const ext = (/\.[a-z0-9]+$/i.exec(doc.original_name ?? '')?.[0] ?? '').toLowerCase();
     if (PENDING_EXTRACTOR.includes(ext)) {
-      throw new Error(`Extrator para ${ext} (PDF/DOCX/XLSX/OCR) ainda não está instalado nesta versão. O arquivo foi preservado para reprocessamento.`);
+      throw new Error(`Formato ${ext} ainda não tem extrator. O arquivo foi preservado para reprocessamento.`);
     }
     const buf = Buffer.from(doc.raw_content ?? new Uint8Array());
+    if (documentExtractors[ext]) return { text: await extractDocumentText(ext, buf) };
     if (buf.includes(0)) throw new Error('Arquivo declarado como texto contém dados binários; recusado.');
     const text = buf.toString('utf8');
     return ext === '.html' || ext === '.htm' ? { text: htmlToText(text).text } : { text };

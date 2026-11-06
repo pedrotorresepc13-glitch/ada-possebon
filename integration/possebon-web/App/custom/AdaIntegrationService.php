@@ -40,7 +40,15 @@ final class AdaIntegrationService
 
     public static function adaUrl(): string
     {
-        return rtrim(self::config()['ada_url'], '/');
+        $configured = rtrim(self::config()['ada_url'], '/');
+        $official = ['app.possebon.com.br', 'app.possebon.com.br:19305', 'app.possebon.com.br:19302'];
+        $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+        if ($host === 'app.possebon.com.br:443') $host = 'app.possebon.com.br';
+        $officialUrls = array_map(static fn($authority) => 'https://' . $authority . '/ada', $official);
+        if (in_array($configured, $officialUrls, true) && in_array($host, $official, true)) {
+            return 'https://' . $host . '/ada';
+        }
+        return $configured;
     }
 
     /**

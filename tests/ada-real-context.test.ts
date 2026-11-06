@@ -11,6 +11,16 @@ const ai: AiProvider = {
   configured: true,
   async run(input: AiTurnInput) {
     capturedInstructions = input.instructions;
+    if (input.input.at(-1)?.content === 'Investigue a cobertura de materiais.') {
+      return { text: 'Resultado parcial: conferir o catálogo.', partial: true, usage: { input: 10, output: 5 }, toolCalls: [], steps: 1 };
+    }
+    if (input.input.at(-1)?.content.startsWith('Retome a investigação')) {
+      expect(input.input.at(-1)?.content).toContain('Investigue a cobertura de materiais.');
+      expect(input.tools.map(tool => tool.name)).toContain('ver_cobertura_cerebro');
+      expect(input.tools.map(tool => tool.name)).not.toContain('criar_tela');
+      await expect(input.execute('criar_tela', {})).rejects.toThrow('somente consultas');
+      return { text: 'Investigação retomada.', usage: { input: 10, output: 5 }, toolCalls: [], steps: 1 };
+    }
     return { text: 'Pronto.', usage: { input: 10, output: 5 }, toolCalls: [], steps: 1 };
   }
 };
@@ -27,6 +37,15 @@ beforeAll(async () => {
 afterAll(async () => h.close());
 
 describe('Contexto de identidade e diagnóstico real do Brain', () => {
+  it('retoma uma investigação persistida em modo de leitura na mesma conversa', async () => {
+    const user = await h.login('admin.demo');
+    const start = await user.post('/chat', { message: 'Investigue a cobertura de materiais.' });
+    expect(start.json.message.metadata.investigation.questionId).toBe(start.json.userMessageId);
+    const resume = await user.post('/chat', { conversationId: start.json.conversationId, message: 'Continuar investigação' });
+    expect(resume.json.message.content).toBe('Investigação retomada.');
+    expect(resume.json.message.metadata.investigation).toBeUndefined();
+  });
+
   it('inclui nome/login do usuário autenticado sem deduzir cargo e não mostra dados de outra pessoa', async () => {
     const user = await h.login('admin.demo');
     const result = await user.post('/chat', { message: 'Quem sou eu?' });

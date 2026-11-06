@@ -59,6 +59,7 @@ export class PossebonBrainClient {
     try {
       response = await this.fetchImpl(url, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${this.serviceToken}`,
           'Content-Type': 'application/json',
@@ -97,7 +98,7 @@ export class PossebonBrainClient {
         throw new BrainUnavailableError('Brain retornou conteúdo de outra unidade');
       }
       if (!namespaces.includes(raw.namespace)) throw new BrainUnavailableError('Brain retornou namespace não autorizado');
-      if (used >= 8000) break;
+      if (used >= 8000) continue;
       const excerpt = raw.content.slice(0, Math.min(1200, 8000 - used));
       used += excerpt.length;
       hits.push({

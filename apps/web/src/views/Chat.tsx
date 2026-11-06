@@ -13,6 +13,7 @@ interface Msg {
   content: string;
   metadata?: {
     mode?: string;
+    investigation?: { questionId: string };
     notes?: string[];
     dashboardDraft?: DashboardSpec;
     savedDashboardId?: string;
@@ -206,6 +207,8 @@ export function ChatView({compact=false}:{compact?:boolean}) {
               <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'assistant'}`}>
                 {m.content}
                 {m.metadata?.monitorProposal && <MonitorProposal m={m.metadata.monitorProposal} />}
+                {m.metadata?.investigation && m.id === messages.at(-1)?.id &&
+                  <button className="btn sm" disabled={busy} onClick={() => void send('Continuar investigação')}>Continuar investigação</button>}
                 {m.metadata?.operationalWatchProposal&&<WatchProposal proposal={m.metadata.operationalWatchProposal}/>}
                 {!!m.metadata?.operationalEvidence?.length&&<details className="query-details"><summary>Detalhes da consulta</summary>{m.metadata.operationalEvidence.map((e,i)=><p key={i}>{e.source} · Unidade {e.unitId} · {formatDateTime(e.queriedAt)}</p>)}</details>}
                 {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>Abrir tela viva criada</button></div>}

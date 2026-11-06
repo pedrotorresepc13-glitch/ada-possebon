@@ -30,11 +30,17 @@ function Graph({p}:{p:Panel}){
     const numeric=p.columns.filter(c=>p.rows.some(r=>typeof r[c]==='number'));
     const category=p.columns.find(c=>!numeric.includes(c))??p.columns[0]??'';
     const labels=p.rows.map((r,i)=>category&&category!==numeric[0]?fmt(r[category]):String(i+1));
-    const series=numeric.map(c=>({name:p.labels?.[c]??c,type:p.type==='line'?'line':'bar',data:p.rows.map(r=>Number(r[c]??0)),smooth:true}));
+    const series=numeric.map(c=>({
+      name:p.labels?.[c]??c,type:p.type==='line'?'line':'bar',
+      data:p.rows.map(r=>typeof r[c]==='number'?r[c]:null),smooth:true
+    }));
     if(p.type==='pie'){
       obj.setOption({tooltip:{trigger:'item'},legend:{bottom:0},series:[{
         type:'pie',radius:['35%','68%'],
-        data:p.rows.map((r,i)=>({name:labels[i],value:Number(r[numeric[0]??'']??0)}))
+        data:p.rows.flatMap((r,i)=>{
+          const value=r[numeric[0]??''];
+          return typeof value==='number'?[{name:labels[i],value}]:[];
+        })
       }]});
     }else{
       obj.setOption({

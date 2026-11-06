@@ -19,7 +19,7 @@ describe('Nome global da assistente', () => {
   it('fornece somente o nome público, sem cache nem dados administrativos', async () => {
     const r = await h.app.inject({ method: 'GET', url: `${API}/branding` });
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ name: 'IA POSSEBON' });
+    expect(r.json()).toEqual({ name: 'Posso' });
     expect(r.headers['cache-control']).toBe('no-store');
   });
 
@@ -31,7 +31,7 @@ describe('Nome global da assistente', () => {
     expect(anonymous.statusCode).toBe(401);
     const noCsrf = await h.app.inject({ method: 'PUT', url: `${API}/admin/branding`, headers: { cookie: admin.cookie }, payload: { name: 'Outro' } });
     expect(noCsrf.statusCode).toBe(403);
-    expect(await h.d.branding.read()).toEqual({ name: 'IA POSSEBON' });
+    expect(await h.d.branding.read()).toEqual({ name: 'Posso' });
   });
 
   it('persiste sem chave de IA, vale para outra unidade e outra instância, e audita a mudança', async () => {

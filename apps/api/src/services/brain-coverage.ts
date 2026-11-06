@@ -74,20 +74,25 @@ export class BrainCoverageService {
     // Domínios e tabelas sem classificação continuam visíveis para investigação.
     const normalize = (value: string) => value.trim().toLocaleLowerCase('pt-BR');
     const knownAreas = new Set<string>(CORPORATE_AREAS.map(area => area.id));
-    const discoveredDomains = [...new Set(docs.map(doc => doc.domain?.trim()).filter((v): v is string => Boolean(v)))];
-    const uncategorizedDomains = discoveredDomains.filter(domain => {
-      const matched = CORPORATE_AREAS.some(area => area.match.test(domain));
-      return !matched && !knownAreas.has(normalize(domain));
-    }).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const domainGroups = new Map<string, typeof docs>();
+    for (const doc of docs) {
+      const domain = doc.domain?.trim();
+      if (!domain) continue;
+      const key = normalize(domain);
+      if (knownAreas.has(key) || CORPORATE_AREAS.some(area => area.match.test(domain))) continue;
+      const group = domainGroups.get(key);
+      if (group) group.push(doc);
+      else domainGroups.set(key, [doc]);
+    }
     const unclassifiedTables = tables.filter(table => !CORPORATE_AREAS.some(area => area.match.test(table.nome)));
-    const discovered = uncategorizedDomains.map(domain => ({
-      id: `dominio:${normalize(domain)}`, name: domain,
-      indexedDocuments: docs.filter(doc => normalize(doc.domain ?? '') === normalize(domain)).length,
-      availableSources: new Set(docs.filter(doc => normalize(doc.domain ?? '') === normalize(domain)).map(doc => doc.source_id)).size,
+    const discovered = [...domainGroups].map(([key, group]) => ({
+      id: `dominio:${key}`, name: group[0]!.domain!.trim(),
+      indexedDocuments: group.length,
+      availableSources: new Set(group.map(doc => doc.source_id)).size,
       authorizedTables: 0,
-      latestDocumentObservedAt: docs.find(doc => normalize(doc.domain ?? '') === normalize(domain))?.observed_at?.toISOString() ?? null,
+      latestDocumentObservedAt: group[0]!.observed_at?.toISOString() ?? null,
       coverage: 'dominio_descoberto' as const
-    }));
+    })).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
     return {
       unitId:ctx.activeUnitId,checkedAt:this.d.now().toISOString(),modelCalls:0,
       operationalSource, indexedDocuments:docs.length,catalogTruncated:limited,

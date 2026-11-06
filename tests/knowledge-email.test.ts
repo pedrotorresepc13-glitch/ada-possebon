@@ -76,12 +76,12 @@ describe('base de conhecimento', () => {
     expect(r.json.message.content).toMatch(/Não encontrei dados suficientes/);
   });
 
-  it('PDF/DOCX ficam em erro honesto (extrator não instalado); binário disfarçado é recusado', async () => {
+  it('PDF inválido fica em erro e binário disfarçado é recusado', async () => {
     await upload(globalSrc, 'manual.pdf', Buffer.from('%PDF-1.7 fake'));
     await upload(globalSrc, 'falso.txt', Buffer.from([0x4d, 0x5a, 0x00, 0x01]));
     await h.d.knowledge.processPending(10);
     const docs = (await admin.get('/admin/knowledge/documents?status=erro')).json as unknown as { title: string; error: string }[];
-    expect(docs.find((d) => d.title === 'manual.pdf')!.error).toMatch(/Extrator.*não está instalado/);
+    expect(docs.find((d) => d.title === 'manual.pdf')!.error).toMatch(/Extrator pdftotext/);
     expect(docs.find((d) => d.title === 'falso.txt')!.error).toMatch(/binários/);
     expect((await upload(globalSrc, 'script.exe', 'x')).status).toBe(400);
   });

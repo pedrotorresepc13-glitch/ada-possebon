@@ -57,3 +57,33 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
 export const apiUrl = (path: string) => API + path;
 
 export type Me = MeResponse;
+
+export async function reconnectPossebon(): Promise<Me> {
+  const bridge = new URL('../ada-assistant.php', new URL(`${BASE}/`, location.origin));
+  const request = async (headers?: Record<string, string>) => {
+    const response = await fetch(bridge, {
+      method: headers ? 'POST' : 'GET', headers, credentials: 'same-origin',
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12000)
+    });
+    if (response.status === 401) throw new Error('Entre no POSSEBON Web para usar a Posso.');
+    if (response.status === 403) throw new Error('O POSSEBON Web recusou o acesso da Posso para esta sessão ou unidade.');
+    if (!response.ok) throw new Error('A integração com o POSSEBON Web está indisponível.');
+    return response.json();
+  };
+  const identity = await request();
+  if (identity.allowed !== true || !Number.isSafeInteger(identity.userId) ||
+    !Number.isSafeInteger(identity.unitId) || !/^[a-f0-9]{64}$/.test(identity.csrf)) {
+    throw new Error('O POSSEBON Web retornou uma sessão de integração inválida.');
+  }
+  const result = await request({ 'X-Possebon-CSRF': identity.csrf });
+  if (result.action !== new URL(apiUrl('/session/exchange'), location.origin).href ||
+    typeof result.ticket !== 'string' || !result.ticket || result.ticket.length > 4096) {
+    throw new Error('O POSSEBON Web retornou uma autorização inválida.');
+  }
+  await api('/session/exchange', { body: { ticket: result.ticket } });
+  const me = await api<Me>('/me');
+  if (me.user.systemUserId !== identity.userId || me.activeUnit.id !== identity.unitId) {
+    throw new Error('A sessão recebida não corresponde ao usuário e à unidade do POSSEBON Web.');
+  }
+  return me;
+}
