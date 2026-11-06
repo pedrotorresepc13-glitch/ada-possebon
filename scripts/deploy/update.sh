@@ -28,6 +28,9 @@ STOPPED=0
 rollback(){
   local code=$?
   trap - ERR INT TERM
+  if [[ -f "$BACKUP/directory-read.undo.sql" ]]; then
+    (cd "$REL" && env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env scripts/deploy/directory-read.mjs rollback "$BACKUP/directory-read.undo.sql") || echo "Reversão da leitura requer revisão: $BACKUP/directory-read.undo.sql"
+  fi
   if [[ "$STOPPED" == 1 ]]; then
     echo 'Falha: restaurando versão anterior. Backup preservado; nenhuma tabela será apagada.'
     ln -sfn "$PREVIOUS" "$BASE/current.new"
@@ -58,6 +61,10 @@ if [[ "${ADA_CONFIGURE_BUSINESS_READONLY:-0}" == 1 ]]; then
   env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env node_modules/tsx/dist/cli.mjs scripts/deploy/business-readonly.ts apply "$BACKUP/business-readonly.undo.sql"
 fi
 
+if [[ "${ADA_CONFIGURE_DIRECTORY_READ:-0}" == 1 ]]; then
+  env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env scripts/deploy/directory-read.mjs check
+fi
+
 echo 'Validação concluída. Parando serviços para backup consistente e migração.'
 STOPPED=1
 systemctl stop ada-worker ada-api
@@ -83,6 +90,9 @@ mv -Tf "$BASE/current.new" "$BASE/current"
 systemctl start ada-api ada-worker
 node --env-file=/etc/ada/ada.env -e 'const{spawnSync}=require("node:child_process");const r=spawnSync("bash",["scripts/deploy/healthcheck.sh"],{env:process.env,stdio:"inherit"});process.exit(r.status??1)'
 systemctl is-active --quiet ada-api ada-worker
+if [[ "${ADA_CONFIGURE_DIRECTORY_READ:-0}" == 1 ]]; then
+  env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env scripts/deploy/directory-read.mjs apply "$BACKUP/directory-read.undo.sql"
+fi
 STOPPED=0
 trap - ERR INT TERM
 echo "Atualização concluída: $REF"

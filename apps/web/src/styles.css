@@ -229,3 +229,7 @@ pre.code { background: var(--surface-2); padding: 10px; border-radius: var(--rad
     overflow: visible !important;
   }
 }
+
+.admin-posso {grid-template-columns:minmax(0, 3fr) minmax(0, 2fr);align-items:start}
+.admin-posso-log {min-height:9rem;max-height:48vh;overflow:auto;padding:12px 0}
+@media(max-width:900px){.admin-posso {grid-template-columns:1fr}}

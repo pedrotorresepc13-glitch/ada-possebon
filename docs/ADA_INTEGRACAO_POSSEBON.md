@@ -73,3 +73,11 @@ Com `POSSEBON_OUTBOX_ENABLED=1`, o worker transfere lotes de até 100 eventos pa
 No banco operacional, o DBA habilita uma vez com `psql -v ON_ERROR_STOP=1 -v posso_role=ROLE_DE_LEITURA -f deploy/sql/possebon-auto-read.sql`. Use a mesma role técnica já configurada para consultas e verifique que ela tem USAGE no schema public. A instalação exige permissão para criar event triggers. A concessão automática cobre novas tabelas de negócio criadas no schema public e exclui nomes protegidos. Para tabelas anteriores à ativação, use a revisão de concessões existente em `scripts/deploy/business-readonly.ts`. Desabilitar o event trigger interrompe novas concessões. As concessões já feitas permanecem até revogação.
 
 A autorização por unidade e as regras da aplicação continuam sendo avaliadas na consulta. Tabelas sem vínculo reconhecível com a unidade podem exigir mapeamento. O fluxo de eventos de alterações em registros segue a configuração separada da fila.
+
+## Cadastro de usuários e permissões
+
+A revisão amplia consultas operacionais para system_users, system_group, system_program e seus vínculos. A aplicação mantém filtros de unidade quando verificáveis e aplica bloqueios administrativos também aos administradores. Campos de credenciais ficam fora das projeções.
+
+Use ADA_CONFIGURE_DIRECTORY_READ=1 no atualizador para validar e conceder SELECT por coluna à credencial já configurada em POSSEBON_READONLY_DATABASE_URL. O instalador verifica se o PostgreSQL operacional coincide com o servidor local e se as oito tabelas esperadas existem. Salva directory-read.undo.sql no backup e reverte concessões se a atualização falhar. Uma origem remota ou um banco permission separado exige integração adicional e interrompe essa instalação antes da troca.
+
+A validação das tabelas não comprova o cruzamento completo de acesso efetivo por aplicativo com equipes. A listagem de membros de um grupo continua identificada como vínculo de grupo.

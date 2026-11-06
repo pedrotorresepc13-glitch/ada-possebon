@@ -356,6 +356,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST','/workspace/retry','user',(req,_r,ctx)=>d.workspace.retry(ctx,z.object({restart:z.boolean().default(false)}).strict().parse(body(req)).restart));
   route('GET','/admin/operational-access','admin',()=>d.operationalAccess.read());
   route('PUT','/admin/operational-access','admin',(req,_r,ctx)=>d.operationalAccess.save(ctx,body(req)));
+  route('GET','/admin/conversation-rules','admin',(_req,_r,ctx)=>d.operationalAccess.conversationRules(ctx.activeUnitId));
   route('POST','/admin/conversation-rules','admin',(req,_r,ctx)=>d.operationalAccess.conversationCommand(ctx,body(req)));
   route('GET','/sharing/recipients','user',async(_req,_r,ctx)=>{
     const r=await d.db.query('SELECT DISTINCT u.system_user_id AS id,u.display_name AS name FROM ada.user_identity_map u JOIN ada.permission_cache p ON p.system_user_id=u.system_user_id WHERE p.unit_id=$1 AND u.system_user_id<>$2 ORDER BY u.display_name LIMIT 100',[ctx.activeUnitId,ctx.systemUserId]);

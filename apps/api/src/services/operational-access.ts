@@ -29,6 +29,17 @@ export class OperationalAccessService {
     if (!ctx.allowedUnitIds.includes(ctx.activeUnitId)) throw forbidden('Unidade fora do escopo autorizado.');
     const { message, confirm, unitId } = z.object({ message: z.string().trim().min(1).max(650), confirm: z.boolean().default(false), unitId: z.number().int().positive() }).strict().parse(raw);
     if (unitId !== ctx.activeUnitId) throw forbidden('A unidade mudou. Revise a regra novamente.');
+    if (/^(?:consulte|mostre|liste) (?:as )?regras(?: atuais)?[.!]?$/i.test(message)) {
+      const rules = await this.conversationRules(unitId);
+      const blocked = rules.blockedTables.join(', ') || 'nenhum bloqueio cadastrado';
+      return { text: 'Tabelas bloqueadas nesta unidade: ' + blocked + '. Estilo: ' + (rules.style || 'padrão') + '.', confirmable: false };
+    }
+    if (/^(?:consulte|mostre) (?:o )?estado(?: atual)?[.!]?$/i.test(message)) {
+      const [health, coverage] = await Promise.all([this.d.admin.health(), this.d.brainCoverage.status(ctx)]);
+      const worker = health.worker ? (health.worker.alive ? 'ativo' : 'sem sinal recente') : 'sem verificação';
+      const source = coverage.operationalSource === 'available' ? 'disponível' : 'indisponível';
+      return { text: `Banco da Posso: ${health.database.ok ? 'disponível' : 'indisponível'}. Serviço em segundo plano: ${worker}. Fonte operacional: ${source}. Documentos indexados na cobertura da unidade: ${coverage.indexedDocuments}.`, confirmable: false };
+    }
     const syncCommand = /^(pause|retome|consulte) (?:o )?invent[aá]rio (?:do )?mad builder[.!]?$/i.exec(message)?.[1]?.toLowerCase();
     if (syncCommand) {
       if (this.d.config.systemSource?.unitId !== unitId) return {
@@ -64,7 +75,7 @@ export class OperationalAccessService {
       text: 'Use “Bloqueie a tabela nome_da_tabela”, “Desbloqueie a tabela nome_da_tabela”, “Responda assim: sua orientação” ou “Consulte o inventário do MAD Builder”.',
       confirmable: false
     };
-    const summary = blocked ? `Bloquear a tabela ${blocked} em consultas operacionais de usuários comuns desta unidade.`
+    const summary = blocked ? `Bloquear a tabela ${blocked} em consultas operacionais de todos os perfis desta unidade.`
       : unblocked ? `Remover o bloqueio administrativo de ${unblocked} nesta unidade.`
       : `Definir o estilo de resposta desta unidade como “${style}”.`;
     if (!confirm) return { text: summary, confirmable: true };
@@ -105,8 +116,8 @@ export class OperationalAccessService {
   }
   async policy(ctx:AuthContext):Promise<OperationalAccess> {
     if(ctx.identitySource!=='possebon' || !ctx.allowedUnitIds.includes(ctx.activeUnitId)) throw forbidden('Acesso operacional exige identidade POSSEBON e unidade autorizada.');
-    if(ctx.roles.includes('admin') && ctx.programs.AdaAdministracao) return {admin:true,tables:{}};
     const { blockedTables } = await this.conversationRules(ctx.activeUnitId);
+    if(ctx.roles.includes('admin') && ctx.programs.AdaAdministracao) return {admin:true,tables:{},blockedTables};
     if(hasBusinessRead(ctx)) return {admin:false,businessRead:true,tables:{},blockedTables};
     const config=await this.read();
     const tables:OperationalAccess['tables']={};

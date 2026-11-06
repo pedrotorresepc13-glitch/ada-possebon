@@ -19,10 +19,10 @@ async function system(h:Harness){
 it('inventaria todo esquema e referências com paginação, incluindo módulo não cadastrado e sem inventar regras',async()=>{
  const h=await setup();try{
   const ctx=await system(h);const c=await h.d.systemKnowledge.catalog(ctx);
-  expect(c.totalTables).toBe(70);expect(c.hasMore).toBe(true);expect(c.tables).toHaveLength(40);
+  expect(c.totalTables).toBe(71);expect(c.hasMore).toBe(true);expect(c.tables).toHaveLength(40);
   expect((await h.d.systemKnowledge.catalog(ctx,'',1)).tables.map(t=>t.name)).toContain('controle_novo');
   expect(c.referenceCounts).toMatchObject({models:1,screens:4,modules:1});
-  expect(JSON.stringify(c)).not.toContain('system_users');
+  expect((await h.d.systemKnowledge.catalog(ctx,'system_users')).tables.map(t=>t.name)).toContain('system_users');
   const custom=await h.d.systemKnowledge.module(ctx,'controle_novo');
   expect(custom.liveMetadataAvailable).toBe(true);expect(custom.coverage.allRulesValidated).toBe(false);
   expect(custom.structure?.colunas.map(c=>c.nome)).toContain('situacao');

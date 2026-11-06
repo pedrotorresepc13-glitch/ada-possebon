@@ -7,6 +7,7 @@ import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
 
 const TABS = [
+  ['regras-chat', 'Chat administrativo'],
   ['saude', 'Saúde'],
   ['identidade', 'Identidade'],
   ['conhecimento', 'Fontes de conhecimento'],
@@ -14,7 +15,6 @@ const TABS = [
   ['email', 'E-mail'],
   ['ia', 'IA e custos'],
   ['acessos', 'Acessos operacionais'],
-  ['regras-chat', 'Conversar sobre regras'],
   ['politicas', 'Políticas'],
   ['auditoria', 'Auditoria']
 ] as const;
@@ -456,6 +456,7 @@ function RulesChat() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const unitId = me.activeUnit.id;
+  const rules = useLoad<{ blockedTables: string[]; style: string }>('/admin/conversation-rules');
   async function send(message: string, confirm = false) {
     if (!message.trim() || busy) return;
     setBusy(true);
@@ -467,13 +468,18 @@ function RulesChat() {
       setMessages(previous => [...previous, { request: confirm ? 'Confirmar aplicação' : message, reply: reply.text }]);
       setPending(reply.confirmable ? { message, unitId } : undefined);
       setInput('');
+      if (confirm) rules.reload();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
-  return <section className="card">
-    <h2>Regras da Posso</h2>
-    <p>Unidade {me.activeUnit.name}. Converse para preparar bloqueios de tabelas operacionais e orientações de estilo.</p>
-    <div role="log" aria-label="Conversa administrativa">
+  return <div className="grid admin-posso"><section className="card">
+    <h2>Conversar com a Posso</h2>
+    <p>Unidade {me.activeUnit.name}. Revise e confirme alterações de acesso e de comportamento.</p>
+    <div className="row" aria-label="Exemplos de comandos">
+      {['Mostre o estado atual', 'Mostre as regras atuais', 'Consulte o inventário do MAD Builder', 'Responda assim: use frases curtas'].map(example =>
+        <button className="btn sm" type="button" key={example} onClick={() => setInput(example)}>{example}</button>)}
+    </div>
+    <div className="admin-posso-log" role="log" aria-label="Conversa administrativa">
       {messages.map(({ request, reply }, index) => <div key={index}><p><strong>Você</strong> {request}</p><p><strong>Posso</strong> {reply}</p></div>)}
     </div>
     {error && <p className="error-box" role="alert">{error}</p>}
@@ -487,13 +493,49 @@ function RulesChat() {
       </label>
       <button className="btn" disabled={busy || !input.trim()} type="submit">Enviar</button>
     </form>
+  </section>
+  <div className="grid">
+    <section className="card">
+      <h2>Regras vigentes</h2>
+      {rules.err ? <p role="alert">{rules.err}</p> : rules.data ? <>
+        <p><strong>Estilo de resposta</strong> {rules.data.style || 'Padrão'}</p>
+        <p><strong>Tabelas bloqueadas</strong> {rules.data.blockedTables.join(', ') || 'Nenhuma regra de bloqueio cadastrada.'}</p>
+      </> : <p role="status">Carregando regras da unidade…</p>}
+    </section>
+    <KnowledgeCoverage />
+  </div></div>;
+}
+
+interface AdminCoverage {
+  indexedDocuments: number;
+  authorizedGraphNodes: number;
+  operationalSource: 'available' | 'unavailable';
+  checkedAt: string;
+  catalogTruncated: boolean;
+  areas: { id: string; name: string; indexedDocuments: number; authorizedTables: number }[];
+}
+
+function KnowledgeCoverage() {
+  const { data, err, reload } = useLoad<AdminCoverage>('/brain/coverage');
+  return <section className="card">
+    <div className="row"><h2 className="grow">Cobertura de conhecimento</h2><button className="btn sm" onClick={reload}>Atualizar</button></div>
+    {err ? <p className="error-box" role="alert">{err}</p> : data ? <>
+      <p>{data.indexedDocuments} documentos indexados · {data.authorizedGraphNodes} referências no grafo</p>
+      <p>Fonte operacional {data.operationalSource === 'available' ? 'disponível' : 'indisponível'} · {formatDateTime(data.checkedAt)}</p>
+      {data.catalogTruncated && <p>O catálogo retornou uma contagem parcial de documentos.</p>}
+      <details><summary>Ver cobertura por área</summary>
+        <table className="data"><thead><tr><th>Área</th><th>Documentos</th><th>Tabelas no catálogo</th></tr></thead>
+          <tbody>{data.areas.map(area => <tr key={area.id}><th scope="row">{area.name}</th><td>{area.indexedDocuments}</td><td>{area.authorizedTables}</td></tr>)}</tbody>
+        </table>
+      </details>
+    </> : <p role="status">Conferindo o conhecimento desta unidade…</p>}
   </section>;
 }
 
 export default function AdminView() {
   const { name } = useBranding();
   const { me } = useApp();
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>('saude');
+  const [tab, setTab] = useState<(typeof TABS)[number][0]>('regras-chat');
   const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, acessos: <OperationalSettings />, 'regras-chat': <RulesChat key={me.activeUnit.id} />, politicas: <Policies />, auditoria: <Audit /> };
   return (
     <>

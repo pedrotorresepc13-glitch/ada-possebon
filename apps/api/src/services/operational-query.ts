@@ -52,13 +52,17 @@ type Schema = { columns: Map<string,Map<string,string>>; foreignKeys: ForeignKey
 type Read = Pick<ReadonlyPostgresConnector,'executeRead'>;
 
 const BLOCKED = /(^|_)(senha|pass|pwd|passwd|credential|password|secret|token|hash|salt|cpf|cnpj|documento|rg|pis|pasep|nascimento|telefone|celular|email|endereco|cep|bairro|rua|complemento|salario|remuneracao|bancaria|conta|agencia|pix|chave|biometria|foto|imagem|anexo|arquivo|conteudo|observacao|obs|login|ip|cookie|jwt|autenticacao)(_|$)/i;
-const BLOCKED_TABLE = {test:isProtectedTable};
+const DIRECTORY_TABLES = new Set([
+  'system_users', 'system_group', 'system_program', 'system_user_group',
+  'system_group_program', 'system_user_program', 'system_user_unit', 'system_unit'
+]);
+const BLOCKED_TABLE = {test:(name:string)=>!DIRECTORY_TABLES.has(name)&&isProtectedTable(name)};
 const quote = (s:string) => '"' + s.replaceAll('"','""') + '"';
 const protect = (name:string) => {
   if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) throw new Error('Identificador não permitido');
   return quote(name);
 };
-const isSafeColumn = (name:string) => !BLOCKED.test(name);
+const isSafeColumn = (name:string) => name === 'login' || !BLOCKED.test(name);
 const deny = (detail:string):never => {throw forbidden('Consulta POSSEBON não autorizada: '+detail);};
 
 export class OperationalQueryService {
@@ -128,16 +132,17 @@ export class OperationalQueryService {
           .map(k=>({campo:k.from_col,tabelaRelacionada:k.to_table,campoRelacionado:k.to_col,
             colunasRelacionadas:[...s.columns.get(k.to_table)!].filter(([col])=>isSafeColumn(col)).map(([col])=>col).slice(0,40)})).slice(0,30)
       })),
-      nota:policy.admin?'Administração POSSEBON confirmada: permite consulta de negócio de todas as unidades desta conexão, inclusive tabelas sem unit_id. Por padrão usa unidade atual quando há vínculo verificável; unitScope=all amplia explicitamente. Sem vínculo, resultados não comprovam pertencer à unidade atual. JOINs exigem FK real. Colunas pessoais e credenciais são omitidas.':'Tabelas sem unit_id exigem caminho único de FK até uma tabela com unidade; tabelas relacionadas entram somente por FK real. Colunas pessoais e credenciais são omitidas. Resultado limitado ao escopo da unidade na execução.'
+      nota:policy.admin?'Administração POSSEBON confirmada: permite consulta de negócio de todas as unidades desta conexão, inclusive tabelas sem unit_id. Por padrão usa unidade atual quando há vínculo verificável; unitScope=all amplia explicitamente. Sem vínculo, resultados não comprovam pertencer à unidade atual. JOINs exigem FK real. Campos pessoais restritos e credenciais são omitidos; nomes e logins do cadastro estão disponíveis.':'Leitura operacional habilitada para usuários da Posso. A unidade atual filtra tabelas com vínculo verificável; tabelas sem vínculo retornam escopo não comprovado. Relacionamentos exigem FK real. Bloqueios cadastrados pela administração são aplicados.'
     };
   }
 
   async diagnoseTable(ctx:AuthContext,name:string){
     this.assertAllowed(ctx);identifier.parse(name);const policy=await this.policy(ctx);
     if (policy.blockedTables?.includes(name)) deny('tabela bloqueada pela administração da unidade');
+    if (BLOCKED_TABLE.test(name)) deny('tabela protegida pela Posso; o acesso da credencial PostgreSQL não foi verificado');
     if(!policy.admin&&!policy.businessRead&&!Object.hasOwn(policy.tables,name))deny('tabela não autorizada para este usuário');
     const source=await this.source(ctx.activeUnitId);
-    const result=await source.executeRead<{table_name:string;can_read:boolean;has_unit:boolean}>(`SELECT c.relname AS table_name,has_table_privilege(current_user,c.oid,'SELECT') AS can_read,
+    const result=await source.executeRead<{table_name:string;can_read:boolean;has_unit:boolean}>(`SELECT c.relname AS table_name,has_any_column_privilege(current_user,c.oid,'SELECT') AS can_read,
       EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='unit_id' AND NOT a.attisdropped) AS has_unit
       FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=$1 AND c.relkind IN ('r','p','v','m')`,[name]);
     const row=result.rows[0];return row?{exists:true,...row,scope:policy.admin?'all_units':'unit',note:policy.admin?'Administração confirmada: ausência de unit_id não bloqueia consulta de negócio. A credencial PostgreSQL ainda precisa de SELECT.':'Diagnóstico da credencial real; falta de SELECT exige autorização no PostgreSQL. Falta de unit_id exige vínculo por FK ou mapeamento.'}:{exists:false,table_name:name,note:'Nome não encontrado no schema public desta conexão.'};
@@ -145,7 +150,7 @@ export class OperationalQueryService {
   async processMap(ctx:AuthContext){
     this.assertAllowed(ctx);const source=await this.source(ctx.activeUnitId);const policy=await this.policy(ctx);
     const schema=this.scoped(await this.schema(source,ctx.activeUnitId),policy);
-    const tables=[...schema.columns].map(([nome,cols])=>({nome,unidadeVerificavel:findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,consultavel:policy.admin||findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
+    const tables=[...schema.columns].map(([nome,cols])=>({nome,unidadeVerificavel:findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,consultavel:policy.admin||policy.businessRead===true||findUnitPath(nome,schema.columns,schema.foreignKeys)!==null,area:processArea(nome),colunas:[...cols].filter(([c])=>isSafeColumn(c)).map(([nome,tipo])=>({nome,tipo}))}));
     return {unitId:ctx.activeUnitId,scope:policy.admin?'all_units':'unit',tables,areas:[...new Set(tables.map(t=>t.area))],note:policy.admin?'Administração confirmada: todas as unidades e tabelas de negócio desta conexão, sem exigir vínculo de unidade. Constarem no mapa não comprova SELECT.':'Mapa de estrutura autorizada. Nomes classificados são pistas; dados e regras exigem consulta. Tabelas sem caminho único de unidade exigem mapeamento; constar no mapa não comprova permissão SELECT.'};
   }
   /** Compila após introspecção; nenhum SQL gerado pelo modelo é aceito. */
@@ -156,9 +161,9 @@ export class OperationalQueryService {
     if (new Set(tables).size!==tables.length) deny('tabela repetida');
     const base=s.columns.get(p.from);
     if (!base) deny('tabela base inexistente ou sem metadados acessíveis');
-    if(p.unitScope==='all'&&!access.admin)deny('consulta entre unidades exige administração confirmada');
+    if(p.unitScope==='all'&&!access.admin&&!access.businessRead)deny('consulta entre unidades exige administração confirmada');
     const path=findUnitPath(p.from,s.columns,s.foreignKeys);
-    if(!access.admin&&path===null)deny('tabela sem vínculo único de unidade; requer mapeamento: '+p.from);
+    if(!access.admin&&!access.businessRead&&path===null)deny('tabela sem vínculo único de unidade; requer mapeamento: '+p.from);
     const filterUnit=p.unitScope==='current'&&path!==null;
     const scope=filterUnit?'unit':p.unitScope==='all'?'all_units':'unit_unverified';
     if (BLOCKED_TABLE.test(p.from)) deny('tabela protegida');
@@ -294,8 +299,8 @@ export class OperationalQueryService {
     return this.access ? this.access(ctx) : {admin:true,tables:{}};
   }
   private scoped(schema:Schema,policy:OperationalAccess):Schema {
-    if(policy.admin) return schema;
-    if(policy.businessRead) {
+    if(policy.admin && !policy.blockedTables?.length) return schema;
+    if(policy.admin || policy.businessRead) {
       const columns = new Map([...schema.columns].filter(([table]) => !policy.blockedTables?.includes(table)));
       return {columns,foreignKeys:schema.foreignKeys.filter(k=>columns.has(k.from_table)&&columns.has(k.to_table))};
     }

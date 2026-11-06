@@ -127,26 +127,25 @@ export class ChatService {
 
   private async listGroupMembers(ctx: AuthContext, group: string): Promise<{ text: string; meta: ChatTurnMeta }> {
     const meta: ChatTurnMeta = { mode: 'deterministico' };
-    try { assertAdmin(ctx); }
-    catch { return { text: 'A lista de membros exige acesso administrativo à Posso.', meta }; }
-    if (ctx.identitySource !== 'possebon' || !ctx.allowedUnitIds.includes(ctx.activeUnitId) || !this.d.identity.groupMembers) {
-      return { text: 'A consulta administrativa de grupos exige uma sessão válida do POSSEBON Web e a integração de identidade.', meta };
-    }
     try {
-      const result = await this.d.identity.groupMembers(ctx, group);
-      const unit = ctx.units.find(item => item.id === result.unitId)?.name ?? `Unidade ${result.unitId}`;
-      const heading = `${group} · ${unit} · usuários ativos`;
-      const text = result.members.length
-        ? [heading, ...result.members.map((member, index) => `${index + 1}. ${member.name} (${member.login})`),
-          ...(result.truncated ? ['A lista foi limitada a 500 registros.'] : [])].join('\n')
-        : `${heading}\nNenhum membro ativo encontrado nesta unidade.`;
-      return { text, meta };
+      const result = await this.d.operational.query(ctx, {
+        from: 'system_user_group', joins: ['system_users', 'system_group'],
+        select: [{field:'system_users.name',as:'nome'},{field:'system_users.login',as:'usuario'}],
+        where: [{field:'system_group.name',op:'eq',value:group},{field:'system_users.active',op:'eq',value:'Y'}],
+        limit: 200
+      });
+      return {
+        text: result.rows.length
+          ? ['Membros ativos do grupo '+group, ...result.rows.map((row,index)=>`${index+1}. ${row.nome} (${row.usuario})`),
+              'Consulta limitada a 200 registros. O vínculo ao grupo deve ser cruzado com os programas concedidos para comprovar acesso a um aplicativo.'].join('\n')
+          : 'Nenhum membro ativo retornado para o grupo '+group+'.',
+        meta
+      };
     } catch (error) {
-      this.d.log.warn({ err: error }, 'falha na consulta administrativa de grupo');
-      return { text: `Não foi possível verificar os membros de ${group} na unidade ativa pelo serviço de identidade do POSSEBON Web.`, meta };
+      this.d.log.warn({err:error},'falha na consulta de membros de grupo');
+      return {text:'Não foi possível concluir a consulta de membros. '+(error instanceof Error ? error.message : 'Falha na fonte operacional.'),meta};
     }
   }
-
   /* ------------------------------------------------------------ ações comuns (IA e determinístico) */
 
   private async proposeDashboard(ctx: AuthContext, conv: ConversationRow, specInput: unknown): Promise<DashboardSpec> {
