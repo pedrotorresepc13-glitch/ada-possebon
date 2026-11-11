@@ -73,3 +73,23 @@
 .compact-app .composer .composer-input .textarea {min-height:100px}
 .personal-experience .personal-side-panel .topbar {min-height:52px;padding:8px 16px}
 @media(max-width:420px){.composer {gap:7px;grid-template-columns:minmax(0,1fr) 70px}.composer-actions {width:70px}.composer-actions .composer-send {font-size:13px}.dictation-error {right:-77px}}
+
+/* A administração utiliza o mesmo chat/agent dos usuários; sem interpretador limitado. */
+.admin-posso-chat {min-width:0;overflow:hidden;display:flex;flex-direction:column}
+.admin-posso-chat .chat-layout {display:flex;flex:1;width:100%;min-width:0;height:min(69vh,710px);min-height:460px;margin:0;max-width:none}
+.admin-posso-chat .chat-pane {flex:1;min-width:0;min-height:0;border-right:0;border-bottom:0}
+.admin-posso-chat .canvas-pane {display:none}
+.admin-posso-chat .messages {min-height:0;padding:16px 0}
+.admin-posso-chat .composer {border-radius:12px;padding:12px 0 0}
+.admin-posso-chat>h2 {margin-bottom:6px}
+.admin-posso-chat>p {margin:0 0 12px}
+.watch-card {display:block}
+.watch-card .row {margin-top:14px}
+.watch-card .watch-summary {margin:12px 0 0;color:var(--ink);line-height:1.5}
+.watch-details {margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.watch-details h4 {margin:12px 0 6px;font-size:13px}
+.watch-details p {margin:6px 0 12px}
+.watch-details dl {display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0}
+.watch-details dl>div {min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)}
+.watch-details dt {font-size:11px;color:var(--ink-muted)}
+.watch-details dd {margin:5px 0 0;font-weight:600;overflow-wrap:anywhere}
