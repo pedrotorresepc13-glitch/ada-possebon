@@ -21,9 +21,16 @@ describe('contrato de navegação de dashboards no MAD Builder', () => {
     expect(personal).toContain("window.parent.postMessage({type:'possebon:open-dashboard'");
   });
 
-  it('renderiza tanto a lista de dashboards quanto as telas operacionais', () => {
+  it('abre exclusivamente o Dashboard pessoal da sessão e não mostra botões de lista ou fechamento', () => {
     const embedded = read('../apps/web/src/views/EmbeddedDashboard.tsx');
-    expect(embedded).toContain("path === '/telas' ? <LiveBoardsList /> : <DashboardsView />");
-    expect(embedded).toContain("match[1] === 'telas' ? <LiveBoardDetail");
+    const widget = read('../integration/possebon-web/public/possebon-assistant-global.js');
+    const app = read('../apps/web/src/App.tsx');
+    expect(embedded).toContain("'/workspace/personal-dashboard'");
+    expect(embedded).toContain('<LiveBoardDetail id={dashboardId} personal />');
+    expect(embedded).not.toContain('DashboardsView');
+    expect(embedded).not.toContain('Meus dashboards');
+    expect(widget).not.toContain('Fechar Dashboard');
+    expect(app).toContain("['/painel-pessoal', 'Meu Dashboard', 'grid']");
+    expect(app).not.toContain("['/dashboards', 'Meus dashboards'");
   });
 });
