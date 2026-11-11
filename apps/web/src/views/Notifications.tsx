@@ -66,7 +66,7 @@ export function NotificationsView() {
                     <strong>{n.title}</strong>
                     <div>{n.body}</div>
                     <div className="muted small">
-                      {formatDateTime(n.createdAt)} {n.source ? `· fonte ${n.source}` : ''} {ev.synthetic ? '· DADOS SINTÉTICOS' : ''}
+                      {formatDateTime(n.createdAt)} {n.source ? `· ${n.source === 'possebon.operational' ? 'Acompanhamento POSSO' : n.source === 'posso.chat' ? 'Mensagem do POSSO' : 'Notificação do sistema'}` : ''} {ev.synthetic ? '· DADOS SINTÉTICOS' : ''}
                       {n.acknowledgedAt ? ` · confirmada em ${formatDateTime(n.acknowledgedAt)}` : ''}
                     </div>
                     <div className="row" style={{ marginTop: 6 }}>
