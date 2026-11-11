@@ -88,11 +88,13 @@ else
   env -u DATABASE_URL ADA_ROOT="$REL" ADA_ENV=production ADA_DB_DRIVER=pg node --env-file="$MIGRATE_ENV" apps/api/dist/migrate.mjs up
 fi
 env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs verify "$BACKUP/dados-antes.json"
-if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 ]]; then
+if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 || "${POSSO_REFRESH_WIDGET:-0}" == 1 ]]; then
   test -f /var/www/html/possebon_app/possebon-assistant-global.js
   node --check integration/possebon-web/public/possebon-assistant-global.js
   cp -a /var/www/html/possebon_app/possebon-assistant-global.js "$BACKUP/possebon-assistant-global.js"
-  node scripts/deploy/unlimited-conversations.mjs /etc/ada/ada.env
+  if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 ]]; then
+    node scripts/deploy/unlimited-conversations.mjs /etc/ada/ada.env
+  fi
   cat integration/possebon-web/public/possebon-assistant-global.js > /var/www/html/possebon_app/possebon-assistant-global.js
   node scripts/deploy/refresh-widget.mjs apply /var/www/html/possebon_app "$BACKUP"
 fi
