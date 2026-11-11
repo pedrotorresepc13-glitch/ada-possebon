@@ -17,7 +17,7 @@ export function CompactAssistant(){
     if(event.origin!==window.location.origin||event.source!==frame.current?.contentWindow)return;
     if(event.data?.type==='possebon:open-dashboard') {
       const path = event.data.path;
-      if (path && !/^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) return;
+      if (path && !/^\/(?:telas|dashboards)(?:\/[0-9a-f-]{36})?$/.test(path)) return;
       setOpen(false);
       if(window.parent!==window) window.parent.postMessage({type:'possebon:open-dashboard',path:path||''},location.origin);
       else navigate(path||'/dashboards');
