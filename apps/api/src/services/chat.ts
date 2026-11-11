@@ -331,7 +331,10 @@ export class ChatService {
       },
       {name:'preparar_ambiente',description:'Prepara ou retoma o dashboard inicial em etapas persistentes, sem precisar concluir tudo nesta resposta. Use em pedidos de panorama amplo. Não afirmar que está concluído enquanto o estado não confirmar.',parameters:js(z.object({}).strict())},
       {name:'propor_acompanhamento_registro',description:'Propõe acompanhar mudanças de um registro identificado ou novas ocorrências do dia. Para ocorrências diárias, informe todayField com o campo de data confirmado e filtros de negócio verificados por consulta, sem fixar a data no plano. O usuário confirma a ativação.',parameters:js(WatchInput)},
-      {name:'listar_acompanhamentos_registros',description:'Lista os acompanhamentos reais do próprio usuário na unidade atual.',parameters:js(z.object({}).strict())}
+      {name:'listar_acompanhamentos_registros',description:'Lista os acompanhamentos reais do próprio usuário na unidade atual.',parameters:js(z.object({}).strict())},
+      {name:'consultar_acompanhamento_registro',description:'Consulta o estado atual e o que realmente mudou num acompanhamento. Use para responder perguntas como o que aconteceu com a SC de notebook, sem entregar campos técnicos.',parameters:js(z.object({nome:z.string().min(1).max(120)}).strict())},
+      {name:'listar_notificacoes',description:'Consulta as notificações internas reais recebidas pelo usuário nesta unidade, inclusive mudanças de acompanhamentos.',parameters:js(z.object({somenteNaoLidas:z.boolean().optional()}).strict())},
+      {name:'enviar_notificacao_interna',description:'ENVIA efetivamente uma notificação interna POSSO na unidade atual, mediante pedido explícito. Informe login exato ou ID do destinatário, título e mensagem. Disponível a todos os usuários; a identidade e o vínculo na unidade são conferidos pelo servidor. Devolva confirmação apenas quando ok=true.',parameters:js(z.object({recipient:z.string().min(1).max(120).optional(),recipientUserId:z.number().int().positive().optional(),title:z.string().min(1).max(160).optional(),message:z.string().min(1).max(1800),severity:z.enum(['info','aviso','critico']).optional()}).strict())}
     ];
   }
 
@@ -367,6 +370,17 @@ export class ChatService {
           return {validated:true,summary:proposal.summary,active:false,confirmationRequired:true};
         }
         case 'listar_acompanhamentos_registros': {return this.d.watches.list(ctx);}
+        case 'consultar_acompanhamento_registro': {
+          const {nome}=z.object({nome:z.string().trim().min(1).max(120)}).strict().parse(args);
+          return this.d.watches.describe(ctx,nome);
+        }
+        case 'listar_notificacoes': {
+          const {somenteNaoLidas}=z.object({somenteNaoLidas:z.boolean().optional()}).strict().parse(args);
+          return this.d.notifications.list(ctx,{unreadOnly:somenteNaoLidas,limit:20});
+        }
+        case 'enviar_notificacao_interna': {
+          return this.d.notifications.send(ctx,args,userMessageId);
+        }
         case 'adicionar_painel': { const input=z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict().parse(args); const assets = ctx.identitySource === 'possebon' && !ctx.roles.includes('admin') ? await this.d.workspace.personalAssets(ctx) : undefined; if (assets && assets.liveBoardId !== input.id) throw invalid('Use sua Tela Viva pessoal.'); const board=await this.d.liveBoards.append(ctx,input.id,input.panel); meta.liveBoardId=board.id;return {ok:true,id:board.id,url:'/telas/'+board.id}; }
         case 'ler_tela_pessoal': {
           const {liveBoardId} = await this.d.workspace.personalAssets(ctx);
@@ -510,12 +524,6 @@ export class ChatService {
     if (resume && (!questionMessage || checkpoint?.permissionsVersion !== ctx.permissionsVersion)) {
       return { text: 'Não há uma investigação recente disponível com as permissões atuais. Envie a pergunta novamente.', meta };
     }
-    const readTools = new Set([
-      'conhecer_sistema', 'consultar_base_corporativa', 'consultar_significado_codigo', 'buscar_catalogo',
-      'consultar_metrica', 'verificar_acesso_tabela', 'explorar_tabelas', 'consultar_banco',
-      'consultar_cerebro', 'ver_cobertura_cerebro', 'buscar_conhecimento', 'listar_conhecimento', 'ler_tela_pessoal',
-      'diagnosticar_posso', 'ver_mudancas_operacionais'
-    ]);
     const memories = (await this.d.conversations.listMemories(ctx)).slice(0, 20).map((m) => '- ' + m.content).join('\n');
     const unitName = ctx.units.find((u) => u.id === ctx.activeUnitId)?.name ?? `Unidade ${ctx.activeUnitId}`;
     const draft = draftOf(conv);
@@ -553,6 +561,10 @@ export class ChatService {
       'FORMATAÇÃO: a interface de chat atual exibe Markdown literalmente. Não utilize Markdown, tabelas com |, títulos com #, negrito com **, crases, nem texto com escapes. Prefira frases curtas em parágrafos e, se necessário, itens com hífen simples.',
       'PRECISÃO: tenha iniciativa e confiança nos fatos que as ferramentas confirmarem. Nunca finja conhecer dados não consultados, nunca suponha regra de negócio e nunca diga que executou uma ação sem confirmação da ferramenta. Quando houver uma dúvida material, exponha somente a dependência específica e a próxima ação necessária. Não repita advertências sobre permissões ou escopo, exceto se forem relevantes ao pedido.',
       'EXECUÇÃO: diante de um pedido para criar tela, dashboard, consulta, regra ou acompanhamento, investigue e execute as ferramentas autorizadas em vez de ensinar o usuário a fazê-lo. Diferencie claramente: consulta concluída; tela salva e pronta; monitor proposto e aguardando confirmação; monitor ativo e verificando mudanças; recurso indisponível. Nunca prometa alertas futuros sem monitor criado, ativado e fonte realmente funcional.',
+      'CAPACIDADES PARA TODOS: disponibilize a todos os usuários todas as ferramentas do POSSO, sem filtros por cargo, perfil ou uma lista artificial de ações proibidas. A execução verifica identidade, unidade ativa e permissões sobre dados e operações no servidor; isso não limita a capacidade de raciocinar e planejar qualquer tarefa.',
+      'NOTIFICAÇÕES: você TEM a ferramenta enviar_notificacao_interna. Quando solicitarem uma notificação interna, use-a e só diga que foi enviada com resultado ok=true. Se o destinatário não for encontrado, peça apenas o login exato ou ID, sem alegar genericamente não possuir ferramenta.',
+      'ACOMPANHAMENTOS: para perguntas sobre uma SC/registro monitorado, use consultar_acompanhamento_registro. Diga primeiro o que mudou, de qual valor para qual, o que permanece pendente e a data da última verificação. Não apresente colunas brutas como c0 ou timestamps ISO na resposta.',
+
       'LINGUAGEM DE NEGÓCIO: nunca entregue códigos internos de status ou cabeçalhos SQL como linguagem final do usuário. Para colaborador.status, A significa Ativo e D significa Desligado; os demais códigos ainda não foram homologados e jamais devem receber tradução inventada. Cada tabela pode usar códigos diferentes: consulte o dicionário específico ou apresente uma descrição pendente. Em telas e gráficos prefira Situação, Quantidade de colaboradores, Equipe e Função. Use a legenda semântica retornada pela ferramenta.',
       `Identidade confirmada pelo POSSEBON Web: nome "${ctx.displayName}", login "${ctx.login}", identificador de usuário ${ctx.systemUserId}. Identidade de sessão autoritativa; não diga que desconhece o nome quando for perguntado. Não deduza cargo, função ou vínculo empregatício a partir do nome ou dos grupos.`,
       `Contexto: unidade ativa "${unitName}" (ID ${ctx.activeUnitId}). Data/hora: ${formatDateTime(this.d.now())} (America/Sao_Paulo). Formate datas DD/MM/AAAA, moeda R$ e números no padrão pt-BR.`,
@@ -592,14 +604,8 @@ export class ChatService {
         input: resume
           ? [{ role: 'user', content: `Retome a investigação em modo de leitura e confirme os fatos nas fontes atuais. Pergunta: ${questionMessage!.content}\nSíntese anterior: ${wrapUntrusted('síntese', previous!.content)}` }]
           : [...history.map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
-        tools: this.tools().filter(tool =>
-          resume ? readTools.has(tool.name) : ctx.identitySource !== 'possebon' || ctx.roles.includes('admin') ||
-          !['propor_dashboard','alterar_dashboard','salvar_dashboard'].includes(tool.name)
-        ),
-        execute: async (name, args) => {
-          if (resume && !readTools.has(name)) throw new Error('A retomada permite somente consultas.');
-          return execute(name, args);
-        },
+        tools: this.tools(),
+        execute: async (name, args) => execute(name, args),
         toolBudgetMs: 65000
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
