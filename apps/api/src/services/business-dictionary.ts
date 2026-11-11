@@ -33,6 +33,42 @@ export class BusinessDictionaryService{
   if(!definition&&builtin!==code&&!String(builtin).startsWith('Situação sem descrição'))return {known:true,definition:{table,column,code,label:builtin,source:'Dicionário versionado do projeto: packages/domain/src/business-labels.ts'}};
   return definition?{known:true,definition}:{known:false,table,column,code,note:'Código sem definição documental aprovada para este campo. Consulte tabela de domínio relacionada por FK, model/Designer ou documento vigente. Não inferir pelo caractere nem usar significado de outro módulo.'};
  }
+ /** Localiza um código em todos os formulários indexados, sem divulgar o código-fonte. */
+ async findCode(ctx:AuthContext,rawCode:string,context=''){
+  const code=z.string().trim().regex(/^[A-Za-z0-9_.-]{1,12}$/).parse(rawCode);
+  const term=z.string().trim().max(120).parse(context).toLocaleLowerCase('pt-BR');
+  const phrase=' código='+code+' descrição=';
+  const r=await this.d.db.query<{content:string}>(`
+    SELECT d.extracted_text AS content FROM ada.knowledge_document d
+    JOIN ada.knowledge_source s ON s.id=d.source_id
+    WHERE s.config->>'bootstrap_key'=$1 AND d.unit_id=$2
+      AND d.status='indexado' AND s.status='ativo'
+      AND (d.valid_until IS NULL OR d.valid_until>=current_date)
+      AND position($3 in d.extracted_text)>0 LIMIT 100`,
+    ['system_source_pack:'+ctx.activeUnitId,ctx.activeUnitId,phrase]);
+  const options=r.rows.flatMap(doc=>doc.content.split('\n').flatMap(line=>{
+    const match=/^Definição literal: tabela=([a-z][a-z0-9_]*) campo=([a-z][a-z0-9_]*) código=([A-Za-z0-9_.-]{1,12}) descrição=(.{2,120})$/.exec(line);
+    return match&&match[3]===code?[{table:match[1]!,column:match[2]!,code,label:match[4]!}]:[];
+  }));
+  const groups=new Map<string,typeof options>();
+  for(const option of options){
+    const k=dictionaryKey(option.table,option.column,code);
+    groups.set(k,[...(groups.get(k)??[]),option]);
+  }
+  const matches=[...groups.values()].filter(items=>new Set(items.map(i=>i.label)).size===1)
+    .map(items=>items[0]!).sort((a,b)=>{
+      const relevance=(x:typeof a)=>term&&(x.table+' '+x.column+' '+x.label).toLocaleLowerCase('pt-BR').includes(term)?1:0;
+      return relevance(b)-relevance(a)||a.table.localeCompare(b.table);
+    }).slice(0,30);
+  if(matches.length===1){
+    const selected=matches[0]!;
+    const learned=await this.discover(ctx,selected.table,selected.column,code);
+    return {code,found:learned.known,definition:learned.known?learned.definition:null,matches,investigated:true};
+  }
+  return {code,found:matches.length>0,matches,investigated:true,
+    note:matches.length>1?'O mesmo código existe em vários campos. Use a tabela e o campo do registro atual para escolher.':
+      'O inventário do POSSEBON Web nesta unidade não contém essa definição literal. É necessário atualizar a importação do código-fonte.'};
+ }
  /** Descobre sem adivinhar: apenas definição literal do inventário do POSSEBON Web. */
  async discover(ctx:AuthContext,tableInput:string,columnInput:string,codeInput:string){
   const table=identifier.parse(tableInput),column=identifier.parse(columnInput);
