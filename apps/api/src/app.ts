@@ -386,7 +386,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/operational/query', 'user', (req, _r, ctx) => d.operational.query(ctx,body(req)));
   route('GET', '/live-boards', 'user', (_req, _r, ctx) => d.liveBoards.list(ctx));
   route('POST', '/live-boards', 'user', async (req,reply,ctx) => {
-    if (ctx.identitySource === 'possebon' && !ctx.roles.includes('admin')) {
+    if (ctx.identitySource === 'possebon') {
       const {liveBoardId} = await d.workspace.personalAssets(ctx);
       if (!liveBoardId) throw new HttpError(409, 'CONFLICT', 'Sua Tela Viva está sendo preparada.');
       return d.liveBoards.replace(ctx,liveBoardId,body(req));
