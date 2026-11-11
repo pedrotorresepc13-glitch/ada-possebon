@@ -41,6 +41,8 @@ const EnvSchema = z.object({
   POSSEBON_SERVICE_TOKEN: z.string().optional(),
   POSSEBON_BRAIN_CONTEXT_URL: z.string().optional(),
   POSSEBON_READONLY_DATABASE_URL: z.string().optional(),
+  POSSO_MYIMPORT_CATALOG_URL: z.string().optional(),
+  POSSO_MYIMPORT_CATALOG_TOKEN: z.string().optional(),
   POSSEBON_OUTBOX_ENABLED: z.enum(['0', '1']).default('0'),
   POSSEBON_SOURCE_ROOT: z.string().min(1).optional(),
   POSSEBON_SOURCE_USER_ID: z.coerce.number().int().positive().optional(),
@@ -86,6 +88,7 @@ export interface AdaConfig {
   systemSource?: { root: string; userId: number; unitId: number };
   possebonOutbox?: boolean;
   brain: { contextUrl?: string };
+  myImport: { catalogUrl?: string; token?: string };
   programs: { admin: string; manager: string; crossUnit: string; access?: string };
   permissionTtlSeconds: number;
   cacheTtlSeconds: number;
@@ -184,6 +187,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AdaConfig {
       ? { root: e.POSSEBON_SOURCE_ROOT, userId: e.POSSEBON_SOURCE_USER_ID, unitId: e.POSSEBON_SOURCE_UNIT_ID }
       : undefined,
     brain: { contextUrl: e.POSSEBON_BRAIN_CONTEXT_URL },
+    myImport: { catalogUrl: e.POSSO_MYIMPORT_CATALOG_URL, token: e.POSSO_MYIMPORT_CATALOG_TOKEN },
     programs: { admin: e.ADA_ADMIN_PROGRAM, manager: e.ADA_MANAGER_PROGRAM, crossUnit: e.ADA_CROSSUNIT_PROGRAM, access: e.ADA_ACCESS_PROGRAM },
     permissionTtlSeconds: e.ADA_PERMISSION_TTL_SECONDS,
     cacheTtlSeconds: e.ADA_CACHE_TTL_SECONDS,
