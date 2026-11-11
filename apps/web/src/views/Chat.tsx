@@ -1,4 +1,5 @@
 import { LiveVoice } from '../components/LiveVoice.tsx';
+import { VoiceDictation } from '../components/VoiceDictation.tsx';
 import { useBranding } from '../branding.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DashboardSpec, RuleDefinition, WidgetData } from '@ada/contracts';
@@ -257,14 +258,6 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
               ))}
             </div>
           )}
-          {me.ai.configured && <LiveVoice conversationId={conversationId} onAnswer={answer => {
-            onConversation?.();
-            setConversationId(answer.conversationId);
-            setMessages(previous => [...previous,
-              { id: 'voice-' + answer.message.id, role: 'user', content: answer.userText },
-              answer.message as Msg
-            ]);
-          }} />}
           <form
             className="composer"
             onSubmit={(e) => {
@@ -272,23 +265,36 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
               void send(input);
             }}
           >
-            <label htmlFor="chat-input" className="sr-only">Mensagem para a {name}</label>
-            <textarea
-              id="chat-input"
-              className="textarea"
-              rows={2}
-              value={input}
-              maxLength={4000}
-              placeholder={draft ? 'Refine: "muda para linhas", "compara com o previsto", "salva como …"' : 'Pergunte ou peça um dashboard…'}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void send(input);
-                }
-              }}
-            />
-            <button className="btn primary" disabled={busy || !input.trim()} aria-label="Enviar mensagem">Enviar</button>
+            <div className="composer-input">
+              <label htmlFor="chat-input" className="sr-only">Mensagem para a {name}</label>
+              <textarea
+                id="chat-input"
+                className="textarea"
+                rows={3}
+                value={input}
+                maxLength={4000}
+                placeholder={draft ? 'Refine: "muda para linhas", "compara com o previsto", "salva como …"' : 'Pergunte ou peça um dashboard…'}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void send(input);
+                  }
+                }}
+              />
+              <VoiceDictation value={input} onChange={setInput} />
+            </div>
+            <div className="composer-actions">
+              {me.ai.configured && <LiveVoice conversationId={conversationId} onAnswer={answer => {
+                onConversation?.();
+                setConversationId(answer.conversationId);
+                setMessages(previous => [...previous,
+                  { id: 'voice-' + answer.message.id, role: 'user', content: answer.userText },
+                  answer.message as Msg
+                ]);
+              }} />}
+              <button type="submit" className="btn primary composer-send" disabled={busy || !input.trim()} aria-label="Enviar mensagem">Enviar</button>
+            </div>
           </form>
         </section>
         {draft && !composerOnly && (
