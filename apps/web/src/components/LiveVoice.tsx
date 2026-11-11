@@ -18,11 +18,14 @@ interface LiveEvent {
 interface Props {
   conversationId?: string;
   onAnswer: (answer: ChatAnswer & { userText: string }) => void;
+  disabled?: boolean;
+  onActiveChange?: (active: boolean) => void;
 }
 
 /** GPT-Live usa WebRTC para áudio; toda consulta continua passando pelo /chat autenticado da Ada. */
-export function LiveVoice({ conversationId, onAnswer }: Props) {
+export function LiveVoice({ conversationId, onAnswer, disabled = false, onActiveChange }: Props) {
   const [status, setStatus] = useState<'parado' | 'conectando' | 'ativo'>('parado');
+  useEffect(() => { onActiveChange?.(status !== 'parado'); }, [status, onActiveChange]);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const attempt = useRef(0);
@@ -114,7 +117,7 @@ export function LiveVoice({ conversationId, onAnswer }: Props) {
   }
 
   async function start() {
-    if (status !== 'parado') return;
+    if (status !== 'parado' || disabled) return;
     const generation = ++attempt.current;
     queue.current = Promise.resolve();
     setError(''); setStatus('conectando');
@@ -206,9 +209,9 @@ export function LiveVoice({ conversationId, onAnswer }: Props) {
   return <div className="voice-control" aria-label="Conversa por voz">
     <button type="button"
       className={status === 'parado' ? 'voice-launch' : 'voice-launch active'}
-      title={status === 'parado' ? 'Iniciar conversa por voz' : 'Encerrar conversa por voz'}
+      title={disabled && status === 'parado' ? 'Encerre o ditado para iniciar conversa por voz' : status === 'parado' ? 'Iniciar conversa por voz' : 'Encerrar conversa por voz'}
       aria-label={status === 'parado' ? 'Iniciar conversa por voz' : 'Encerrar conversa por voz'}
-      aria-pressed={status !== 'parado'}
+      aria-pressed={status !== 'parado'} disabled={disabled && status === 'parado'}
       onClick={() => { if (status === 'parado') void start(); else stop(); }}>
       <Icon name="voice" size={22} />
     </button>
