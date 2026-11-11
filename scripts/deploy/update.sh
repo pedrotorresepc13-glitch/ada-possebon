@@ -32,6 +32,7 @@ rollback(){
     (cd "$REL" && env -u POSSEBON_READONLY_DATABASE_URL node --env-file=/etc/ada/ada.env scripts/deploy/directory-read.mjs rollback "$BACKUP/directory-read.undo.sql") || echo "Reversão da leitura requer revisão: $BACKUP/directory-read.undo.sql"
   fi
   if [[ "$STOPPED" == 1 ]]; then
+    if [[ -f "$BACKUP/widget-layouts.json" ]]; then node "$REL/scripts/deploy/refresh-widget.mjs" rollback /var/www/html/possebon_app "$BACKUP" || true; fi
     echo 'Falha: restaurando versão anterior. Backup preservado; nenhuma tabela será apagada.'
     ln -sfn "$PREVIOUS" "$BASE/current.new"
     mv -Tf "$BASE/current.new" "$BASE/current"
@@ -93,6 +94,7 @@ if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 ]]; then
   cp -a /var/www/html/possebon_app/possebon-assistant-global.js "$BACKUP/possebon-assistant-global.js"
   node scripts/deploy/unlimited-conversations.mjs /etc/ada/ada.env
   cat integration/possebon-web/public/possebon-assistant-global.js > /var/www/html/possebon_app/possebon-assistant-global.js
+  node scripts/deploy/refresh-widget.mjs apply /var/www/html/possebon_app "$BACKUP"
 fi
 ln -s "$REL" "$BASE/current.new"
 mv -Tf "$BASE/current.new" "$BASE/current"

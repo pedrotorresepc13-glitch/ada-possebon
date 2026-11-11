@@ -5,7 +5,7 @@ import { useBranding } from '../branding.tsx';
 import { Icon } from './Icon.tsx';
 
 export function CompactAssistant(){
-  const {name}=useBranding();const {me,unread}=useApp();
+  const {name}=useBranding();const {me,unread,navigate}=useApp();
   const [open,setOpen]=useState(false);const [mounted,setMounted]=useState(false);
   const [expanded,setExpanded]=useState(false);
   const [ready,setReady]=useState(false);
@@ -15,11 +15,18 @@ export function CompactAssistant(){
   const conversation=useRef<string|undefined>(undefined);
   useEffect(()=>{const receive=(event:MessageEvent)=>{
     if(event.origin!==window.location.origin||event.source!==frame.current?.contentWindow)return;
+    if(event.data?.type==='possebon:open-dashboard') {
+      const path = event.data.path;
+      if (path && !/^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) return;
+      setOpen(false);
+      if(window.parent!==window) window.parent.postMessage({type:'possebon:open-dashboard',path:path||''},location.origin);
+      else navigate(path||'/dashboards');
+    }
     if(event.data?.type==='possebon:close'){setOpen(false);trigger.current?.focus();}
     if(event.data?.type==='possebon:ready')setReady(true);
     if(event.data?.type==='possebon:conversation'&&/^[0-9a-f-]{36}$/i.test(String(event.data.id)))conversation.current=event.data.id;
     if(event.data?.type==='possebon:conversation-unavailable'&&conversation.current===event.data.id){conversation.current=undefined;setWelcomeId(undefined);}
-  };window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);},[]);
+  };window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);},[navigate]);
   useEffect(()=>{if(!open)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpen(false);trigger.current?.focus();}};
     window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[open]);
   useEffect(()=>{const welcome=(event:Event)=>{const id=(event as CustomEvent<{id:string}>).detail?.id;if(!/^[0-9a-f-]{36}$/i.test(id??''))return;setWelcomeId(id);conversation.current=id;setMounted(true);setOpen(true);};

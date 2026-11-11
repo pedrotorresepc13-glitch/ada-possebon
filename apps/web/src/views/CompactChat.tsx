@@ -14,6 +14,11 @@ export function CompactChat() {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'possebon:show-panel') return;
       const next = event.data.panel;
+      if (next === 'dashboard' && window.parent !== window) {
+        setPanel(null);
+        window.parent.postMessage({type:'possebon:open-dashboard',path:''}, location.origin);
+        return;
+      }
       if (next === 'monitors' || next === 'notifications' || next === 'dashboard') {
         setPanel(current => current === next ? null : next);
       }
