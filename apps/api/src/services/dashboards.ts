@@ -99,6 +99,20 @@ export class DashboardService {
 
   async create(ctx: AuthContext, specInput: unknown, title?: string): Promise<DashboardRow> {
     const spec = this.validateSpec(ctx, title ? { ...(specInput as object), title } : specInput);
+    if (ctx.identitySource === 'possebon') {
+      // Compatibilidade com dashboards antigos: atualizações reutilizam o primeiro
+      // painel existente do proprietário na unidade, sem apagar revisões históricas.
+      const previous = await this.d.db.query<{id:string}>(`
+        SELECT d.id FROM ada.dashboard d
+        LEFT JOIN ada.personal_workspace w
+          ON w.owner_user_id=d.owner_user_id AND w.unit_id=d.unit_id
+        WHERE d.owner_user_id=$1 AND d.unit_id=$2 AND d.deleted_at IS NULL
+        ORDER BY CASE WHEN w.dashboard_id=d.id THEN 0 ELSE 1 END,
+                 d.updated_at DESC,d.id ASC LIMIT 1`,[ctx.systemUserId,ctx.activeUnitId]);
+      if (previous.rows[0]) return this.update(ctx,previous.rows[0].id,{
+        spec,summary:'Dashboard pessoal atualizado pela conversa'
+      });
+    }
     const metrics = [...new Set(spec.widgets.flatMap((w) => [...w.metrics, ...(w.compareMetric ? [w.compareMetric] : [])]))];
     const sources = [...new Set(metrics.map((m) => this.d.catalog.metric(m)!.source))];
     return this.d.db.tx(async (q) => {
