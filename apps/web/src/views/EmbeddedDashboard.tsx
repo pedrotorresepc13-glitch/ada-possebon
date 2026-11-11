@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Ctx, useApp } from '../app-context.ts';
 import { DashboardView, DashboardsView } from './Dashboards.tsx';
-import { LiveBoardDetail } from './LiveBoards.tsx';
+import { LiveBoardDetail, LiveBoardsList } from './LiveBoards.tsx';
 
 export function EmbeddedDashboard() {
   const app = useApp();
@@ -10,7 +10,7 @@ export function EmbeddedDashboard() {
   return <Ctx.Provider value={{...app,navigate:setPath}}>
     <main className="embedded-dashboard">
       {match ? <><button className="btn sm" onClick={() => setPath('/dashboards')}>Meus dashboards</button>
-        {match[1] === 'telas' ? <LiveBoardDetail id={match[2]!} /> : <DashboardView id={match[2]!} />}</> : <DashboardsView />}
+        {match[1] === 'telas' ? <LiveBoardDetail id={match[2]!} /> : <DashboardView id={match[2]!} />}</> : path === '/telas' ? <LiveBoardsList /> : <DashboardsView />}
     </main>
   </Ctx.Provider>;
 }
