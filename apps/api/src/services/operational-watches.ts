@@ -5,6 +5,7 @@ import type { Deps } from '../core.ts';
 import { OperationalPlan } from './operational-query.ts';
 import { invalid,notFound } from '../errors.ts';
 import { audit } from '../audit.ts';
+import { watchDifferences, watchFields, watchSummary } from './watch-presentation.ts';
 
 export const WatchInput=z.object({name:z.string().trim().min(1).max(120),plan:OperationalPlan,
   todayField:z.string().regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/).optional(),
@@ -73,8 +74,45 @@ export class OperationalWatchService {
   async current(ctx:AuthContext,id:string) {
     const r=await this.d.db.query<WatchRow>('SELECT * FROM ada.operational_watch WHERE id=$1 AND owner_user_id=$2 AND unit_id=$3',[z.uuid().parse(id),ctx.systemUserId,ctx.activeUnitId]);
     if(!r.rows[0])throw notFound('Acompanhamento');
-    const result=await this.preview(ctx,{name:r.rows[0].name,...readPlan(r.rows[0].plan)});
-    return {name:r.rows[0].name,row:result.row,queriedAt:new Date().toISOString()};
+    const watch=r.rows[0];
+    const result=await this.preview(ctx,{name:watch.name,...readPlan(watch.plan)});
+    const notification=await this.d.db.query<{body:string;created_at:Date;evidence:unknown}>(
+      `SELECT body,created_at,evidence FROM ada.notification
+       WHERE recipient_user_id=$1 AND unit_id=$2 AND source_id='possebon.operational'
+         AND evidence->>'watchId'=$3 ORDER BY created_at DESC LIMIT 1`,
+      [ctx.systemUserId,ctx.activeUnitId,id]);
+    const latest=notification.rows[0];
+    const evidence=latest?.evidence as {changes?:unknown}|undefined;
+    const changes=Array.isArray(evidence?.changes) ? evidence.changes as ReturnType<typeof watchDifferences> : [];
+    return {
+      name:watch.name,watchId:id,state:watch.state,
+      fields:watchFields(result.row),row:result.row,queriedAt:new Date().toISOString(),
+      lastCheckedAt:watch.last_checked_at, lastChangedAt:watch.last_changed_at,
+      lastChange:latest?{summary:latest.body,changes,observedAt:latest.created_at}:null
+    };
+  }
+
+  async describe(ctx:AuthContext,name:string) {
+    const term=name.trim().toLocaleLowerCase('pt-BR');
+    const all=await this.list(ctx) as {id:string;name:string}[];
+    const exact=all.filter(w=>w.name.toLocaleLowerCase('pt-BR')===term);
+    let matched=exact.length===1?exact:all.filter(w=>w.name.toLocaleLowerCase('pt-BR').includes(term));
+    if(matched.length===0) {
+      const number=term.match(/\d{3,}/)?.[0]?.replace(/^0+/,'');
+      if(number)matched=all.filter(w=>w.name.match(/\d{3,}/g)?.some(part=>part.replace(/^0+/,'')===number));
+    }
+    if(matched.length!==1) return {
+      encontrado:false,
+      motivo:matched.length?'Há mais de um acompanhamento com essa descrição.':'Não encontrei esse acompanhamento nesta unidade.',
+      acompanhamentos:all.map(w=>w.name)
+    };
+    const data=await this.current(ctx,matched[0]!.id);
+    return {
+      encontrado:true,nome:data.name,estado:data.state,
+      ultimaVerificacao:data.lastCheckedAt,ultimaMudanca:data.lastChangedAt,
+      situacaoAtual:data.fields,
+      alteracaoConfirmada:data.lastChange
+    };
   }
   async setState(ctx:AuthContext,id:string,state:'active'|'paused') {
     const r=await this.d.db.query<WatchRow>('SELECT * FROM ada.operational_watch WHERE id=$1 AND owner_user_id=$2 AND unit_id=$3',[z.uuid().parse(id),ctx.systemUserId,ctx.activeUnitId]);
@@ -97,11 +135,13 @@ export class OperationalWatchService {
         const previous=this.d.cipher.decrypt(job.snapshot_enc);
         let current=canonical(result.row);
         let changed=current!==previous;
+        let changes=watchDifferences(JSON.parse(previous) as Record<string,unknown>,result.row);
         if(result.input.todayField) {
           const saved=JSON.parse(previous) as {day:string;ids:string[]|string};
           const seen=new Set<string>(saved.day===result.row.day ? JSON.parse(String(saved.ids)) as string[] : []);
           const ids=JSON.parse(String(result.row.ids)) as string[];
           changed=ids.some(id=>!seen.has(id));
+          if(changed)changes=[{field:'ocorrencias',label:'Novas ocorrências no dia',before:String(seen.size),after:String(ids.filter(id=>!seen.has(id)).length)+' nova(s)'}];
           for(const id of ids) seen.add(id);
           current=canonical({...result.row,ids:JSON.stringify([...seen].sort())});
         }
@@ -111,12 +151,15 @@ export class OperationalWatchService {
             next_check_at=now()+make_interval(mins=>interval_minutes),lease_until=NULL,lease_token=NULL
             WHERE id=$1 AND lease_token=$2 AND state='active' RETURNING id`,[job.id,token,this.d.cipher.encrypt(current),changed]);
           if(!saved.rowCount||!changed)return;
-          // Sem cópia de dados operacionais na notificação: o detalhe exige nova consulta autorizada.
+          // Resumo verificável: diferenças apenas dos campos que o proprietário já podia consultar.
           const eventKey=createHash('sha256').update(job.id+job.snapshot_enc+current).digest('hex');
+          const body= result.input.todayField
+            ? job.name+': novas ocorrências foram registradas no dia. Consulte o acompanhamento para conferir.'
+            : watchSummary(job.name,changes);
           await q.query(`INSERT INTO ada.notification(recipient_user_id,unit_id,severity,title,body,source_id,evidence,dedupe_key)
-            VALUES($1,$2,'info','Atualização no acompanhamento',$3,'possebon.operational',$4,$5)
+            VALUES($1,$2,'info',$3,$4,'possebon.operational',$5,$6)
             ON CONFLICT(recipient_user_id,dedupe_key) DO NOTHING`,[job.owner_user_id,job.unit_id,
-            result.input.todayField ? 'Foram encontradas novas ocorrências na condição diária que você acompanha. Abra seus acompanhamentos para conferir.' : 'Foi identificada uma mudança em um registro que você acompanha. Abra seus acompanhamentos para consultar o estado atual.',{watchId:job.id},eventKey]);
+            'Atualização: '+job.name,body,{watchId:job.id,changes:changes.slice(0,12)},eventKey]);
         });
       } catch {
         await this.d.db.query(`UPDATE ada.operational_watch SET state='error',last_error='Não foi possível verificar o registro. Confira acesso e disponibilidade antes de retomar.',lease_token=NULL,lease_until=NULL WHERE id=$1 AND lease_token=$2`,[job.id,token]);
