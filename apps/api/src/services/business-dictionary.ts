@@ -33,6 +33,51 @@ export class BusinessDictionaryService{
   if(!definition&&builtin!==code&&!String(builtin).startsWith('Situação sem descrição'))return {known:true,definition:{table,column,code,label:builtin,source:'Dicionário versionado do projeto: packages/domain/src/business-labels.ts'}};
   return definition?{known:true,definition}:{known:false,table,column,code,note:'Código sem definição documental aprovada para este campo. Consulte tabela de domínio relacionada por FK, model/Designer ou documento vigente. Não inferir pelo caractere nem usar significado de outro módulo.'};
  }
+ /** Descobre sem adivinhar: apenas definição literal do inventário do POSSEBON Web. */
+ async discover(ctx:AuthContext,tableInput:string,columnInput:string,codeInput:string){
+  const table=identifier.parse(tableInput),column=identifier.parse(columnInput);
+  const code=z.string().trim().min(1).max(50).parse(codeInput);
+  const known=await this.resolve(ctx,table,column,code);
+  if(known.known)return known;
+  const prefix=`Definição literal: tabela=${table} campo=${column} código=${code} descrição=`;
+  const rows=await this.d.db.query<{id:string;checksum:string;content:string}>(`
+    SELECT d.id,d.checksum,d.extracted_text AS content FROM ada.knowledge_document d
+    JOIN ada.knowledge_source s ON s.id=d.source_id
+    WHERE s.config->>'bootstrap_key'=$1 AND d.unit_id=$2
+      AND d.status='indexado' AND s.status='ativo'
+      AND (d.valid_until IS NULL OR d.valid_until>=current_date)
+      AND position($3 in d.extracted_text)>0 ORDER BY d.observed_at DESC LIMIT 20`,
+    ['system_source_pack:'+ctx.activeUnitId,ctx.activeUnitId,prefix]);
+  const found=rows.rows.flatMap(doc=>doc.content.split('\n')
+    .filter(line=>line.startsWith(prefix))
+    .map(line=>({documentId:doc.id,checksum:doc.checksum,quote:line,label:line.slice(prefix.length).trim()})))
+    .filter(i=>i.label.length>=2&&i.label.length<=120&&!/[<>\r\n]/.test(i.label));
+  const labels=[...new Set(found.map(i=>i.label))];
+  if(labels.length!==1)return {known:false,table,column,code,investigated:true,
+    note:labels.length?'O inventário contém descrições diferentes para este código.':'O inventário atual ainda não contém uma definição literal confirmada para este campo.'};
+  const exact=found[0]!;
+  const item:Definition={table,column,code,label:exact.label,documentId:exact.documentId,
+    checksum:exact.checksum,quote:exact.quote,origin:'source_pack',
+    approvedAt:this.d.now().toISOString(),approvedBy:ctx.systemUserId};
+  if(!(await this.valid(ctx,[item])).length)return {known:false,table,column,code,investigated:true,
+    note:'A definição encontrada não está vigente; é necessário atualizar o inventário do POSSEBON Web.'};
+  const key='business_dictionary:'+ctx.activeUnitId;
+  await this.d.db.tx(async q=>{
+    await q.query('INSERT INTO ada.app_setting(key,value,updated_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
+      [key,{ciphertext:this.d.cipher.encrypt('[]')},ctx.systemUserId]);
+    const result=await q.query<{value:{ciphertext:string}}>('SELECT value FROM ada.app_setting WHERE key=$1 FOR UPDATE',[key]);
+    const entries=JSON.parse(this.d.cipher.decrypt(result.rows[0]!.value.ciphertext)) as Definition[];
+    const prior=entries.find(d=>dictionaryKey(d.table,d.column,d.code)===dictionaryKey(table,column,code));
+    if(prior?.origin==='manual')return;
+    const kept=entries.filter(d=>dictionaryKey(d.table,d.column,d.code)!==dictionaryKey(table,column,code));
+    if(kept.length>=1000)throw new Error('Limite do dicionário atingido.');
+    await q.query('UPDATE ada.app_setting SET value=$2,updated_by=$3,updated_at=now() WHERE key=$1',
+      [key,{ciphertext:this.d.cipher.encrypt(JSON.stringify([...kept,item]))},ctx.systemUserId]);
+    await audit(q,{actor:ctx.systemUserId,unit:ctx.activeUnitId,action:'dicionario.definicao_descoberta',
+      outcome:'ok',details:{table,column,code,documentId:exact.documentId}});
+  });
+  return this.resolve(ctx,table,column,code);
+ }
  async save(ctx:AuthContext,raw:unknown){
   assertAdmin(ctx);if(this.d.config.isProduction&&ctx.identitySource!=='possebon')throw new Error('Aprovação exige identidade POSSEBON real.');
   const input=DefinitionInput.parse(raw);
