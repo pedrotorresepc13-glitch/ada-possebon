@@ -529,6 +529,17 @@ export class ChatService {
     if (resume && (!questionMessage || checkpoint?.permissionsVersion !== ctx.permissionsVersion)) {
       return { text: 'Não há uma investigação recente disponível com as permissões atuais. Envie a pergunta novamente.', meta };
     }
+    // "Continuar investigação" reaproveita uma consulta parcial; não é autorização
+    // para repetir efeitos externos sem um novo pedido explícito do usuário.
+    // Mensagens normais sempre recebem o catálogo completo, independentemente do perfil.
+    const readTools = new Set([
+      'conhecer_sistema','consultar_base_corporativa','consultar_significado_codigo',
+      'buscar_catalogo','consultar_metrica','verificar_acesso_tabela','explorar_tabelas',
+      'consultar_banco','consultar_cerebro','ver_cobertura_cerebro',
+      'buscar_conhecimento','listar_conhecimento','ler_tela_pessoal',
+      'diagnosticar_posso','ver_mudancas_operacionais','listar_acompanhamentos_registros',
+      'consultar_acompanhamento_registro','listar_notificacoes'
+    ]);
     const memories = (await this.d.conversations.listMemories(ctx)).slice(0, 20).map((m) => '- ' + m.content).join('\n');
     const unitName = ctx.units.find((u) => u.id === ctx.activeUnitId)?.name ?? `Unidade ${ctx.activeUnitId}`;
     const draft = draftOf(conv);
@@ -610,8 +621,11 @@ export class ChatService {
         input: resume
           ? [{ role: 'user', content: `Retome a investigação em modo de leitura e confirme os fatos nas fontes atuais. Pergunta: ${questionMessage!.content}\nSíntese anterior: ${wrapUntrusted('síntese', previous!.content)}` }]
           : [...history.map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.content })), { role: 'user', content: message }],
-        tools: this.tools(),
-        execute: async (name, args) => execute(name, args),
+        tools: resume ? this.tools().filter(tool => readTools.has(tool.name)) : this.tools(),
+        execute: async (name, args) => {
+          if (resume && !readTools.has(name)) throw new Error('A retomada permite somente consultas.');
+          return execute(name, args);
+        },
         toolBudgetMs: 65000
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
