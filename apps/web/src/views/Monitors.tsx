@@ -73,7 +73,7 @@ export function MonitorsView() {
       </header>
       <div className="content">
         <RecordWatches onCountChange={setRecordWatchCount}/>
-        <p className="muted small">A IA apenas ajuda a escrever a regra. As verificações são feitas por um motor determinístico, sem IA, e os alertas chegam somente para você.</p>
+        <p className="muted small">O POSSO acompanha as informações automaticamente e avisa quando encontra uma mudança. Abra um acompanhamento para ver o que aconteceu e a situação atual.</p>
         {msg && <div className="note-box" role="status" style={{ marginBottom: 10 }}>{msg}</div>}
         {err && <div className="error-box" role="alert" style={{ marginBottom: 10 }}>{err}</div>}
         {!items ? (
