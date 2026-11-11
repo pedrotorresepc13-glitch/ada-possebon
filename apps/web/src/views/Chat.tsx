@@ -82,7 +82,7 @@ function WatchProposal({proposal}:{proposal:{input:unknown;summary:string}}){
   return <div className="proposal"><strong>Acompanhar este registro</strong><p>{proposal.summary}</p>{state==='done'?<p role="status">Acompanhamento ativo. Você receberá uma notificação quando houver mudança confirmada.</p>:<button className="btn primary sm" disabled={state==='saving'} onClick={()=>{setState('saving');void api('/watches',{body:proposal.input}).then(()=>setState('done')).catch(e=>{setError((e as Error).message);setState('idle');});}}>Confirmar e acompanhar</button>}{error&&<p role="alert">{error}</p>}</div>;
 }
 
-export function ChatView({compact=false,initialConversationId}:{compact?:boolean;initialConversationId?:string}) {
+export function ChatView({compact=false,initialConversationId,composerOnly=false,onConversation}:{compact?:boolean;initialConversationId?:string;composerOnly?:boolean;onConversation?:()=>void}) {
   const { name } = useBranding();
   const { me, theme, navigate } = useApp();
   const params = new URLSearchParams(window.location.search);
@@ -169,6 +169,7 @@ export function ChatView({compact=false,initialConversationId}:{compact?:boolean
   }, [messages]);
 
   async function send(text: string) {
+    if (text.trim()) onConversation?.();
     const message = text.trim();
     if (!message || busy) return;
     setBusy(true);
@@ -207,9 +208,9 @@ export function ChatView({compact=false,initialConversationId}:{compact?:boolean
         <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
       </header>}
 
-      <div className={`chat-layout ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
+      <div className={`chat-layout ${composerOnly ? 'composer-only' : ''} ${draft ? '' : 'no-canvas'}`} style={{ flex: 1, minHeight: 0 }}>
         <section className="chat-pane" aria-label="Conversa">
-          <div className="messages" role="log" aria-live="polite" aria-busy={busy}>
+          <div className="messages" hidden={composerOnly} role="log" aria-live="polite" aria-busy={busy}>
             {messages.length === 0 && !err && (
               <div className="empty" style={{ marginTop: 20 }}>
                 <span className="chat-welcome-symbol"><Icon name="spark" size={30}/></span><strong>Olá, {me.user.displayName.trim() || me.user.login}.</strong>
@@ -257,6 +258,7 @@ export function ChatView({compact=false,initialConversationId}:{compact?:boolean
             </div>
           )}
           {me.ai.configured && <LiveVoice conversationId={conversationId} onAnswer={answer => {
+            onConversation?.();
             setConversationId(answer.conversationId);
             setMessages(previous => [...previous,
               { id: 'voice-' + answer.message.id, role: 'user', content: answer.userText },
@@ -289,7 +291,7 @@ export function ChatView({compact=false,initialConversationId}:{compact?:boolean
             <button className="btn primary" disabled={busy || !input.trim()} aria-label="Enviar mensagem">Enviar</button>
           </form>
         </section>
-        {draft && (
+        {draft && !composerOnly && (
           <section className="canvas-pane" aria-label="Dashboard em edição">
             <div className="dash-head">
               <div className="grow">

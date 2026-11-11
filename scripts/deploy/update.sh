@@ -35,6 +35,8 @@ rollback(){
     echo 'Falha: restaurando versão anterior. Backup preservado; nenhuma tabela será apagada.'
     ln -sfn "$PREVIOUS" "$BASE/current.new"
     mv -Tf "$BASE/current.new" "$BASE/current"
+    if [[ -f "$BACKUP/configuracao/ada.env" ]]; then cp -a "$BACKUP/configuracao/ada.env" /etc/ada/ada.env; fi
+    if [[ -f "$BACKUP/possebon-assistant-global.js" ]]; then cp -a "$BACKUP/possebon-assistant-global.js" /var/www/html/possebon_app/possebon-assistant-global.js; fi
     systemctl restart ada-api ada-worker || true
   fi
   echo "Atualização não concluída. Release: $REL; backup (se criado): $BACKUP"
@@ -85,6 +87,13 @@ else
   env -u DATABASE_URL ADA_ROOT="$REL" ADA_ENV=production ADA_DB_DRIVER=pg node --env-file="$MIGRATE_ENV" apps/api/dist/migrate.mjs up
 fi
 env -u DATABASE_URL node --env-file="$MIGRATE_ENV" scripts/deploy/release-data.mjs verify "$BACKUP/dados-antes.json"
+if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 ]]; then
+  test -f /var/www/html/possebon_app/possebon-assistant-global.js
+  node --check integration/possebon-web/public/possebon-assistant-global.js
+  cp -a /var/www/html/possebon_app/possebon-assistant-global.js "$BACKUP/possebon-assistant-global.js"
+  node scripts/deploy/unlimited-conversations.mjs /etc/ada/ada.env
+  cat integration/possebon-web/public/possebon-assistant-global.js > /var/www/html/possebon_app/possebon-assistant-global.js
+fi
 ln -s "$REL" "$BASE/current.new"
 mv -Tf "$BASE/current.new" "$BASE/current"
 systemctl start ada-api ada-worker

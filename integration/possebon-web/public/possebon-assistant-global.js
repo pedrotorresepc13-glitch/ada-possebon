@@ -23,6 +23,7 @@
     generation++;
     clearTimeout(timeout);
     host?.remove();
+    dashboardView?.remove();
     identity = host = root = frame = launcher = panel = status = retry = title = undefined;
     opened = connecting = ready = false;
     context = null;
@@ -38,6 +39,28 @@
     });
     host.hidden = fullPanel;
     if (fullPanel && opened) close();
+  }
+  let dashboardView;
+  function openDashboard(path = '') {
+    const container = document.getElementById('adianti_div_content');
+    if (!container) { showError('A área principal do sistema não está disponível nesta página.'); return; }
+    if (path && !/^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) return;
+    dashboardView?.remove();
+    dashboardView = document.createElement('section');
+    dashboardView.dataset.possebonPersonalDashboard = 'true';
+    const style = document.createElement('style');
+    style.textContent = '#adianti_div_content:has(> [data-possebon-personal-dashboard]) > :not([data-possebon-personal-dashboard]){display:none!important}';
+    const back = document.createElement('button');
+    back.className = 'btn btn-default'; back.textContent = 'Fechar Dashboard';
+    back.onclick = () => dashboardView?.remove();
+    const dashboard = document.createElement('iframe');
+    dashboard.title = 'Dashboard da Posso';
+    const url = new URL('painel-pessoal', base);
+    if (path) url.searchParams.set('view', path);
+    dashboard.src = url.href;
+    dashboard.style.cssText = 'display:block;width:100%;height:calc(100vh - 180px);min-height:400px;border:0';
+    dashboardView.append(style, back, dashboard); container.prepend(dashboardView);
+    close();
   }
   function showPanel(name) {
     if (ready) frame?.contentWindow?.postMessage({type:'possebon:show-panel',panel:name}, location.origin);
@@ -193,7 +216,7 @@
       expand.before(button);
     };
     addAction('Acompanhamentos', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', () => showPanel('monitors'));
-    addAction('Dashboard', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg>', () => showPanel('dashboard'));
+    addAction('Dashboard', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg>', () => openDashboard());
     bell.addEventListener('click', () => showPanel('notifications'));
     expand.addEventListener('click', () => { const expanded = panel.classList.toggle('expanded'); expand.setAttribute('aria-pressed', String(expanded)); expand.setAttribute('aria-label', expanded ? 'Reduzir conversa' : 'Expandir conversa'); expand.title = expanded ? 'Reduzir conversa' : 'Expandir conversa'; });
     title = root.querySelector('strong');
@@ -217,6 +240,7 @@
       status.hidden = true; retry.hidden = true; frame.hidden = false;
       sendContext(); if (opened) frame.focus();
     }
+    if (event.data?.type === 'possebon:open-dashboard') openDashboard(event.data.path || '');
     if (event.data?.type === 'possebon:session-expired') showError('Sua sessão mudou ou expirou. Conecte novamente para continuar a conversa.');
     if (event.data?.type === 'possebon:close') close();
   });
@@ -225,7 +249,7 @@
   new MutationObserver(() => {
     clearTimeout(observed);
     observed = setTimeout(() => {
-      if (previousUrl !== location.href) { previousUrl = location.href; updateContext(contextFromPage()); refresh(); }
+      if (previousUrl !== location.href) { previousUrl = location.href; dashboardView?.remove(); updateContext(contextFromPage()); refresh(); }
       suppressDuplicate();
     }, 150);
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'name'] });

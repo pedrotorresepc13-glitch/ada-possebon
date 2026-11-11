@@ -25,8 +25,10 @@ export function CompactChat() {
   const navigate = (path: string) => {
     if (path === '/acompanhamentos') setPanel('monitors');
     else if (path === '/notificacoes') setPanel('notifications');
-    else if (path === '/dashboards') setPanel('dashboard');
-    else if (/^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) setPanel(path);
+    else if (path === '/dashboards' || /^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) {
+      if (window.parent !== window) window.parent.postMessage({type:'possebon:open-dashboard',path:path === '/dashboards' ? '' : path}, location.origin);
+      else setPanel(path === '/dashboards' ? 'dashboard' : path);
+    }
   };
 
   let content;
@@ -42,7 +44,7 @@ export function CompactChat() {
         <button className="btn sm personal-panel-close" onClick={() => setPanel(null)}>Voltar à conversa</button>
         {content}
       </section>}
-      <ChatView compact />
+      <ChatView compact composerOnly={!!content} onConversation={() => setPanel(null)} />
     </div>
   </Ctx.Provider>;
 }

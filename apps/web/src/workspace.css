@@ -48,3 +48,7 @@
 .compact-actions {flex-shrink:0}
 .compact-actions .btn {padding:5px}
 @media(max-width:760px){.compact-window.expanded {width:calc(100vw - 24px);height:calc(100dvh - 100px)}}
+
+.personal-experience .personal-side-panel { flex: 1; min-height: 0; max-height: none; }
+.compact-app .chat-layout.composer-only { flex: 0 0 auto !important; height: auto; }
+.composer-only .messages[hidden] { display: none; }

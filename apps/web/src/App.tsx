@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { api, apiUrl, onUnauthenticated, reconnectPossebon, setCsrf, setSessionContext, type Me } from './api.ts';
 import { Ctx, useRoute } from './app-context.ts';
 import { ChatView } from './views/Chat.tsx';
+import { EmbeddedDashboard } from './views/EmbeddedDashboard.tsx';
 import { CompactChat } from './views/CompactChat.tsx';
 import { ConversationsView } from './views/Conversations.tsx';
 import { DashboardsView, DashboardView } from './views/Dashboards.tsx';
@@ -185,6 +186,7 @@ function AppContent() {
   const dashMatch = /^\/dashboards\/([0-9a-f-]{36})$/.exec(path);
   const liveMatch = /^\/telas\/([0-9a-f-]{36})$/.exec(path);
   const compact=path==='/compacto';
+  const embeddedDashboard=path==='/painel-pessoal';
   const hasConversation=new URLSearchParams(window.location.search).has('c')||new URLSearchParams(window.location.search).has('nova')||new URLSearchParams(window.location.search).has('dashboard');
   if(compact)view=<CompactChat key={me.user.systemUserId+':'+me.activeUnit.id}/>;
   else if(path==='/inicio'||((path==='/'||path==='')&&!hasConversation))view=<WorkspaceView key={me.user.systemUserId+':'+me.activeUnit.id}/>;
@@ -203,7 +205,7 @@ function AppContent() {
 
   return (
     <Ctx.Provider value={{ me, theme, setTheme, navigate: go, unread, refreshUnread, setMe }}>
-      {!me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : compact?view:<>
+      {!me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : embeddedDashboard?<EmbeddedDashboard />:compact?view:<>
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">

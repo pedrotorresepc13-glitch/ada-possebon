@@ -55,7 +55,8 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
 
   const navigate = (path: string) => {
     if (path.startsWith('/telas') || path.startsWith('/dashboards')) {
-      setPanel('dashboard');
+      if (compact && window.parent !== window) window.parent.postMessage({type:'possebon:open-dashboard',path}, location.origin);
+      else setPanel('dashboard');
     } else if (path === '/acompanhamentos') setPanel('monitors');
     else if (path === '/notificacoes') setPanel('notifications');
   };
@@ -68,7 +69,7 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
         {panel === 'monitors' ? <MonitorsView /> : panel === 'notifications' ? <NotificationsView /> : assets?.liveBoardId ? <LiveBoardDetail id={assets.liveBoardId} personal /> : <div className="empty" role="status">Preparando seu Dashboard.</div>}
       </section>}
       {compact ? (assets?.conversationId
-        ? <ChatView compact initialConversationId={assets.conversationId} />
+        ? <ChatView compact initialConversationId={assets.conversationId} composerOnly={!!panel} onConversation={() => setPanel(null)} />
         : <div className="empty" role="status">Preparando sua conversa.</div>)
         : (assets?.liveBoardId
           ? <LiveBoardDetail id={assets.liveBoardId} personal />

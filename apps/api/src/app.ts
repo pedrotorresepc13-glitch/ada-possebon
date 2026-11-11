@@ -176,13 +176,13 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
     const now = Date.now();
     const recent = (voiceStarts.get(ctx.systemUserId) ?? []).filter(t => now - t < 60_000);
-    if (recent.length >= 3) throw new HttpError(429, 'RATE_LIMITED', 'Aguarde um minuto antes de iniciar outra conversa por voz.');
+    if (config.ai.chatPerMinute > 0 && recent.length >= config.ai.chatPerMinute) throw new HttpError(429, 'RATE_LIMITED', 'Aguarde um minuto antes de iniciar outra conversa por voz.');
     const usage = await d.db.query<{ used: string }>(
       `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)::text AS used FROM ada.ai_usage
        WHERE user_id=$1 AND created_at >= date_trunc('month', now())`,
       [ctx.systemUserId]
     );
-    if (Number(usage.rows[0]?.used ?? 0) >= config.ai.monthlyTokensPerUser) {
+    if (config.ai.monthlyTokensPerUser > 0 && Number(usage.rows[0]?.used ?? 0) >= config.ai.monthlyTokensPerUser) {
       throw new HttpError(429, 'RATE_LIMITED', 'Cota mensal de tokens atingida.');
     }
     recent.push(now);
