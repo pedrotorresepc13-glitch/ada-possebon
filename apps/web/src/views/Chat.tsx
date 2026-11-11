@@ -83,13 +83,13 @@ function WatchProposal({proposal}:{proposal:{input:unknown;summary:string}}){
   return <div className="proposal"><strong>Acompanhar este registro</strong><p>{proposal.summary}</p>{state==='done'?<p role="status">Acompanhamento ativo. Você receberá uma notificação quando houver mudança confirmada.</p>:<button className="btn primary sm" disabled={state==='saving'} onClick={()=>{setState('saving');void api('/watches',{body:proposal.input}).then(()=>setState('done')).catch(e=>{setError((e as Error).message);setState('idle');});}}>Confirmar e acompanhar</button>}{error&&<p role="alert">{error}</p>}</div>;
 }
 
-export function ChatView({compact=false,initialConversationId,composerOnly=false,onConversation}:{compact?:boolean;initialConversationId?:string;composerOnly?:boolean;onConversation?:()=>void}) {
+export function ChatView({compact=false,initialConversationId,composerOnly=false,onConversation,adminEmbedded=false}:{compact?:boolean;initialConversationId?:string;composerOnly?:boolean;onConversation?:()=>void;adminEmbedded?:boolean}) {
   const { name } = useBranding();
   const { me, theme, navigate } = useApp();
   const params = new URLSearchParams(window.location.search);
   const storageKey='possebon:conversation:'+me.user.systemUserId+':'+me.activeUnit.id;
   const stored=()=>{try{return sessionStorage.getItem(storageKey)??undefined;}catch{return undefined;}};
-  const [conversationId, setConversationId] = useState<string | undefined>(()=>initialConversationId??params.get('c')??(compact?stored():undefined));
+  const [conversationId, setConversationId] = useState<string | undefined>(()=>initialConversationId??params.get('c')??((compact||adminEmbedded)?stored():undefined));
   const [pageContext,setPageContext]=useState<{module:string;table?:string;recordId?:number}>();
   const [pendingDashboardId, setPendingDashboardId] = useState<string | undefined>(params.get('dashboard') ?? undefined);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -186,7 +186,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
       const r = await api<{ conversationId: string; message: Msg }>('/chat', { body: { message, conversationId, dashboardId: conversationId ? undefined : pendingDashboardId,pageContext } });
       if (!conversationId) {
         setConversationId(r.conversationId);
-        window.history.replaceState(null, '', `${window.location.pathname}?c=${r.conversationId}`);
+        if (!adminEmbedded) window.history.replaceState(null, '', `${window.location.pathname}?c=${r.conversationId}`);
       }
       if(!compact)window.dispatchEvent(new CustomEvent('possebon:conversation-updated',{detail:{id:r.conversationId}}));
       setPendingDashboardId(undefined);
@@ -208,7 +208,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
 
   return (
     <>
-      {!compact&&<header className="topbar">
+      {!compact&&!adminEmbedded&&<header className="topbar">
         <h1 className="grow" style={{ paddingLeft: 36 }}>Conversa com a {name}</h1>
         <span className="badge">{me.ai.configured ? `IA: ${me.ai.provider}` : 'Interpretador determinístico (sem IA)'}</span>
       </header>}
@@ -255,7 +255,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
             {err && <div className="error-box" role="alert">{err}</div>}
             <div ref={endRef} />
           </div>
-          {!compact && messages.length === 0 && (
+          {!compact && !adminEmbedded && messages.length === 0 && (
             <div className="suggestions" aria-label="Sugestões">
               {SUGGESTIONS.map((s) => (
                 <button key={s} className="chip" onClick={() => void send(s)}>{s}</button>
