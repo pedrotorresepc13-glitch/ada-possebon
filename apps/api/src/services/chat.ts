@@ -31,6 +31,7 @@ import { searchCorporateGraph } from './corporate-brain.ts';
 import { LiveBoardSpec, OperationalPlan } from './operational-query.ts';
 import type { KnowledgeHit } from './knowledge.ts';
 import type { BrainHit } from './brain.ts';
+import { MyImportCatalogService } from './myimport-catalog.ts';
 import type { Preview } from './monitors.ts';
 import { WatchInput } from './operational-watches.ts';
 import { operationalChangeEvidence } from './possebon-outbox.ts';
@@ -305,6 +306,7 @@ export class ChatService {
       {name:'consultar_significado_codigo',description:'Consulta definição aprovada de um código POR tabela/campo na unidade atual. Use para status G e outros códigos desconhecidos. Se ausente, consulte o domínio relacionado ou documentação; não deduza significado pela letra.',parameters:js(z.object({tabela:z.string().max(63),campo:z.string().max(63),codigo:z.string().max(50)}).strict())},
       {name:'investigar_codigo_possebon',description:'Pesquisa um código desconhecido (ex.: G) nos formulários do POSSEBON Web indexados na unidade atual, mesmo sem conhecer tabela e campo. Apresenta correspondências verificadas; se apenas uma, memoriza o significado confirmado automaticamente. Não deduz a tradução por letra nem expõe arquivos.',parameters:js(z.object({codigo:z.string().min(1).max(12),contexto:z.string().max(120).optional()}).strict())},
       { name: 'buscar_catalogo', description: 'Lista métricas, dimensões e fontes monitoráveis que o usuário PODE usar. Use antes de propor dashboards, consultas ou monitores.', parameters: js(z.object({ texto: z.string().optional() })) },
+       { name: 'listar_integracoes_pconnect', description: 'Consulta diretamente o PConnect local para listar modelos de integração autorizados da unidade atual, estados, origens e versões. Somente administradores; não revela credenciais e não depende do MAD Builder.', parameters: js(z.object({}).strict()) },
       {
         name: 'consultar_metrica',
         description: 'Consulta valores atuais de UMA métrica catalogada, com permissões do usuário. Retorna dados e proveniência.',
@@ -410,6 +412,25 @@ export class ChatService {
             : await this.d.liveBoards.create(ctx,args);
           meta.liveBoardId=board.id;
           return {ok:true,id:board.id,titulo:board.title,url:'/telas/'+board.id,nota:'Tela salva, dados atualizados pelo PostgreSQL sem novas chamadas de IA.'};
+        }
+        case 'listar_integracoes_pconnect': {
+          z.object({}).strict().parse(args);
+          if (ctx.identitySource !== 'possebon' || !ctx.roles.includes('admin')) {
+            throw new HttpError(403, 'FORBIDDEN', 'Catálogo técnico do PConnect restrito à administração POSSEBON.');
+          }
+          const catalog = await new MyImportCatalogService(this.d.config.myImport).list(ctx.activeUnitId);
+          return {
+            origem: 'PConnect local (SQLite)',
+            unidade: catalog.unitId,
+            atualizadoEm: catalog.generatedAt,
+            quantidade: catalog.count,
+            integracoes: catalog.models.map(m => ({
+              id: m.id, nome: m.name, habilitada: m.enabled,
+              estado: m.state, origem: m.sourceKind, processo: m.processHandler,
+              sistema: m.systemModel, versao: m.version,
+              mapeamentos: m.mappingCount, atualizadoEm: m.updatedAt
+            }))
+          };
         }
         case 'buscar_catalogo': {
           const enabled = await this.d.catalog.enabledSourceIds();
@@ -542,7 +563,7 @@ export class ChatService {
     // Mensagens normais sempre recebem o catálogo completo, independentemente do perfil.
     const readTools = new Set([
       'conhecer_sistema','consultar_base_corporativa','consultar_significado_codigo','investigar_codigo_possebon',
-      'buscar_catalogo','consultar_metrica','verificar_acesso_tabela','explorar_tabelas',
+      'buscar_catalogo','listar_integracoes_pconnect','consultar_metrica','verificar_acesso_tabela','explorar_tabelas',
       'consultar_banco','consultar_cerebro','ver_cobertura_cerebro',
       'buscar_conhecimento','listar_conhecimento','ler_tela_pessoal',
       'diagnosticar_posso','ver_mudancas_operacionais','listar_acompanhamentos_registros',
