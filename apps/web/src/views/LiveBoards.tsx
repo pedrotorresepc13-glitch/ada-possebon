@@ -107,7 +107,6 @@ export function LiveBoardsList(){
   </>;
 }
 export function LiveBoardDetail({id,personal=false}:{id:string;personal?:boolean}){
-  const {navigate}=useApp();
   const [d,setD]=useState<Data|null>(null);
   const [err,setErr]=useState('');
   const [updating,setUpdating]=useState(false);
