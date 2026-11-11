@@ -1,8 +1,9 @@
 import type { AuthContext } from '@ada/contracts';
 import type { Deps } from '../core.ts';
 import { LiveBoardSpec } from './operational-query.ts';
+import { z } from 'zod';
 import { notFound } from '../errors.ts';
-import { forbidden } from '../errors.ts';
+import { forbidden, invalid } from '../errors.ts';
 import { buildAuthContext } from '../identity.ts';
 import { audit } from '../audit.ts';
 
@@ -99,6 +100,38 @@ export class OperationalBoardService {
       await q.query('UPDATE ada.operational_board SET spec=$2,updated_at=now() WHERE id=$1',[id,validated]);
     });
     return this.get(ctx,id);
+  }
+
+  /** Alteração localizada: nunca apaga os outros painéis quando a conversa pede inclusão ou edição. */
+  async editPersonal(ctx:AuthContext,raw:unknown) {
+    const input=z.object({operations:z.array(z.object({
+      action:z.enum(['add','replace','remove']),
+      targetTitle:z.string().trim().min(1).max(120),
+      panel:LiveBoardSpec.shape.panels.element.optional()
+    }).strict()).min(1).max(8)}).strict().parse(raw);
+    const {liveBoardId}=await this.d.workspace.personalAssets(ctx);
+    if(!liveBoardId)throw invalid('Dashboard pessoal ainda não disponível.');
+    const board=await this.get(ctx,liveBoardId);
+    const current=LiveBoardSpec.parse(board.spec);
+    const next=structuredClone(current);
+    for(const op of input.operations){
+      const index=next.panels.findIndex(p=>p.title.toLocaleLowerCase('pt-BR')===op.targetTitle.toLocaleLowerCase('pt-BR'));
+      if(op.action==='remove') {
+        if(index<0)throw invalid('Não localizei o painel "'+op.targetTitle+'".');
+        next.panels.splice(index,1);
+      }else if(op.action==='replace'){
+        if(!op.panel)throw invalid('Informe a nova definição do painel "'+op.targetTitle+'".');
+        if(index<0)throw invalid('Não localizei o painel "'+op.targetTitle+'".');
+        next.panels[index]=op.panel;
+      }else{
+        if(!op.panel)throw invalid('Informe o painel que deseja incluir.');
+        if(index>=0 || next.panels.some(p=>p.title.toLocaleLowerCase('pt-BR')===op.panel!.title.toLocaleLowerCase('pt-BR')))
+          throw invalid('Já existe painel com esse título. Use replace para alterar sem duplicar.');
+        next.panels.push(op.panel);
+      }
+    }
+    const saved=await this.replace(ctx,liveBoardId,LiveBoardSpec.parse(next));
+    return {ok:true,id:saved.id,title:saved.title,panels:next.panels.length,url:'/painel-pessoal'};
   }
 
   async share(ctx:AuthContext,id:string,targetUserId:number) {
