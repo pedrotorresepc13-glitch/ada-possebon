@@ -353,6 +353,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('GET','/institutional-study','user',(_req,_r,ctx)=>d.institutionalStudy.status(ctx));
   route('POST','/institutional-study/control','admin',(req,_r,ctx)=>d.institutionalStudy.control(ctx,z.object({action:z.enum(['continue','pause'])}).strict().parse(body(req)).action));
   route('GET','/workspace','user',(_req,_r,ctx)=>d.workspace.status(ctx));
+  route('GET','/workspace/personal-dashboard','user',async(_req,_r,ctx)=>{const assets=await d.workspace.personalAssets(ctx);return {dashboardId:assets.liveBoardId,conversationId:assets.conversationId};});
   route('POST','/workspace/retry','user',(req,_r,ctx)=>d.workspace.retry(ctx,z.object({restart:z.boolean().default(false)}).strict().parse(body(req)).restart));
   route('GET','/admin/operational-access','admin',()=>d.operationalAccess.read());
   route('PUT','/admin/operational-access','admin',(req,_r,ctx)=>d.operationalAccess.save(ctx,body(req)));
