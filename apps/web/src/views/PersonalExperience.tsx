@@ -28,6 +28,7 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'possebon:show-panel') return;
       const next = event.data.panel;
+      if (next === 'chat') { setPanel(null); return; }
       if (next === 'dashboard' && window.parent !== window) {
         setPanel(null);
         window.parent.postMessage({type:'possebon:open-dashboard',path:''}, location.origin);
@@ -70,7 +71,6 @@ export function PersonalExperience({ compact }: { compact: boolean }) {
     <div className="compact-app personal-experience">
       {error && <div className="error-box" role="alert">{error}</div>}
       {compact && panel && <section className="personal-side-panel" aria-label={panel === 'monitors' ? 'Acompanhamentos' : panel === 'notifications' ? 'Notificações' : 'Meu Dashboard'}>
-        <button className="btn sm personal-panel-close" onClick={() => setPanel(null)}>Fechar</button>
         {panel === 'monitors' ? <MonitorsView /> : panel === 'notifications' ? <NotificationsView /> : assets?.liveBoardId ? <LiveBoardDetail id={assets.liveBoardId} personal /> : <div className="empty" role="status">Preparando seu Dashboard.</div>}
       </section>}
       {compact ? (assets?.conversationId
