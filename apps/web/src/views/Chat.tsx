@@ -3,7 +3,6 @@ import { VoiceDictation } from '../components/VoiceDictation.tsx';
 import { useBranding } from '../branding.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DashboardSpec, RuleDefinition, WidgetData } from '@ada/contracts';
-import { formatDateTime } from '@ada/domain/format';
 import { api, ApiError } from '../api.ts';
 import { useApp } from '../app-context.ts';
 import { DashboardCanvas } from '../components/DashboardCanvas.tsx';
@@ -231,24 +230,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
                 {m.metadata?.investigation && m.id === messages.at(-1)?.id &&
                   <button className="btn sm" disabled={busy} onClick={() => void send('Continuar investigação')}>Continuar investigação</button>}
                 {m.metadata?.operationalWatchProposal&&<WatchProposal proposal={m.metadata.operationalWatchProposal}/>}
-                {!!m.metadata?.operationalEvidence?.length&&<details className="query-details"><summary>Detalhes da consulta</summary>{m.metadata.operationalEvidence.map((e,i)=><p key={i}>{e.source} · Unidade {e.unitId} · {formatDateTime(e.queriedAt)}</p>)}</details>}
                 {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>{me.isAdmin ? 'Abrir tela viva' : 'Abrir meu Dashboard'}</button></div>}
-                {m.metadata?.knowledge && m.metadata.knowledge.length > 0 && (
-                  <ol className="citations" aria-label="Fontes consultadas">
-                    {m.metadata.knowledge.slice(0, 5).map((k, i) => (
-                      <li key={i}>
-                        {k.uri ? <a href={k.uri} target="_blank" rel="noopener noreferrer">{k.title}</a> : k.title} — {k.source} · observado em {formatDateTime(k.observedAt)}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                {m.role === 'assistant' && (
-                  <div className="msg-meta">
-                    <span>{name}</span>
-                    {m.createdAt && <span>{formatDateTime(m.createdAt)}</span>}
-                    {m.metadata?.notes?.filter((n) => n.length > 25 && !m.content.includes(n)).map((n) => <span key={n}>· {n}</span>)}
-                  </div>
-                )}
               </div>
             ))}
             {busy && <div className="msg assistant" aria-label={`${name} está respondendo`}><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
