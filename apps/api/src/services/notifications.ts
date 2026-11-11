@@ -43,12 +43,6 @@ export const SendNotificationInput = z.object({
   message: 'Informe apenas o login/nome ou o ID do destinatário.'
 });
 
-interface Recipient {
-  systemUserId: number;
-  login: string;
-  displayName: string;
-}
-
 /** Central de notificações persistida. Escopo: destinatário + unidade ativa. */
 export class NotificationService {
   constructor(private readonly d: Deps) {}
