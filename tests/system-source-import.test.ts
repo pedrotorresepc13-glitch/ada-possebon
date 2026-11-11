@@ -59,6 +59,8 @@ it('importa base privada idempotente e códigos comprovados, reconhece RDO pelo 
    .toMatchObject({known:true,definition:{label:'Grupo correto',origin:'source_pack'}});
  expect(await h.d.businessDictionary.resolve(user,'pedido','status','G'))
    .toMatchObject({known:true,definition:{label:'Grupo correto'}});
+ expect(await h.d.businessDictionary.findCode(user,'G','pedido'))
+   .toMatchObject({found:true,matches:[{table:'pedido',column:'status',code:'G',label:'Grupo correto'}]});
  expect(await h.d.businessDictionary.discover(user,'pedido','status','X'))
    .toMatchObject({known:false,investigated:true});
  const sourceRow=await h.d.db.query<{id:string}>("SELECT id FROM ada.knowledge_source WHERE config->>'bootstrap_key'='system_source_pack:1'");
