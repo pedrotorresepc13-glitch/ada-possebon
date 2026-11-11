@@ -215,6 +215,7 @@
       button.addEventListener('click', onClick);
       expand.before(button);
     };
+    addAction('Conversa', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/></svg>', () => showPanel('chat'));
     addAction('Acompanhamentos', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', () => showPanel('monitors'));
     addAction('Dashboard', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg>', () => openDashboard());
     bell.addEventListener('click', () => showPanel('notifications'));
