@@ -25,21 +25,25 @@ interface SpeechBrowser extends Window {
 }
 
 /** Ditado no campo: não abre sessão Live nem envia a mensagem automaticamente. */
-export function VoiceDictation({ value, onChange }: { value: string; onChange: (text: string) => void }) {
+export function VoiceDictation({ value, onChange, disabled = false, onListeningChange }: { value: string; onChange: (text: string) => void; disabled?: boolean; onListeningChange?: (listening: boolean) => void }) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const recognition = useRef<SpeechRecognizer | null>(null);
 
+  useEffect(() => { onListeningChange?.(listening); }, [listening, onListeningChange]);
+  useEffect(() => { if (disabled) recognition.current?.stop(); }, [disabled]);
   useEffect(() => () => {
+    onListeningChange?.(false);
     if (recognition.current) {
       recognition.current.onresult = null;
       recognition.current.onerror = null;
       recognition.current.onend = null;
       recognition.current.abort();
     }
-  }, []);
+  }, [onListeningChange]);
 
   function toggle() {
+    if (disabled) return;
     if (recognition.current) {
       recognition.current.stop();
       return;
@@ -92,7 +96,7 @@ export function VoiceDictation({ value, onChange }: { value: string; onChange: (
   return <>
     <button type="button" className={listening ? 'composer-mic listening' : 'composer-mic'}
       aria-label={listening ? 'Parar ditado' : 'Ditar mensagem'}
-      aria-pressed={listening} title={listening ? 'Parar ditado' : 'Ditar mensagem por voz'}
+      aria-pressed={listening} disabled={disabled} title={disabled ? 'Encerre a conversa por voz para ditar' : listening ? 'Parar ditado' : 'Ditar mensagem por voz'}
       onClick={toggle}>
       <Icon name="mic" size={20} />
     </button>
