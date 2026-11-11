@@ -1,16 +1,27 @@
-import { useState } from 'react';
-import { Ctx, useApp } from '../app-context.ts';
-import { DashboardView, DashboardsView } from './Dashboards.tsx';
-import { LiveBoardDetail, LiveBoardsList } from './LiveBoards.tsx';
+import { useEffect, useState } from 'react';
+import { api } from '../api.ts';
+import { LiveBoardDetail } from './LiveBoards.tsx';
+
+/** O POSSO tem um dashboard pessoal por usuário/unidade, atualizado pela conversa. */
+export function PersonalDashboard() {
+  const [dashboardId, setDashboardId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let mounted = true;
+    void api<{dashboardId:string|null}>('/workspace/personal-dashboard')
+      .then(result => {
+        if (!mounted) return;
+        setDashboardId(result.dashboardId);
+        setError(result.dashboardId ? '' : 'Dashboard ainda não disponível.');
+      })
+      .catch(err => { if (mounted) setError((err as Error).message); });
+    return () => { mounted = false; };
+  }, []);
+  if (error) return <div className="content"><div role="alert" className="error-box">{error}</div></div>;
+  if (!dashboardId) return <div className="content"><div className="skeleton" style={{height:280}} /></div>;
+  return <LiveBoardDetail id={dashboardId} personal />;
+}
 
 export function EmbeddedDashboard() {
-  const app = useApp();
-  const [path, setPath] = useState(new URLSearchParams(location.search).get('view') || '/dashboards');
-  const match = /^\/(telas|dashboards)\/([0-9a-f-]{36})$/.exec(path);
-  return <Ctx.Provider value={{...app,navigate:setPath}}>
-    <main className="embedded-dashboard">
-      {match ? <><button className="btn sm" onClick={() => setPath('/dashboards')}>Meus dashboards</button>
-        {match[1] === 'telas' ? <LiveBoardDetail id={match[2]!} /> : <DashboardView id={match[2]!} />}</> : path === '/telas' ? <LiveBoardsList /> : <DashboardsView />}
-    </main>
-  </Ctx.Provider>;
+  return <main className="embedded-dashboard" aria-label="Meu Dashboard"><PersonalDashboard /></main>;
 }
