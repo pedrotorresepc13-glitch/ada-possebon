@@ -20,7 +20,7 @@ export function CompactAssistant(){
       if (path && !/^\/(?:telas|dashboards)(?:\/[0-9a-f-]{36})?$/.test(path)) return;
       setOpen(false);
       if(window.parent!==window) window.parent.postMessage({type:'possebon:open-dashboard',path:path||''},location.origin);
-      else navigate(path||'/dashboards');
+      else navigate(path||'/painel-pessoal');
     }
     if(event.data?.type==='possebon:close'){setOpen(false);trigger.current?.focus();}
     if(event.data?.type==='possebon:ready')setReady(true);
