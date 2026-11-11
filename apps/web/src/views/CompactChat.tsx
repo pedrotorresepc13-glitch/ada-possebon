@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Ctx, useApp } from '../app-context.ts';
 import { ChatView } from './Chat.tsx';
-import { DashboardView, DashboardsView } from './Dashboards.tsx';
+import { DashboardView } from './Dashboards.tsx';
+import { PersonalDashboard } from './EmbeddedDashboard.tsx';
 import { LiveBoardDetail } from './LiveBoards.tsx';
 import { MonitorsView } from './Monitors.tsx';
 import { NotificationsView } from './Notifications.tsx';
@@ -40,7 +41,7 @@ export function CompactChat() {
   let content;
   if (panel === 'monitors') content = <MonitorsView />;
   else if (panel === 'notifications') content = <NotificationsView />;
-  else if (panel === 'dashboard') content = <DashboardsView />;
+  else if (panel === 'dashboard') content = <PersonalDashboard />;
   else if (panel?.startsWith('/telas/')) content = <LiveBoardDetail id={panel.slice('/telas/'.length)} />;
   else if (panel?.startsWith('/dashboards/')) content = <DashboardView id={panel.slice('/dashboards/'.length)} />;
 
