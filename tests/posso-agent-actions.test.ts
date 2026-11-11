@@ -31,6 +31,29 @@ describe('POSSO: capacidades disponíveis a todos com execução real', () => {
     } finally { await h.close(); }
   });
 
+  it('a IA executa o envio pelo chat sem entregar apenas uma mensagem pronta', async () => {
+    const h=await setup({ai:{name:'test',model:'test',configured:true,async run(input) {
+      const action=await input.execute('enviar_notificacao_interna',{
+        recipient:'admin.demo',title:'Aviso da obra',message:'Informação enviada pelo POSSO.'
+      }) as {ok:boolean;notificationId:string};
+      return {
+        text:action.ok?'Notificação interna registrada.':'Envio não confirmado.',
+        usage:{input:1,output:1},toolCalls:[{name:'enviar_notificacao_interna',ok:action.ok}],steps:1
+      };
+    }}});
+    try {
+      const recipient=await h.login('admin.demo',1);
+      await h.login('colab.a',1);
+      const ctx=await h.d.sessions.resolveContext(9004,1,'tool-call-test');
+      const answer=await h.d.chat.handle(ctx,{message:'Envie uma notificação interna ao usuário admin.demo com esse aviso.'});
+      expect(answer.message.content).toContain('Notificação interna registrada');
+      const list=await recipient.get('/notifications');
+      expect(list.json).toEqual(expect.arrayContaining([
+        expect.objectContaining({title:'Aviso da obra',body:'Informação enviada pelo POSSO.'})
+      ]));
+    }finally{await h.close();}
+  });
+
   it('oferece as mesmas ferramentas de execução ao administrador e ao usuário comum', async () => {
     const captured:Record<string,string[]>={};
     const h=await setup({ai:{name:'test',model:'test',configured:true,async run(input){
