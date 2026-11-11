@@ -55,8 +55,14 @@ export class BusinessDictionaryService{
     const k=dictionaryKey(option.table,option.column,code);
     groups.set(k,[...(groups.get(k)??[]),option]);
   }
-  const matches=[...groups.values()].filter(items=>new Set(items.map(i=>i.label)).size===1)
-    .map(items=>items[0]!).sort((a,b)=>{
+  const approved=(await this.read(ctx)).filter(item=>item.code===code)
+    .map(item=>({table:item.table,column:item.column,code,label:item.label}));
+  const approvedKeys=new Set(approved.map(item=>dictionaryKey(item.table,item.column,code)));
+  const matches=[...approved,...[...groups.values()]
+    .filter(items=>new Set(items.map(i=>i.label)).size===1)
+    .map(items=>items[0]!)
+    .filter(item=>!approvedKeys.has(dictionaryKey(item.table,item.column,code)))]
+    .sort((a,b)=>{
       const relevance=(x:typeof a)=>term&&(x.table+' '+x.column+' '+x.label).toLocaleLowerCase('pt-BR').includes(term)?1:0;
       return relevance(b)-relevance(a)||a.table.localeCompare(b.table);
     }).slice(0,30);
