@@ -86,7 +86,6 @@ export function PanelWidget({panel}:{panel:Panel}){
         <table className="data"><thead><tr>{p.columns.map(c=><th key={c}>{p.labels?.[c]??c}</th>)}</tr></thead>
         <tbody>{p.rows.map((r,i)=><tr key={i}>{p.columns.map(c=><td key={c}>{fmt(r[c])}</td>)}</tr>)}</tbody></table>
       </div>:<Graph p={p}/>}
-    {p.provenance&&<div className="widget-foot">Fonte: {p.provenance.source} · {p.provenance.scope==='unit_unverified'?'Vínculo com a unidade ainda não confirmado':p.provenance.scope==='all_units'?'Todas as unidades':`Unidade ${p.provenance.unitId}`} · Consultado em {new Date(p.provenance.queriedAt).toLocaleString('pt-BR')}</div>}
   </section>;
 }
 export function LiveBoardsList(){
@@ -127,14 +126,14 @@ export function LiveBoardDetail({id,personal=false}:{id:string;personal?:boolean
   },[load]);
   return <>
     <header className="topbar">
-      {!personal && <button className="btn ghost sm" onClick={()=>navigate('/telas')}>Voltar</button>}
+
       <h1 className="grow">{personal ? 'Meu Dashboard' : d?.board.title??'Painel POSSEBON'}</h1>
       <button className="btn sm" disabled={updating} onClick={()=>void load()}>{updating?'Atualizando...':'Atualizar agora'}</button>
     </header>
     <div className="content">
       {err&&<div className="error-box" role="alert">{err}</div>}
-      {d?.board.owned&&<BoardSharing id={id}/>}
-      {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')} · Atualizado em {new Date(d.generatedAt).toLocaleString('pt-BR')}</p>
+      {d?.board.owned&&!personal&&<BoardSharing id={id}/>}
+      {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')}</p>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,440px),1fr))',gap:16}}>
           {d.panels.length===0 && <div className="empty">Seu Dashboard está em branco. Peça no chat para adicionar um indicador, gráfico ou tabela.</div>}
           {d.panels.map((p,i)=><PanelWidget key={i} panel={p}/>)}
