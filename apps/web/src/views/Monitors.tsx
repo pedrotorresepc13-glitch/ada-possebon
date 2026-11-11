@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { RuleDefinition } from '@ada/contracts';
 import { formatDateTime } from '@ada/domain/format';
 import { api } from '../api.ts';
-import { useApp } from '../app-context.ts';
 
 interface MonitorRow {
   id: string;
@@ -36,8 +35,8 @@ interface History {
 
 export function MonitorsView() {
   const { name } = useBranding();
-  const { navigate } = useApp();
   const [items, setItems] = useState<MonitorRow[] | null>(null);
+  const [recordWatchCount, setRecordWatchCount] = useState<number | null>(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [history, setHistory] = useState<{ m: MonitorRow; h: History } | null>(null);
@@ -70,18 +69,17 @@ export function MonitorsView() {
   return (
     <>
       <header className="topbar">
-        <h1 className="grow" style={{ paddingLeft: 36 }}>Acompanhamentos</h1>
-        <button className="btn primary sm" onClick={() => navigate('/?nova=' + Date.now())}>Criar pela conversa</button>
+        <h1 className="grow">Acompanhamentos</h1>
       </header>
       <div className="content">
-        <RecordWatches/>
+        <RecordWatches onCountChange={setRecordWatchCount}/>
         <p className="muted small">A IA apenas ajuda a escrever a regra. As verificações são feitas por um motor determinístico, sem IA, e os alertas chegam somente para você.</p>
         {msg && <div className="note-box" role="status" style={{ marginBottom: 10 }}>{msg}</div>}
         {err && <div className="error-box" role="alert" style={{ marginBottom: 10 }}>{err}</div>}
         {!items ? (
           <div className="skeleton" style={{ height: 80 }} />
         ) : items.length === 0 ? (
-          <div className="empty"><strong>Nenhum acompanhamento</strong>Diga na conversa, por exemplo: “monitore a OS 123 e me avise se o prazo mudar ou ficar 48h sem avanço”.</div>
+          recordWatchCount === 0 ? <div className="empty"><strong>Nenhum acompanhamento</strong>Peça ao POSSO para acompanhar uma ocorrência ou mudança de registro.</div> : null
         ) : (
           <ul className="list" style={{ listStyle: 'none', padding: 0 }}>
             {items.map((m) => {
