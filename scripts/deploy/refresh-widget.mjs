@@ -18,7 +18,7 @@ if (mode === 'rollback') {
       if (entry.isDirectory()) visit(file);
       else if (entry.isFile() && /\.html$/.test(entry.name)) {
         const old = fs.readFileSync(file, 'utf8');
-        const next = old.replace(/possebon-assistant-global\.js(?:\?[^"'\s<>]*)?/g, 'possebon-assistant-global.js?v=20261111-dashboard2');
+        const next = old.replace(/possebon-assistant-global\.js(?:\?[^"'\s<>]*)?/g, 'possebon-assistant-global.js?v=20261111-chat1');
         if (old !== next) changes.push({file, next, relative:path.relative(root,file), saved:'widget-layout-' + changes.length + '.html'});
       }
     }
