@@ -1,7 +1,7 @@
 name: ADA POSSEBON — CI
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'posso-*']
   pull_request:
 
 permissions:
