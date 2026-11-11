@@ -99,6 +99,9 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
   const [dataLoading, setDataLoading] = useState(false);
   const [dataErr, setDataErr] = useState('');
   const [input, setInput] = useState('');
+  const [dictationRevision, setDictationRevision] = useState(0);
+  const [dictationActive, setDictationActive] = useState(false);
+  const [liveVoiceActive, setLiveVoiceActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -176,6 +179,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
     setBusy(true);
     setErr('');
     setInput('');
+    setDictationRevision(revision => revision + 1);
     const tmp: Msg = { id: 'tmp-' + Date.now(), role: 'user', content: message };
     setMessages((m) => [...m, tmp]);
     try {
@@ -282,10 +286,10 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
                   }
                 }}
               />
-              <VoiceDictation value={input} onChange={setInput} />
+              <VoiceDictation key={dictationRevision} value={input} onChange={setInput} disabled={liveVoiceActive} onListeningChange={setDictationActive} />
             </div>
             <div className="composer-actions">
-              {me.ai.configured && <LiveVoice conversationId={conversationId} onAnswer={answer => {
+              {me.ai.configured && <LiveVoice conversationId={conversationId} disabled={dictationActive} onActiveChange={setLiveVoiceActive} onAnswer={answer => {
                 onConversation?.();
                 setConversationId(answer.conversationId);
                 setMessages(previous => [...previous,
