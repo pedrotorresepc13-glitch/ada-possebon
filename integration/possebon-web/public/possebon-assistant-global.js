@@ -50,16 +50,13 @@
     dashboardView.dataset.possebonPersonalDashboard = 'true';
     const style = document.createElement('style');
     style.textContent = '#adianti_div_content:has(> [data-possebon-personal-dashboard]) > :not([data-possebon-personal-dashboard]){display:none!important}';
-    const back = document.createElement('button');
-    back.className = 'btn btn-default'; back.textContent = 'Fechar Dashboard';
-    back.onclick = () => dashboardView?.remove();
     const dashboard = document.createElement('iframe');
     dashboard.title = 'Dashboard da Posso';
     const url = new URL('painel-pessoal', base);
     if (path && path !== '/dashboards') url.searchParams.set('view', path);
     dashboard.src = url.href;
     dashboard.style.cssText = 'display:block;width:100%;height:calc(100vh - 180px);min-height:400px;border:0';
-    dashboardView.append(style, back, dashboard); container.prepend(dashboardView);
+    dashboardView.append(style, dashboard); container.prepend(dashboardView);
     close();
   }
   function showPanel(name) {
