@@ -35,7 +35,7 @@ export class WorkspaceService {
   }
   async personalAssets(ctx:AuthContext) {
     const row = await this.row(ctx);
-    if (ctx.identitySource !== 'possebon' || ctx.roles.includes('admin') || (row?.conversation_id && row.live_board_id)) {
+    if (ctx.identitySource !== 'possebon' || (row?.conversation_id && row.live_board_id)) {
       return { conversationId: row?.conversation_id, liveBoardId: row?.live_board_id };
     }
     const fingerprint = row ? row.permission_fingerprint : await this.fingerprint(ctx);
@@ -59,11 +59,21 @@ export class WorkspaceService {
       }
       let liveBoardId = current.live_board_id;
       if (!liveBoardId) {
-      const spec = LiveBoardSpec.parse({ title:'Meu Dashboard',description:'',panels:[] });
-      const board = await q.query<{id:string}>(
-        'INSERT INTO ada.operational_board(owner_user_id,unit_id,title,spec) VALUES($1,$2,$3,$4) RETURNING id',
-        [ctx.systemUserId,ctx.activeUnitId,spec.title,spec]
-      );
+        // Reutilizar um dashboard anterior após reinício do workspace, sem duplicar nem apagar.
+        const previous = await q.query<{id:string}>(
+          `SELECT id FROM ada.operational_board
+           WHERE owner_user_id=$1 AND unit_id=$2 AND deleted_at IS NULL
+           ORDER BY updated_at DESC,id ASC LIMIT 1`,
+          [ctx.systemUserId,ctx.activeUnitId]
+        );
+        liveBoardId = previous.rows[0]?.id ?? null;
+      }
+      if (!liveBoardId) {
+        const spec = LiveBoardSpec.parse({ title:'Meu Dashboard',description:'',panels:[] });
+        const board = await q.query<{id:string}>(
+          'INSERT INTO ada.operational_board(owner_user_id,unit_id,title,spec) VALUES($1,$2,$3,$4) RETURNING id',
+          [ctx.systemUserId,ctx.activeUnitId,spec.title,spec]
+        );
         liveBoardId = board.rows[0]!.id;
       }
       await q.query('UPDATE ada.personal_workspace SET live_board_id=$3,conversation_id=$4 WHERE owner_user_id=$1 AND unit_id=$2',
