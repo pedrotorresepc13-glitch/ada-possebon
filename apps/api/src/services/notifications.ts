@@ -65,6 +65,22 @@ export class NotificationService {
       if (local.rows.length > 1) throw invalid('Existem vários usuários com esse nome. Indique o login exato ou o ID.');
       id = local.rows[0]?.system_user_id;
       if (!id) {
+        // Busca interna somente do identificador; não depende de autorização para consultar tabelas.
+        // A identidade POSSEBON confirma existência, atividade e vínculo na unidade antes do envio.
+        try {
+          const source = await this.d.catalog.operationalSource(ctx.activeUnitId);
+          const directory = await source.executeRead<{ id: number }>(
+            'SELECT id FROM public.system_users WHERE lower(login)=lower($1) LIMIT 3',
+            [input.recipient]
+          );
+          if (directory.rows.length === 1) id = Number(directory.rows[0]?.id);
+          else if (directory.rows.length > 1) throw invalid('Login ambíguo. Informe o ID do destinatário.');
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('ambíguo')) throw error;
+          // A instalação pode não ter essa fonte; tentar o catálogo da sessão.
+        }
+      }
+      if (!id) {
         try {
           const directory = await this.d.operational.query(ctx, {
             from: 'system_users',
