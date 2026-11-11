@@ -205,7 +205,7 @@ function AppContent() {
 
   return (
     <Ctx.Provider value={{ me, theme, setTheme, navigate: go, unread, refreshUnread, setMe }}>
-      {!me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : embeddedDashboard?<EmbeddedDashboard />:compact?view:<>
+      {embeddedDashboard ? <EmbeddedDashboard /> : !me.isAdmin && !me.demoData ? <PersonalExperience key={me.user.systemUserId+':'+me.activeUnit.id} compact={compact}/> : compact ? view : <>
       <div className="app">
         <nav className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Navegação principal">
           <div className="brand">
