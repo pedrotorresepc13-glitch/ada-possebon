@@ -15,6 +15,7 @@ import { HttpError, invalid } from './errors.ts';
 import { DevIdentityProvider, IdentityUnavailableError } from './identity.ts';
 import { AuthError } from './services/session.ts';
 import { ConnectorStatusInput } from './services/admin.ts';
+import { MyImportCatalogService } from './services/myimport-catalog.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -530,6 +531,9 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   /* ------------------------------------------------------------- administração */
   route('GET', '/admin/health', 'admin', () => d.admin.health());
   route('GET', '/admin/connectors', 'admin', () => d.admin.connectors());
+  // Catalogo local independente do MAD Builder; somente administradores da unidade.
+  route('GET', '/admin/my-import/catalog', 'admin', (_req, _reply, ctx) =>
+    new MyImportCatalogService(config.myImport).list(ctx.activeUnitId));
   route('POST', '/admin/connectors/:id/status', 'admin', (req, _r, ctx) => d.admin.setConnectorStatus(ctx, params(req).id!, ConnectorStatusInput.parse(body(req)).status));
   route('POST', '/admin/connectors/:id/test', 'admin', (req, _r, ctx) => d.admin.testConnector(ctx, params(req).id!));
   route('GET', '/admin/knowledge/sources', 'admin', () => d.knowledge.listSources());
