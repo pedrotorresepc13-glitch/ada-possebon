@@ -21,6 +21,14 @@ describe('contrato de navegação de dashboards no MAD Builder', () => {
     expect(personal).toContain("window.parent.postMessage({type:'possebon:open-dashboard'");
   });
 
+  it('mostra apenas a resposta do POSSO sem fontes, metadados e detalhes de consulta', () => {
+    const chat = read('../apps/web/src/views/Chat.tsx');
+    const live = read('../apps/web/src/views/LiveBoards.tsx');
+    expect(chat).not.toContain('Detalhes da consulta');
+    expect(chat).not.toContain('Fontes consultadas');
+    expect(chat).not.toContain('m.metadata?.notes?.filter');
+    expect(live).not.toContain('Fonte: {p.provenance.source}');
+  });
   it('abre exclusivamente o Dashboard pessoal da sessão e não mostra botões de lista ou fechamento', () => {
     const embedded = read('../apps/web/src/views/EmbeddedDashboard.tsx');
     const widget = read('../integration/possebon-web/public/possebon-assistant-global.js');
