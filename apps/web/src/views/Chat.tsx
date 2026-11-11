@@ -230,7 +230,7 @@ export function ChatView({compact=false,initialConversationId,composerOnly=false
                 {m.metadata?.investigation && m.id === messages.at(-1)?.id &&
                   <button className="btn sm" disabled={busy} onClick={() => void send('Continuar investigação')}>Continuar investigação</button>}
                 {m.metadata?.operationalWatchProposal&&<WatchProposal proposal={m.metadata.operationalWatchProposal}/>}
-                {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>{me.isAdmin ? 'Abrir tela viva' : 'Abrir meu Dashboard'}</button></div>}
+                {m.metadata?.liveBoardId && <div className="row" style={{marginTop:8}}><button className="btn primary sm" onClick={()=>navigate('/telas/'+m.metadata!.liveBoardId)}>Abrir meu Dashboard</button></div>}
               </div>
             ))}
             {busy && <div className="msg assistant" aria-label={`${name} está respondendo`}><span className="skeleton" style={{ display: 'inline-block', width: 120, height: 12 }} /></div>}
