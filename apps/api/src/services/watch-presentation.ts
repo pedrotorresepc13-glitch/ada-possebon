@@ -33,7 +33,7 @@ export function watchDisplay(value: unknown, field = ''): string {
   if (value === null || value === undefined || value === '') return 'não informado';
   if (typeof value === 'boolean') return value ? 'sim' : 'não';
   if (typeof value === 'number') return String(value);
-  const string = String(value).trim();
+  const string = value instanceof Date ? value.toISOString() : String(value).trim();
   if (!string || string === 'null') return 'não informado';
   if (/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?$/.test(string) && dateLabel.test(field)) {
     const date = new Date(string.length === 10 ? string + 'T12:00:00Z' : string);
