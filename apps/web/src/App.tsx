@@ -5,7 +5,7 @@ import { ChatView } from './views/Chat.tsx';
 import { EmbeddedDashboard } from './views/EmbeddedDashboard.tsx';
 import { CompactChat } from './views/CompactChat.tsx';
 import { ConversationsView } from './views/Conversations.tsx';
-import { DashboardsView, DashboardView } from './views/Dashboards.tsx';
+import { DashboardView } from './views/Dashboards.tsx';
 import { MonitorsView } from './views/Monitors.tsx';
 import { NotificationsView } from './views/Notifications.tsx';
 import { MemoryView } from './views/Memory.tsx';
@@ -95,8 +95,7 @@ const NAV = [
   ['/inicio', 'Meu ambiente', 'home'],
   ['/', 'Nova conversa', 'plus'],
   ['/conversas', 'Minhas conversas', 'chat'],
-  ['/dashboards', 'Meus dashboards', 'grid'],
-  ['/telas', 'Telas vivas', 'chart'],
+  ['/painel-pessoal', 'Meu Dashboard', 'grid'],
   ['/acompanhamentos', 'Acompanhamentos', 'clock'],
   ['/notificacoes', 'Notificações', 'bell'],
   ['/memoria', 'Memória e preferências', 'settings'],
@@ -193,7 +192,7 @@ function AppContent() {
   else if (path === '/' || path === '') view = <ChatView key={window.location.search+me.activeUnit.id} />;
   else if (path === '/conversas') view = <ConversationsView />;
   else if (dashMatch) view = <DashboardView id={dashMatch[1]!} />;
-  else if (path === '/dashboards') view = <DashboardsView />;
+  else if (path === '/dashboards') view = <EmbeddedDashboard />;
   else if (liveMatch) view = <LiveBoardDetail id={liveMatch[1]!} />;
   else if (path === '/telas') view = <LiveBoardsList key={me.activeUnit.id}/>;
   else if (path === '/acompanhamentos') view = <MonitorsView />;
