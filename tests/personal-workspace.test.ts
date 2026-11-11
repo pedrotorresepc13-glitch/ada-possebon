@@ -120,6 +120,39 @@ describe('preparação inicial persistente',()=>{
     expect(endpoint.status).toBe(200);
     expect(endpoint.json.dashboardId).toBe(assets.liveBoardId);
   });
+  it('inclui e altera apenas o painel pedido, sem criar outro Dashboard nem apagar os demais',async()=>{
+    const author:AuthContext={...admin,systemUserId:9991};
+    const assets=await h.d.workspace.personalAssets(author);
+    const panelA={title:'Solicitações',type:'table' as const,plan};
+    const panelB={title:'Situação dos pedidos',type:'bar' as const,plan:{
+      from:'pedido',select:[{field:'pedido.id',as:'quantidade',aggregate:'count' as const}],
+      groupBy:['pedido.situacao']
+    }};
+    const first=await h.d.liveBoards.editPersonal(author,{
+      operations:[{action:'add',targetTitle:'Solicitações',panel:panelA}]
+    });
+    expect(first.id).toBe(assets.liveBoardId);
+    await h.d.liveBoards.editPersonal(author,{
+      operations:[{action:'add',targetTitle:'Situação dos pedidos',panel:panelB}]
+    });
+    const replaced={...panelA,title:'Solicitações',plan:{
+      from:'pedido',select:[{field:'pedido.id',as:'identificador'}],
+      where:[{field:'pedido.id',op:'eq',value:1}]
+    }};
+    await h.d.liveBoards.editPersonal(author,{
+      operations:[{action:'replace',targetTitle:'Solicitações',panel:replaced}]
+    });
+    const state=await h.d.liveBoards.get(author,assets.liveBoardId!);
+    const saved=state.spec as {panels:{title:string}[]};
+    expect(saved.panels.map(p=>p.title)).toEqual(['Solicitações','Situação dos pedidos']);
+    await expect(h.d.liveBoards.editPersonal(author,{operations:[
+      {action:'add',targetTitle:'Solicitações',panel:panelA}
+    ]})).rejects.toThrow('Já existe');
+    const n=await h.d.db.query<{count:number}>(
+      'SELECT count(*)::int AS count FROM ada.operational_board WHERE owner_user_id=$1 AND unit_id=$2 AND deleted_at IS NULL',
+      [author.systemUserId,author.activeUnitId]);
+    expect(n.rows[0]?.count).toBe(1);
+  });
   it('migração aditiva preserva registros e configuração existentes',async()=>{
     const db=await createPglite();
     try{await migrateUp(db);await migrateDown(db,2);
