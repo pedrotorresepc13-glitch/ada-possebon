@@ -32,7 +32,9 @@ describe('POSSO compacto: experiência consistente entre conversa e acompanhamen
     const dictation = file('../apps/web/src/components/VoiceDictation.tsx');
     const live = file('../apps/web/src/components/LiveVoice.tsx');
     expect(chat).toContain('rows={3}');
-    expect(chat).toContain('<VoiceDictation value={input} onChange={setInput} />');
+    expect(chat).toContain('<VoiceDictation key={dictationRevision} value={input} onChange={setInput} disabled={liveVoiceActive} onListeningChange={setDictationActive} />');
+    expect(chat).toContain('setDictationRevision(revision => revision + 1)');
+    expect(chat).toContain('disabled={dictationActive} onActiveChange={setLiveVoiceActive}');
     expect(chat.indexOf('<LiveVoice')).toBeGreaterThan(chat.indexOf('className="composer-actions"'));
     expect(chat).toContain('className="btn primary composer-send"');
     expect(dictation).toContain('instance.lang = \'pt-BR\'');
