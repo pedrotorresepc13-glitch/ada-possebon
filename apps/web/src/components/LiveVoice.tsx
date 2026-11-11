@@ -203,22 +203,24 @@ export function LiveVoice({ conversationId, onAnswer }: Props) {
 
   const label = status === 'conectando' ? 'Conectando' : processing ? 'Consultando o POSSEBON' : 'Voz ativa';
 
-  return <section className="voice-control" aria-label="Conversa por voz">
-    {status === 'parado' ? (
-      <button type="button" className="btn sm voice-start" onClick={() => void start()}>
-        <Icon name="spark" size={17} /> Conversar por voz
+  return <div className="voice-control" aria-label="Conversa por voz">
+    <button type="button"
+      className={status === 'parado' ? 'voice-launch' : 'voice-launch active'}
+      title={status === 'parado' ? 'Iniciar conversa por voz' : 'Encerrar conversa por voz'}
+      aria-label={status === 'parado' ? 'Iniciar conversa por voz' : 'Encerrar conversa por voz'}
+      aria-pressed={status !== 'parado'}
+      onClick={() => { if (status === 'parado') void start(); else stop(); }}>
+      <Icon name="voice" size={22} />
+    </button>
+    {status !== 'parado' && <div className="voice-stage voice-popover" data-state={processing ? 'processing' : status}>
+      <div className="voice-orb" aria-hidden="true"><Icon name="voice" size={27} /></div>
+      <strong role="status">{label}</strong>
+      <span className="small">{status === 'ativo' ? 'Fale naturalmente. A conversa fica salva no chat.' : 'Preparando o áudio do navegador.'}</span>
+      {caption && <p className="voice-caption">{caption}</p>}
+      <button type="button" className="btn sm voice-stop" onClick={stop}>
+        {status === 'conectando' ? 'Cancelar' : 'Encerrar voz'}
       </button>
-    ) : (
-      <div className="voice-stage" data-state={processing ? 'processing' : status}>
-        <div className="voice-orb" aria-hidden="true"><Icon name="spark" size={29} /></div>
-        <strong role="status">{label}</strong>
-        <span className="small">{status === 'ativo' ? 'Fale naturalmente. A conversa fica salva no chat.' : 'Preparando o áudio do navegador.'}</span>
-        {caption && <p className="voice-caption">{caption}</p>}
-        <button type="button" className="btn sm voice-stop" onClick={stop}>
-          {status === 'conectando' ? 'Cancelar' : 'Encerrar voz'}
-        </button>
-      </div>
-    )}
-    {error && <div className="error-box" role="alert">{error}</div>}
-  </section>;
+    </div>}
+    {error && <div className="voice-error-popup" role="alert">{error}</div>}
+  </div>;
 }
