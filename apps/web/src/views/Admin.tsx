@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatDateTime } from '@ada/domain/format';
 import { api } from '../api.ts';
 import { useApp } from '../app-context.ts';
+import { ChatView } from './Chat.tsx';
 
 const TABS = [
   ['regras-chat', 'Chat administrativo'],
@@ -448,62 +449,26 @@ function Audit() {
   );
 }
 
-function RulesChat() {
-  const { me } = useApp();
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ request: string; reply: string }[]>([]);
-  const [pending, setPending] = useState<{ message: string; unitId: number }>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const unitId = me.activeUnit.id;
-  const rules = useLoad<{ blockedTables: string[]; style: string }>('/admin/conversation-rules');
-  async function send(message: string, confirm = false) {
-    if (!message.trim() || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      const reply = await api<{ text: string; confirmable: boolean }>('/admin/conversation-rules', {
-        body: { message, confirm, unitId }
-      });
-      setMessages(previous => [...previous, { request: confirm ? 'Confirmar aplicação' : message, reply: reply.text }]);
-      setPending(reply.confirmable ? { message, unitId } : undefined);
-      setInput('');
-      if (confirm) rules.reload();
-    } catch (cause) { setError((cause as Error).message); }
-    finally { setBusy(false); }
-  }
-  return <div className="grid admin-posso"><section className="card">
-    <h2>Conversar com a Posso</h2>
-    <p>Unidade {me.activeUnit.name}. Revise e confirme alterações de acesso e de comportamento.</p>
-    <div className="row" aria-label="Exemplos de comandos">
-      {['Mostre o estado atual', 'Mostre as regras atuais', 'Consulte o inventário do MAD Builder', 'Responda assim: use frases curtas'].map(example =>
-        <button className="btn sm" type="button" key={example} onClick={() => setInput(example)}>{example}</button>)}
-    </div>
-    <div className="admin-posso-log" role="log" aria-label="Conversa administrativa">
-      {messages.map(({ request, reply }, index) => <div key={index}><p><strong>Você</strong> {request}</p><p><strong>Posso</strong> {reply}</p></div>)}
-    </div>
-    {error && <p className="error-box" role="alert">{error}</p>}
-    {pending?.unitId === unitId && <div className="row">
-      <button type="button" className="btn primary" disabled={busy} onClick={() => void send(pending.message, true)}>Aplicar regra</button>
-      <button type="button" className="btn" disabled={busy} onClick={() => setPending(undefined)}>Cancelar</button>
-    </div>}
-    <form className="row" onSubmit={event => { event.preventDefault(); void send(input); }}>
-      <label className="field grow">Mensagem para a Posso
-        <input className="input" maxLength={650} value={input} onChange={event => setInput(event.target.value)} placeholder="Responda assim: use frases curtas" />
-      </label>
-      <button className="btn" disabled={busy || !input.trim()} type="submit">Enviar</button>
-    </form>
-  </section>
-  <div className="grid">
-    <section className="card">
-      <h2>Regras vigentes</h2>
-      {rules.err ? <p role="alert">{rules.err}</p> : rules.data ? <>
-        <p><strong>Estilo de resposta</strong> {rules.data.style || 'Padrão'}</p>
-        <p><strong>Tabelas bloqueadas</strong> {rules.data.blockedTables.join(', ') || 'Nenhuma regra de bloqueio cadastrada.'}</p>
-      </> : <p role="status">Carregando regras da unidade…</p>}
+function AdminAgentChat() {
+  const {me} = useApp();
+  const rules = useLoad<{blockedTables:string[];style:string}>('/admin/conversation-rules');
+  return <div className="grid admin-posso">
+    <section className="card admin-posso-chat">
+      <h2>Conversar com o POSSO</h2>
+      <p className="muted small">Sessão administrativa da unidade {me.activeUnit.name}. Solicite consultas, notificações, acompanhamentos e outras ações. O POSSO usa as ferramentas operacionais reais e confirma o resultado de cada execução.</p>
+      <ChatView adminEmbedded />
     </section>
-    <KnowledgeCoverage />
-  </div></div>;
+    <div className="grid">
+      <section className="card">
+        <h2>Preferências da conversa</h2>
+        <p className="muted small">Orientações de apresentação. A capacidade de executar tarefas é a mesma do chat principal; a identidade e o escopo vêm do POSSEBON.</p>
+        {rules.err ? <p role="alert">{rules.err}</p>
+          : rules.data ? <p><strong>Estilo de resposta:</strong> {rules.data.style || 'Padrão'}</p>
+          : <p role="status">Carregando preferências…</p>}
+      </section>
+      <KnowledgeCoverage />
+    </div>
+  </div>;
 }
 
 interface AdminCoverage {
@@ -536,7 +501,7 @@ export default function AdminView() {
   const { name } = useBranding();
   const { me } = useApp();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>('regras-chat');
-  const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, acessos: <OperationalSettings />, 'regras-chat': <RulesChat key={me.activeUnit.id} />, politicas: <Policies />, auditoria: <Audit /> };
+  const panels: Record<string, ReactNode> = { saude: <Health />, identidade: <BrandingSettings />, conhecimento: <Knowledge />, conectores: <Connectors />, email: <Email />, ia: <Ai />, acessos: <OperationalSettings />, 'regras-chat': <AdminAgentChat key={me.activeUnit.id} />, politicas: <Policies />, auditoria: <Audit /> };
   return (
     <>
       <header className="topbar"><h1 className="grow" style={{ paddingLeft: 36 }}>Administração da {name}</h1><span className="badge">Acesso restrito</span></header>
