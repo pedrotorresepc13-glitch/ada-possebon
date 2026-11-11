@@ -44,7 +44,7 @@
   function openDashboard(path = '') {
     const container = document.getElementById('adianti_div_content');
     if (!container) { showError('A área principal do sistema não está disponível nesta página.'); return; }
-    if (path && !/^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) return;
+    if (path && !/^\/(?:telas|dashboards)(?:\/[0-9a-f-]{36})?$/.test(path)) return;
     dashboardView?.remove();
     dashboardView = document.createElement('section');
     dashboardView.dataset.possebonPersonalDashboard = 'true';
@@ -56,7 +56,7 @@
     const dashboard = document.createElement('iframe');
     dashboard.title = 'Dashboard da Posso';
     const url = new URL('painel-pessoal', base);
-    if (path) url.searchParams.set('view', path);
+    if (path && path !== '/dashboards') url.searchParams.set('view', path);
     dashboard.src = url.href;
     dashboard.style.cssText = 'display:block;width:100%;height:calc(100vh - 180px);min-height:400px;border:0';
     dashboardView.append(style, back, dashboard); container.prepend(dashboardView);
