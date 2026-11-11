@@ -47,7 +47,7 @@ describe('POSSO compacto: experiência consistente entre conversa e acompanhamen
   it('renova o widget do MAD Builder sem mexer nas cotas por padrão', () => {
     const refresh = file('../scripts/deploy/refresh-widget.mjs');
     const deploy = file('../scripts/deploy/update.sh');
-    expect(refresh).toContain('possebon-assistant-global.js?v=20261111-chat1');
+    expect(refresh).toContain('possebon-assistant-global.js?v=20261111-dashboard-unico-1');
     expect(deploy).toContain('${POSSO_REFRESH_WIDGET:-0}');
     expect(deploy).toContain('if [[ "${POSSO_REPAIR_PANELS:-0}" == 1 ]]; then');
   });
