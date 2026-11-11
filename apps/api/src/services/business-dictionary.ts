@@ -69,7 +69,7 @@ export class BusinessDictionaryService{
   if(matches.length===1){
     const selected=matches[0]!;
     const learned=await this.discover(ctx,selected.table,selected.column,code);
-    return {code,found:learned.known,definition:learned.known?learned.definition:null,matches,investigated:true};
+    return {code,found:learned.known,definition:'definition' in learned?learned.definition:null,matches,investigated:true};
   }
   return {code,found:matches.length>0,matches,investigated:true,
     note:matches.length>1?'O mesmo código existe em vários campos. Use a tabela e o campo do registro atual para escolher.':
@@ -82,8 +82,8 @@ export class BusinessDictionaryService{
   const known=await this.resolve(ctx,table,column,code);
   if(known.known)return known;
   const prefix=`Definição literal: tabela=${table} campo=${column} código=${code} descrição=`;
-  const rows=await this.d.db.query<{id:string;checksum:string;content:string}>(`
-    SELECT d.id,d.checksum,d.extracted_text AS content FROM ada.knowledge_document d
+  const rows=await this.d.db.query<{id:string;checksum:string;content:string;source_path:string}>(`
+    SELECT d.id,d.checksum,d.extracted_text AS content,d.original_name AS source_path FROM ada.knowledge_document d
     JOIN ada.knowledge_source s ON s.id=d.source_id
     WHERE s.config->>'bootstrap_key'=$1 AND d.unit_id=$2
       AND d.status='indexado' AND s.status='ativo'
@@ -92,12 +92,17 @@ export class BusinessDictionaryService{
     ['system_source_pack:'+ctx.activeUnitId,ctx.activeUnitId,prefix]);
   const found=rows.rows.flatMap(doc=>doc.content.split('\n')
     .filter(line=>line.startsWith(prefix))
-    .map(line=>({documentId:doc.id,checksum:doc.checksum,quote:line,label:line.slice(prefix.length).trim()})))
+    .map(line=>({documentId:doc.id,checksum:doc.checksum,quote:line,label:line.slice(prefix.length).trim(),sourcePath:doc.source_path})))
     .filter(i=>i.label.length>=2&&i.label.length<=120&&!/[<>\r\n]/.test(i.label));
   const labels=[...new Set(found.map(i=>i.label))];
-  if(labels.length!==1)return {known:false,table,column,code,investigated:true,
-    note:labels.length?'O inventário contém descrições diferentes para este código.':'O inventário atual ainda não contém uma definição literal confirmada para este campo.'};
-  const exact=found[0]!;
+  // As telas do modelo principal têm precedência sobre listas/relatórios legados.
+  // Sem modelo primário inequívoco, conflitantes não são aprendidos automaticamente.
+  const modelForm=table.split('_').map(part=>part[0]!.toUpperCase()+part.slice(1)).join('')+'Form.php';
+  const primary=found.filter(item=>item.sourcePath.endsWith('/'+modelForm));
+  const primaryLabels=[...new Set(primary.map(item=>item.label))];
+  const exact=labels.length===1?found[0]:primaryLabels.length===1?primary[0]:undefined;
+  if(!exact)return {known:false,table,column,code,investigated:true,
+    note:labels.length?'O inventário contém descrições diferentes para este código, sem formulário principal inequívoco.':'O inventário atual ainda não contém uma definição literal confirmada para este campo.'};
   const item:Definition={table,column,code,label:exact.label,documentId:exact.documentId,
     checksum:exact.checksum,quote:exact.quote,origin:'source_pack',
     approvedAt:this.d.now().toISOString(),approvedBy:ctx.systemUserId};
