@@ -32,7 +32,7 @@ export function CompactAssistant(){
   useEffect(()=>{const welcome=(event:Event)=>{const id=(event as CustomEvent<{id:string}>).detail?.id;if(!/^[0-9a-f-]{36}$/i.test(id??''))return;setWelcomeId(id);conversation.current=id;setMounted(true);setOpen(true);};
     window.addEventListener('possebon:welcome',welcome);return()=>window.removeEventListener('possebon:welcome',welcome);},[]);
   useEffect(()=>{const updated=(event:Event)=>{const id=(event as CustomEvent<{id:string}>).detail?.id;if(!/^[0-9a-f-]{36}$/i.test(id??''))return;setWelcomeId(id);conversation.current=id;setReady(false);setRevision(r=>r+1);};window.addEventListener('possebon:conversation-updated',updated);return()=>window.removeEventListener('possebon:conversation-updated',updated);},[]);
-  const showPanel = (panel: 'dashboard' | 'monitors' | 'notifications') => {
+  const showPanel = (panel: 'chat' | 'dashboard' | 'monitors' | 'notifications') => {
     frame.current?.contentWindow?.postMessage({type:'possebon:show-panel',panel}, location.origin);
   };
   return <div className="assistant-dock">
@@ -40,6 +40,7 @@ export function CompactAssistant(){
       <header>
         <span className="compact-title"><Icon name="spark" /><strong>{name} - IA Possebon</strong></span>
         <div className="compact-actions">
+          <button className="btn ghost sm" disabled={!ready} title="Conversa" aria-label="Voltar à conversa" onClick={()=>showPanel('chat')}><Icon name="chat" size={17}/></button>
           <button className="btn ghost sm" disabled={!ready} title="Notificações" aria-label={unread ? 'Notificações: '+unread+' não lidas' : 'Notificações'} onClick={()=>showPanel('notifications')}><Icon name="bell" size={17}/>{unread>0&&<span className="count">{unread>99?'99+':unread}</span>}</button>
           <button className="btn ghost sm" disabled={!ready} title="Acompanhamentos" aria-label="Acompanhamentos" onClick={()=>showPanel('monitors')}><Icon name="clock" size={17}/></button>
           <button className="btn ghost sm" disabled={!ready} title="Dashboard" aria-label="Dashboard" onClick={()=>showPanel('dashboard')}><Icon name="chart" size={17}/></button>
