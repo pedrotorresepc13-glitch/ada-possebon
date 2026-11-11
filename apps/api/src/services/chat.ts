@@ -394,7 +394,7 @@ export class ChatService {
           return {id:board.id,spec:board.spec};
         }
         case 'criar_tela': {
-          const personal = ctx.identitySource === 'possebon' && !ctx.roles.includes('admin');
+          const personal = ctx.identitySource === 'possebon';
           const assets = personal ? await this.d.workspace.personalAssets(ctx) : undefined;
           if (personal && !assets?.liveBoardId) throw invalid('Sua Tela Viva ainda está sendo preparada.');
           const board = assets?.liveBoardId
