@@ -386,7 +386,7 @@ export class ChatService {
           const {comando}=z.object({comando:z.string().trim().min(1).max(650)}).strict().parse(args);
           return this.d.operationalAccess.conversationCommand(ctx,{message:comando,confirm:true,unitId:ctx.activeUnitId});
         }
-        case 'adicionar_painel': { const input=z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict().parse(args); const assets = ctx.identitySource === 'possebon' && !ctx.roles.includes('admin') ? await this.d.workspace.personalAssets(ctx) : undefined; if (assets && assets.liveBoardId !== input.id) throw invalid('Use sua Tela Viva pessoal.'); const board=await this.d.liveBoards.append(ctx,input.id,input.panel); meta.liveBoardId=board.id;return {ok:true,id:board.id,url:'/telas/'+board.id}; }
+        case 'adicionar_painel': { const input=z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict().parse(args); const assets = ctx.identitySource === 'possebon' ? await this.d.workspace.personalAssets(ctx) : undefined; if (assets && assets.liveBoardId !== input.id) throw invalid('Use sua Tela Viva pessoal.'); const board=await this.d.liveBoards.append(ctx,input.id,input.panel); meta.liveBoardId=board.id;return {ok:true,id:board.id,url:'/telas/'+board.id}; }
         case 'ler_tela_pessoal': {
           const {liveBoardId} = await this.d.workspace.personalAssets(ctx);
           if (!liveBoardId) throw invalid('Sua Tela Viva ainda está sendo preparada.');
