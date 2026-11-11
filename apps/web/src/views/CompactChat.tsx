@@ -30,7 +30,7 @@ export function CompactChat() {
   const navigate = (path: string) => {
     if (path === '/acompanhamentos') setPanel('monitors');
     else if (path === '/notificacoes') setPanel('notifications');
-    else if (path === '/dashboards' || /^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) {
+    else if (path === '/dashboards' || path === '/telas' || /^\/(?:telas|dashboards)\/[0-9a-f-]{36}$/.test(path)) {
       if (window.parent !== window) window.parent.postMessage({type:'possebon:open-dashboard',path:path === '/dashboards' ? '' : path}, location.origin);
       else setPanel(path === '/dashboards' ? 'dashboard' : path);
     }
