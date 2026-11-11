@@ -68,7 +68,14 @@ export class OperationalWatchService {
     return {id:r.rows[0].id,state:'active'};
   }
   async list(ctx:AuthContext) {
-    const r=await this.d.db.query('SELECT id,name,state,interval_minutes,last_checked_at,last_changed_at,last_error FROM ada.operational_watch WHERE owner_user_id=$1 AND unit_id=$2 ORDER BY created_at DESC LIMIT 100',[ctx.systemUserId,ctx.activeUnitId]);
+    const r=await this.d.db.query(`SELECT w.id,w.name,w.state,w.interval_minutes,w.last_checked_at,w.last_changed_at,w.last_error,
+      (SELECT n.body FROM ada.notification n
+       WHERE n.recipient_user_id=$1 AND n.unit_id=$2
+       AND n.source_id='possebon.operational' AND n.evidence->>'watchId'=w.id::text
+       ORDER BY n.created_at DESC LIMIT 1) AS last_change_summary
+       FROM ada.operational_watch w
+       WHERE w.owner_user_id=$1 AND w.unit_id=$2 ORDER BY w.created_at DESC LIMIT 100`,
+       [ctx.systemUserId,ctx.activeUnitId]);
     return r.rows;
   }
   async current(ctx:AuthContext,id:string) {
