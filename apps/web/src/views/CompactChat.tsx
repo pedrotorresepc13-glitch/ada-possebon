@@ -14,6 +14,7 @@ export function CompactChat() {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'possebon:show-panel') return;
       const next = event.data.panel;
+      if (next === 'chat') { setPanel(null); return; }
       if (next === 'dashboard' && window.parent !== window) {
         setPanel(null);
         window.parent.postMessage({type:'possebon:open-dashboard',path:''}, location.origin);
@@ -46,7 +47,6 @@ export function CompactChat() {
   return <Ctx.Provider value={{ ...app, navigate }}>
     <div className="compact-app personal-experience">
       {content && <section className="personal-side-panel" aria-label="Ferramentas da conversa">
-        <button className="btn sm personal-panel-close" onClick={() => setPanel(null)}>Voltar à conversa</button>
         {content}
       </section>}
       <ChatView compact composerOnly={!!content} onConversation={() => setPanel(null)} />
