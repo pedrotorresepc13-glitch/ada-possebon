@@ -12,14 +12,14 @@ export class BusinessDictionaryService{
  constructor(private readonly d:Deps){}
  private async valid(ctx:AuthContext,items:Definition[]){
   if(!items.length)return [];
-  const docs=await this.d.db.query<{id:string;checksum:string;quote:string}>(`SELECT d.id,d.checksum,i.quote FROM jsonb_to_recordset($1::jsonb) AS i("documentId" uuid,checksum text,quote text)
+  const docs=await this.d.db.query<{id:string;checksum:string;quote:string}>(`SELECT d.id,d.checksum,i.quote FROM jsonb_to_recordset($1::jsonb) AS i("documentId" uuid,checksum text,quote text,origin text)
    JOIN ada.knowledge_document d ON d.id=i."documentId" AND d.checksum=i.checksum JOIN ada.knowledge_source s ON s.id=d.source_id
    WHERE position(i.quote in d.extracted_text)>0 AND d.status='indexado' AND s.status='ativo'
    AND (d.valid_until IS NULL OR d.valid_until>=current_date) AND (d.unit_id IS NULL OR d.unit_id=$2)
-   AND (d.scope<>'unidade' OR d.unit_id=$2) AND d.required_programs <@ $3::text[]
+   AND (d.scope<>'unidade' OR d.unit_id=$2) AND (d.required_programs <@ $3::text[] OR (i.origin='source_pack' AND s.config->>'bootstrap_key'='system_source_pack:'||$2::text))
    AND (s.unit_id IS NULL OR s.unit_id=$2) AND (s.scope<>'unidade' OR s.unit_id=$2)
-   AND s.required_programs <@ $3::text[] AND (s.sensitivity<>'confidencial' OR cardinality(s.required_programs)>0)
-   AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)`,[JSON.stringify(items.map(i=>({documentId:i.documentId,checksum:i.checksum,quote:i.quote}))),ctx.activeUnitId,Object.keys(ctx.programs)]);
+   AND (s.required_programs <@ $3::text[] OR (i.origin='source_pack' AND s.config->>'bootstrap_key'='system_source_pack:'||$2::text)) AND (s.sensitivity<>'confidencial' OR cardinality(s.required_programs)>0)
+   AND (d.sensitivity<>'confidencial' OR cardinality(d.required_programs)>0)`,[JSON.stringify(items.map(i=>({documentId:i.documentId,checksum:i.checksum,quote:i.quote,origin:i.origin??'manual'}))),ctx.activeUnitId,Object.keys(ctx.programs)]);
   return items.filter(i=>docs.rows.some(d=>d.id===i.documentId&&d.checksum===i.checksum&&d.quote===i.quote));
  }
  async read(ctx:AuthContext){
