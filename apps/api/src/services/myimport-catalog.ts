@@ -25,7 +25,7 @@ export const MyImportCatalogSchema = z.object({
 }).strict();
 
 export class MyImportCatalogService {
-  constructor(private readonly cfg: AdaConfig['myImport']) {}
+  constructor(private readonly cfg: AdaConfig['myImport'], private readonly fetcher: typeof fetch = fetch) {}
 
   async list(unitId: number): Promise<z.infer<typeof MyImportCatalogSchema>> {
     if (!Number.isSafeInteger(unitId) || unitId <= 0) {
@@ -49,7 +49,7 @@ export class MyImportCatalogService {
 
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await this.fetcher(url, {
         method: 'GET',
         redirect: 'error',
         headers: { 'X-POSSO-Internal-Token': this.cfg.token, Accept: 'application/json' },
