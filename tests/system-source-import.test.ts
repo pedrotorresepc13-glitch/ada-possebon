@@ -47,7 +47,20 @@ it('importa base privada idempotente e códigos comprovados, reconhece RDO pelo 
  const context=await h.d.systemKnowledge.context(ctx,'Veja o RDO.');expect(context).toContain('diario_obra');expect(context).toContain('MeuRdoForm');
  expect((await h.d.operational.query(ctx,{from:'diario_obra',select:[{field:'diario_obra.status',as:'situacao'}]})).rows).toEqual([{situacao:'Validado'}]);
  expect(await h.d.businessDictionary.read({...ctx,activeUnitId:2})).toEqual([]);
- const user=await h.d.sessions.resolveContext(9004,1,'user');expect(await h.d.businessDictionary.read(user)).toEqual([]);
+ const user=await h.d.sessions.resolveContext(9004,1,'user');
+ expect((await h.d.businessDictionary.read(user)).find(item=>item.table==='pedido'&&item.code==='G'))
+   .toMatchObject({label:'Grupo correto',origin:'source_pack'});
+ // Mesmo sem permissões para ler os documentos administrativos, o usuário pode
+ // aprender uma descrição literal certificada do POSSEBON Web para o seu campo.
+ await h.d.db.query('UPDATE ada.app_setting SET value=$2 WHERE key=$1',
+   ['business_dictionary:1',{ciphertext:h.d.cipher.encrypt('[]')}]);
+ expect(await h.d.businessDictionary.resolve(user,'pedido','status','G')).toMatchObject({known:false});
+ expect(await h.d.businessDictionary.discover(user,'pedido','status','G'))
+   .toMatchObject({known:true,definition:{label:'Grupo correto',origin:'source_pack'}});
+ expect(await h.d.businessDictionary.resolve(user,'pedido','status','G'))
+   .toMatchObject({known:true,definition:{label:'Grupo correto'}});
+ expect(await h.d.businessDictionary.discover(user,'pedido','status','X'))
+   .toMatchObject({known:false,investigated:true});
  const sourceRow=await h.d.db.query<{id:string}>("SELECT id FROM ada.knowledge_source WHERE config->>'bootstrap_key'='system_source_pack:1'");
  await h.d.db.query("UPDATE ada.knowledge_source SET status='pausado' WHERE id=$1",[sourceRow.rows[0]!.id]);
  expect(await h.d.businessDictionary.resolve(ctx,'pedido','status','G')).toMatchObject({known:false});
