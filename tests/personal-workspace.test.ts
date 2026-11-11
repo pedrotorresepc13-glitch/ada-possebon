@@ -100,6 +100,26 @@ describe('preparação inicial persistente',()=>{
     expect(board.board.title).toBe('Meu Dashboard');
     expect(board.panels).toEqual([]);
   });
+  it('administradores e colaboradores também reutilizam um único Dashboard pessoal',async()=>{
+    const adminUser:AuthContext={...admin,systemUserId:9990};
+    const [first,second]=await Promise.all([
+      h.d.workspace.personalAssets(adminUser),h.d.workspace.personalAssets(adminUser)
+    ]);
+    expect(first.liveBoardId).toBeTruthy();
+    expect(second.liveBoardId).toBe(first.liveBoardId);
+    const again=await h.d.workspace.personalAssets(adminUser);
+    expect(again).toEqual(first);
+    const count=await h.d.db.query<{n:number}>(
+      'SELECT count(*)::int AS n FROM ada.operational_board WHERE owner_user_id=$1 AND unit_id=$2 AND deleted_at IS NULL',
+      [adminUser.systemUserId,adminUser.activeUnitId]);
+    expect(count.rows[0]?.n).toBe(1);
+    const ctx:AuthContext={...member,systemUserId:9004};
+    const assets=await h.d.workspace.personalAssets(ctx);
+    const client=await h.login('colab.a',1);
+    const endpoint=await client.get('/workspace/personal-dashboard');
+    expect(endpoint.status).toBe(200);
+    expect(endpoint.json.dashboardId).toBe(assets.liveBoardId);
+  });
   it('migração aditiva preserva registros e configuração existentes',async()=>{
     const db=await createPglite();
     try{await migrateUp(db);await migrateDown(db,2);
