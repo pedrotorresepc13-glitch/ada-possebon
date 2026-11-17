@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Deps } from '../core.ts';
 import { audit } from '../audit.ts';
 import { invalid, notFound } from '../errors.ts';
-import { graphMailPage } from './graph-mail.ts';
+import { graphMailPage, graphAppPage, graphAppTest, graphAppSend } from './graph-mail.ts';
 
 export const EmailAccountInput = z
   .object({
@@ -22,7 +22,10 @@ export const EmailAccountInput = z
         folders: z.array(z.string().max(120)).max(20).default(['INBOX']),
         attachments: z.enum(['nao_indexar', 'somente_texto']).default('nao_indexar'),
         tenant: z.string().max(120).optional(),
-        graph_sync: z.boolean().optional()
+        graph_sync: z.boolean().optional(),
+        mailbox: z.string().trim().email().max(254).optional(),
+        auth_mode: z.enum(['delegated_refresh','app_only']).optional(),
+        purpose: z.enum(['institutional','posso']).optional()
       })
       .strict(),
     /** Senha de app ou token OAuth. Gravado cifrado; nunca retornado. */
@@ -68,7 +71,7 @@ function publicView(r: AccountRow) {
     sync: r.kind === 'email_graph' && r.config.graph_sync === true
       ? 'Microsoft Graph: sincronização incremental da caixa de entrada habilitada.'
       : 'Sincronização não habilitada para esta conta.',
-    sending: 'Envio externo desabilitado. Futuro: rascunho + confirmação explícita antes de transmitir.'
+    sending: r.sending_enabled ? 'Habilitado: exige rascunho e confirmação por pessoa autorizada.' : 'Desabilitado. Habilite somente após validar leitura e permissões Microsoft Graph.'
   };
 }
 
@@ -115,14 +118,21 @@ export class EmailService {
     if (!ctx.allowedUnitIds.includes(account.unit_id)) throw notFound('Conta');
     const clientId = process.env.POSSO_GRAPH_CLIENT_ID;
     const clientSecret = process.env.POSSO_GRAPH_CLIENT_SECRET;
-    if (account.kind !== 'email_graph' || account.config.graph_sync !== true || !account.secret_enc || !clientId || !clientSecret) {
+    const appOnly = account.config.auth_mode === 'app_only';
+    if (account.kind !== 'email_graph' || account.config.graph_sync !== true ||
+        (!appOnly && !account.secret_enc) || !clientId || !clientSecret) {
       throw invalid('Conta Microsoft Graph ainda sem configuração de sincronização.');
     }
-    const page = await graphMailPage({
-      tenant: String(account.config.tenant ?? ''), clientId, clientSecret,
-      refreshToken: this.d.cipher.decrypt(account.secret_enc),
-      cursor: account.watermark ? this.d.cipher.decrypt(account.watermark) : undefined
-    });
+    const cursor = account.watermark ? this.d.cipher.decrypt(account.watermark) : undefined;
+    const page = appOnly
+      ? await graphAppPage({
+        tenant: String(account.config.tenant ?? ''), clientId, clientSecret,
+        mailbox: String(account.config.mailbox ?? ''), cursor
+      })
+      : await graphMailPage({
+        tenant: String(account.config.tenant ?? ''), clientId, clientSecret,
+        refreshToken: this.d.cipher.decrypt(account.secret_enc!), cursor
+      });
     return this.d.db.tx(async q => {
       const row = (await q.query<AccountRow>(
         'SELECT * FROM ada.integration_account WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [id]
@@ -132,7 +142,8 @@ export class EmailService {
       }
       const key = this.cacheKey(id);
       const saved = (await q.query<{ value: { encrypted: string } }>('SELECT value FROM ada.app_setting WHERE key=$1', [key])).rows[0];
-      type Entry = { id: string; subject: string; excerpt: string; receivedAt: string | null };
+      type Entry = { id: string; subject: string; excerpt: string; body?: string; from?: string;
+        conversationId?: string; receivedAt: string | null };
       const existing: Entry[] = saved ? JSON.parse(this.d.cipher.decrypt(saved.value.encrypted)) : [];
       const messages = new Map(existing.map(entry => [entry.id, entry]));
       for (const message of page.messages) {
@@ -142,6 +153,13 @@ export class EmailService {
           id: message.id,
           subject: message.subject === undefined ? previous?.subject ?? '' : redactSecrets(message.subject ?? '').slice(0, 300),
           excerpt: message.bodyPreview === undefined ? previous?.excerpt ?? '' : redactSecrets(message.bodyPreview ?? '').slice(0, 800),
+          ...('body' in message && message.body ? { body: redactSecrets(message.body.content ?? '').slice(0, 16000) } :
+            previous?.body !== undefined ? { body: previous.body } : {}),
+          ...('from' in message && message.from?.emailAddress?.address
+            ? { from: message.from.emailAddress.address.slice(0,254) } :
+              previous?.from ? {from:previous.from} : {}),
+          ...('conversationId' in message && message.conversationId
+            ? {conversationId:message.conversationId} : previous?.conversationId?{conversationId:previous.conversationId}:{}),
           receivedAt: message.receivedDateTime === undefined ? previous?.receivedAt ?? null : message.receivedDateTime
         });
       }
@@ -154,7 +172,8 @@ export class EmailService {
       );
       await q.query(`UPDATE ada.integration_account SET watermark=$2, secret_enc=$3,
         last_sync_at=now(),updated_at=now(),status='ativo' WHERE id=$1`, [id,
-        this.d.cipher.encrypt(page.cursor), this.d.cipher.encrypt(page.refreshToken)]);
+        this.d.cipher.encrypt(page.cursor),
+        appOnly ? account.secret_enc : this.d.cipher.encrypt('refreshToken' in page ? page.refreshToken : '')]);
       await audit(q, {actor:ctx.systemUserId,unit:account.unit_id,action:'email.graph_sincronizado',
         targetType:'integration_account',targetId:id,outcome:'ok',details:{changed:page.messages.length}});
       return { synchronized: page.messages.length, stored: entries.length };
@@ -167,7 +186,8 @@ export class EmailService {
     this.nextGraphPoll = Date.now() + 5 * 60_000;
     const result = await this.d.db.query<{ id: string; unit_id: number; created_by: number }>(
       `SELECT id,unit_id,created_by FROM ada.integration_account
-       WHERE deleted_at IS NULL AND kind='email_graph' AND config->>'graph_sync'='true' AND secret_enc IS NOT NULL
+       WHERE deleted_at IS NULL AND kind='email_graph' AND config->>'graph_sync'='true'
+         AND (config->>'auth_mode'='app_only' OR secret_enc IS NOT NULL)
          AND updated_at < now()-interval '5 minutes'
        ORDER BY updated_at,id LIMIT 4`
     );
@@ -220,14 +240,21 @@ export class EmailService {
     const p = EmailAccountInput.safeParse(input);
     if (!p.success) throw invalid('Conta inválida.', p.error.issues);
     if (!ctx.allowedUnitIds.includes(p.data.unit_id)) throw invalid('Unidade fora do seu escopo.');
+    const appOnly = p.data.kind === 'email_graph' && p.data.config.auth_mode === 'app_only';
     if (p.data.config.graph_sync && (p.data.kind !== 'email_graph' ||
-        !z.uuid().safeParse(p.data.config.tenant).success || !p.data.secret)) {
-      throw invalid('A sincronização Graph exige tenant Microsoft e token de renovação.');
+        !z.uuid().safeParse(p.data.config.tenant).success ||
+        (appOnly ? !p.data.config.mailbox : !p.data.secret))) {
+      throw invalid(appOnly
+        ? 'Microsoft Graph requer Tenant ID e endereço da caixa. O aplicativo deve ser autorizado pela TI.'
+        : 'A sincronização Graph delegada exige tenant e token de renovação.');
     }
+    if (appOnly && p.data.secret) throw invalid('Não informe senha ou token de usuário em contas Microsoft Graph do tipo aplicativo.');
     if (p.data.kind === 'email_imap' && p.data.config.host) assertSafeUrl(`https://${p.data.config.host}/`);
     const configured = p.data.kind === 'email_imap' ? Boolean(p.data.config.host && p.data.config.username && p.data.secret)
       : p.data.kind === 'email_graph' && p.data.config.graph_sync === true &&
-        z.uuid().safeParse(p.data.config.tenant).success && Boolean(p.data.secret);
+        z.uuid().safeParse(p.data.config.tenant).success &&
+        (appOnly ? Boolean(p.data.config.mailbox && process.env.POSSO_GRAPH_CLIENT_ID && process.env.POSSO_GRAPH_CLIENT_SECRET)
+          : Boolean(p.data.secret));
     const r = await this.d.db.query<AccountRow>(
       `INSERT INTO ada.integration_account (kind, label, unit_id, allowed_user_ids, allowed_group_ids, config, secret_enc, status, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -244,8 +271,21 @@ export class EmailService {
     const a = await this.row(id);
     let ok = false;
     let message: string;
-    if (a.kind !== 'email_imap') {
-      message = 'OAuth (Gmail/Microsoft Graph) requer registro de aplicativo e consentimento do provedor; ainda não configurado.';
+    if (a.kind === 'email_graph' && a.config.auth_mode === 'app_only') {
+      const clientId=process.env.POSSO_GRAPH_CLIENT_ID,clientSecret=process.env.POSSO_GRAPH_CLIENT_SECRET;
+      if (!clientId || !clientSecret || !a.config.mailbox) {
+        message='O aplicativo Microsoft 365 ainda não foi configurado pela equipe de TI no servidor POSSO.';
+      } else {
+        try {
+          const result=await graphAppTest({
+            tenant:String(a.config.tenant??''),clientId,clientSecret,
+            mailbox:String(a.config.mailbox)
+          });
+          ok=result.ok;message=result.message;
+        }catch(error){ message=(error as Error).message; }
+      }
+    } else if (a.kind !== 'email_imap') {
+      message = 'OAuth (Gmail/Microsoft Graph delegado) requer registro e consentimento do provedor.';
     } else if (!a.secret_enc || !a.config.host || !a.config.username) {
       message = 'Conta não configurada: informe servidor, usuário e senha de aplicativo.';
     } else {
@@ -257,7 +297,8 @@ export class EmailService {
       }
     }
     await this.d.db.query(
-      `UPDATE ada.integration_account SET last_test_at = now(), last_test_result = $2, status = CASE WHEN $3 THEN 'configurado_nao_validado' WHEN status = 'nao_configurado' THEN status ELSE 'erro' END, updated_at = now() WHERE id = $1`,
+      `UPDATE ada.integration_account SET last_test_at = now(), last_test_result = $2,
+         status = CASE WHEN $3 THEN 'ativo' WHEN status = 'nao_configurado' THEN status ELSE 'erro' END, updated_at = now() WHERE id = $1`,
       [id, message, ok]
     );
     await audit(this.d.db, { actor: ctx.systemUserId, unit: ctx.activeUnitId, action: 'email.teste_conexao', targetType: 'integration_account', targetId: id, outcome: ok ? 'ok' : 'erro' });
