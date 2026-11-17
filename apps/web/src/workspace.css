@@ -93,3 +93,51 @@
 .watch-details dl>div {min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)}
 .watch-details dt {font-size:11px;color:var(--ink-muted)}
 .watch-details dd {margin:5px 0 0;font-weight:600;overflow-wrap:anywhere}
+
+/* POSSO — central de trabalho interativa. Os painéis executam apenas planos validados. */
+.posso-worklist{background:var(--surface-1,#fff);border:1px solid var(--line,#e2e8f0);border-radius:22px;overflow:hidden;box-shadow:0 14px 46px #152c4b10;min-width:0}
+.posso-worklist-heading{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;padding:26px 30px 20px;border-bottom:1px solid var(--line,#e2e8f0)}
+.posso-worklist-overline{font-size:10px;letter-spacing:.15em;font-weight:800;color:#2563eb}
+.posso-worklist-heading h2{font-size:24px;letter-spacing:-.04em;line-height:1.15;margin:8px 0 8px;color:var(--ink,#142339)}
+.posso-worklist-heading p,.posso-worklist-distribution p,.posso-worklist-toolbar p{font-size:12px;color:var(--ink-muted,#64748b);margin:0}
+.posso-worklist-count{font-size:12px;padding:8px 12px;white-space:nowrap;background:var(--surface-2,#eff6ff);color:var(--ink,#334155);border-radius:999px;font-weight:700}
+.posso-worklist-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:20px 28px 5px}
+.posso-worklist-kpis>div{background:var(--surface-2,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:14px;padding:14px 17px;min-width:0}
+.posso-worklist-kpis span{display:block;color:var(--ink-muted,#64748b);font-size:11px;font-weight:650}
+.posso-worklist-kpis strong{display:block;font-size:29px;letter-spacing:-.045em;margin-top:8px;color:var(--ink,#142339);font-variant-numeric:tabular-nums}
+.posso-worklist-kpis>div:nth-child(2) strong{color:#d97706}
+.posso-worklist-overview{display:grid;grid-template-columns:minmax(220px,32%) minmax(0,1fr);gap:25px;align-items:center;padding:10px 28px 23px}
+.posso-worklist-chart{height:232px;width:100%;min-width:0}
+.posso-worklist-distribution h3,.posso-worklist-toolbar h3{font-size:16px;color:var(--ink,#142339);margin:0 0 7px;letter-spacing:-.018em}
+.posso-worklist-statuses{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.posso-worklist-statuses button{appearance:none;display:inline-flex;align-items:center;gap:7px;cursor:pointer;padding:9px 11px;border:1px solid var(--line,#e2e8f0);color:var(--ink,#334155);font-size:12px;border-radius:10px;background:var(--surface-1,#fff);transition:transform .13s,border-color .13s,background .13s}
+.posso-worklist-statuses button:hover{transform:translateY(-1px);border-color:#93c5fd}
+.posso-worklist-statuses button.selected{border-color:#2563eb;background:#dbeafe;color:#1e40af;font-weight:700}
+.posso-worklist-statuses button:focus-visible,.posso-worklist-item-main:focus-visible,.posso-worklist-more:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+.posso-worklist-statuses i{height:9px;width:9px;border-radius:50%;flex:0 0 auto}
+.posso-worklist-statuses b{font-variant-numeric:tabular-nums}
+.posso-worklist-list{border-top:1px solid var(--line,#e2e8f0)}
+.posso-worklist-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:20px 26px;background:var(--surface-2,#f8fafc)}
+.posso-worklist-controls{display:flex;gap:8px;flex-wrap:wrap}
+.posso-worklist-controls input,.posso-worklist-controls select{border:1px solid var(--line,#cbd5e1);border-radius:10px;font:inherit;color:var(--ink,#334155);background:var(--surface-1,#fff);padding:9px 11px;font-size:12px;max-width:100%}
+.posso-worklist-controls input{min-width:230px}
+.posso-worklist-item{border-top:1px solid var(--line,#e2e8f0)}
+.posso-worklist-item-main{display:grid;grid-template-columns:80px minmax(160px,1fr) minmax(110px,auto) minmax(60px,auto) 78px 16px;gap:12px;align-items:center;text-align:left;background:transparent;border:0;color:var(--ink,#142339);width:100%;padding:17px 24px;cursor:pointer}
+.posso-worklist-item-main:hover{background:var(--surface-2,#f8fafc)}
+.posso-worklist-id{font-size:12px;font-weight:800;color:#2563eb}
+.posso-worklist-subject{min-width:0}
+.posso-worklist-subject strong{display:block;font-weight:700;font-size:13px;white-space:normal;line-height:1.4}
+.posso-worklist-subject small{display:block;color:var(--ink-muted,#64748b);font-size:11px;line-height:1.45;margin-top:4px;white-space:normal}
+.posso-worklist-status{border:1px solid;border-radius:9px;display:inline-block;padding:6px 7px;text-align:center;font-size:11px;font-weight:750;white-space:normal}
+.posso-worklist-priority{font-size:11px;color:var(--ink-muted,#64748b)}
+.posso-worklist-priority.urgent{color:#dc2626;font-weight:800}
+.posso-worklist-date{color:var(--ink-muted,#64748b);font-variant-numeric:tabular-nums;font-size:11px}
+.posso-worklist-chevron{color:#64748b;font-size:18px}
+.posso-worklist-details{padding:18px 25px 21px 116px;background:var(--surface-2,#f8fafc);display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.posso-worklist-details b{font-size:11px;color:var(--ink-muted,#64748b)}
+.posso-worklist-details p{font-size:13px;line-height:1.5;margin:6px 0 0;overflow-wrap:anywhere;white-space:pre-line}
+.posso-worklist-empty{padding:30px;text-align:center;color:var(--ink-muted,#64748b)}
+.posso-worklist-more{display:block;margin:14px auto 18px;background:var(--surface-2,#f8fafc);border:1px solid var(--line,#cbd5e1);border-radius:10px;padding:10px 18px;font-weight:700;color:#2563eb;cursor:pointer}
+.posso-worklist-note{margin:12px 25px;color:var(--ink-muted,#64748b);font-size:12px}
+@media(max-width:1000px){.posso-worklist-item-main{grid-template-columns:68px minmax(120px,1fr) 100px 60px 18px}.posso-worklist-date{display:none}.posso-worklist-details{padding-left:25px}}
+@media(max-width:690px){.posso-worklist-heading{padding:19px}.posso-worklist-heading h2{font-size:19px}.posso-worklist-kpis{grid-template-columns:repeat(2,minmax(0,1fr));padding:15px;gap:8px}.posso-worklist-overview{grid-template-columns:1fr;padding:12px 18px}.posso-worklist-chart{height:185px}.posso-worklist-toolbar{padding:15px}.posso-worklist-controls input{min-width:0;flex:1}.posso-worklist-controls{width:100%}.posso-worklist-item-main{grid-template-columns:62px minmax(0,1fr) 95px 14px;padding:14px;gap:7px}.posso-worklist-priority{grid-column:2;grid-row:2}.posso-worklist-status{font-size:10px}.posso-worklist-details{padding:16px}}
