@@ -5,7 +5,7 @@ interface Branding { name: string; setName: (name: string) => void }
 const Context = createContext<Branding | null>(null);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const [name, setNameState] = useState('Posso');
+  const [name, setNameState] = useState('POSSO');
   const revision = useRef(0);
   const setName = useCallback((value: string) => {
     revision.current++;
@@ -32,7 +32,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refresh]);
-  useEffect(() => { document.title = `${name} - IA Possebon`; }, [name]);
+  useEffect(() => { document.title = `${name} — assistente virtual da POSSEBON`; }, [name]);
   const value = useMemo(() => ({ name, setName }), [name, setName]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
