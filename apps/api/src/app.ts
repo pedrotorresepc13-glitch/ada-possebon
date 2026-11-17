@@ -567,6 +567,18 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/admin/email/accounts/:id/sync', 'admin', (req, _r, ctx) => d.email.syncGraph(ctx, params(req).id!));
   route('GET', '/email/accounts', 'user', (_req, _r, ctx) => d.email.readableGraphAccounts(ctx));
   route('GET', '/email/accounts/:id/messages', 'user', (req, _r, ctx) => d.email.readGraph(ctx, params(req).id!));
+  route('POST', '/admin/email/accounts/:id/sending', 'admin', (req, _r, ctx) =>
+    d.email.setSending(ctx,params(req).id!,z.object({enabled:z.boolean()}).strict().parse(body(req)).enabled));
+  route('GET', '/email/search', 'user', (req, _r, ctx) => d.email.search(ctx, {
+    query:String(query(req).q??''), ...(query(req).accountId?{accountId:String(query(req).accountId)}:{})
+  }));
+  route('GET', '/email/drafts', 'user', (_req, _r, ctx) => d.email.drafts(ctx));
+  route('POST', '/email/drafts', 'user', (req, reply, ctx) => {
+    reply.code(201);return d.email.createDraft(ctx,body(req));
+  });
+  route('POST', '/email/drafts/:id/send', 'user', (req, _r, ctx) =>
+    d.email.sendDraft(ctx,params(req).id!,
+      z.object({confirm:z.literal(true)}).strict().parse(body(req)).confirm));
   route('DELETE', '/admin/email/accounts/:id', 'admin', (req, _r, ctx) => d.email.remove(ctx, params(req).id!));
   route('GET', '/admin/ai', 'admin', () => d.aiSettings.read());
   route('GET', '/branding', 'none', (_req, reply) => {
