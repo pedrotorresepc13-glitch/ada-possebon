@@ -52,7 +52,7 @@ function Login({ info, onLogged }: { info: SessionInfo; onLogged: (m: Me) => voi
         <div className="brand" style={{ padding: 0, marginBottom: 12 }}>
           <div className="brand-mark" aria-hidden="true">IA</div>
           <div>
-            <strong>{name} - IA Possebon</strong>
+            <strong>{name} — assistente virtual da POSSEBON</strong>
             <small>Inteligência empresarial</small>
           </div>
         </div>
