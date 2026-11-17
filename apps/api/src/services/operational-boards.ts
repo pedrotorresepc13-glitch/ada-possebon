@@ -16,6 +16,32 @@ interface BoardRow {
 export class OperationalBoardService {
   constructor(private readonly d:Deps) {}
 
+  /** Investigação de requisitos baseada exclusivamente em colunas/FKs realmente visíveis. */
+  async study(ctx:AuthContext,term:string) {
+    const query=z.string().trim().min(2).max(80).parse(term);
+    const result=await this.d.operational.explore(ctx,query);
+    const candidates=result.tabelas.map(t=>{
+      const ranked=(pattern:RegExp)=>t.colunas.filter(c=>pattern.test(c.nome)).map(c=>c.nome);
+      return {
+        table:t.nome,
+        id:ranked(/^(?:id|codigo|numero|num_chamado|chamado_id)$/i),
+        subject:ranked(/assunto|titulo|descri|problema|relato|demanda|resumo|solicitac|observac|motivo/i),
+        status:ranked(/status|situac|etapa|fase/i),
+        priority:ranked(/prior|urgenc|critic/i),
+        responsibility:ranked(/atendente|responsavel|usuario|system_users|owner|executor|atribuido/i),
+        dates:ranked(/data|created|updated|abert|fech|alterac/i),
+        relationships:t.relacionamentos.filter(k=>/descricao|assunto|chamado|categoria|status|prior|produto|pessoa|usuario/i.test(k.tabelaRelacionada+' '+k.campo))
+          .map(k=>({field:k.campo,table:k.tabelaRelacionada,relatedFields:k.colunasRelacionadas.slice(0,30)}))
+      };
+    });
+    return {question:query,results:candidates,notes:[
+      'Os nomes são candidatos; use o schema e registros atuais para confirmar significado e vínculos.',
+      'Para chamados, confirme o atendente pelo vínculo real, não apenas pelo nome do usuário.',
+      'Assunto ou descrição real é obrigatório antes de montar a central; produto e categoria não substituem o problema.',
+      'Use o painel worklist para uma central com gráfico, situação, prioridade, busca e detalhes no mesmo card.'
+    ]};
+  }
+
   /** Verifica dados e utilidade antes de declarar um dashboard de trabalho concluído. */
   async evaluate(ctx:AuthContext,raw:unknown) {
     const spec=LiveBoardSpec.parse(raw);
