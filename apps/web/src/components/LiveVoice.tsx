@@ -22,7 +22,7 @@ interface Props {
   onActiveChange?: (active: boolean) => void;
 }
 
-/** GPT-Live usa WebRTC para áudio; toda consulta continua passando pelo /chat autenticado da Ada. */
+/** POSSO usa GPT-Live em WebRTC; consultas continuam no /chat autenticado do POSSEBON. */
 export function LiveVoice({ conversationId, onAnswer, disabled = false, onActiveChange }: Props) {
   const [status, setStatus] = useState<'parado' | 'conectando' | 'ativo'>('parado');
   useEffect(() => { onActiveChange?.(status !== 'parado'); }, [status, onActiveChange]);
@@ -50,7 +50,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
     attempt.current++;
     active.current = false;
     if (dc.current?.readyState === 'open') {
-      try { dc.current.send(JSON.stringify({ type: 'session.close', event_id: 'ada-close-' + Date.now() })); }
+      try { dc.current.send(JSON.stringify({ type: 'session.close', event_id: 'posso-close-' + Date.now() })); }
       catch { /* conexão já fechou */ }
     }
     dc.current?.close();
@@ -84,7 +84,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
     const parts = (text.match(/[\s\S]{1,600}/g) ?? ['Não obtive um resultado.']).slice(0, 12);
     for (const part of parts) {
       channel.send(JSON.stringify({
-        type: 'session.commentary.append', event_id: 'ada-result-' + crypto.randomUUID(),
+        type: 'session.commentary.append', event_id: 'posso-result-' + crypto.randomUUID(),
         delegation_id: id, content: part
       }));
     }
@@ -154,7 +154,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
         if (event.type === 'session.delegation.created' && event.delegation?.id && event.delegation.target === 'client') {
           const id = event.delegation.id;
           if (channel.readyState === 'open') channel.send(JSON.stringify({
-            type: 'session.thinking.append', event_id: 'ada-pending-' + crypto.randomUUID(),
+            type: 'session.thinking.append', event_id: 'posso-pending-' + crypto.randomUUID(),
             delegation_id: id, content: ''
           }));
           queue.current = queue.current.then(() => delegate(id, event.offset_ms ?? 0, generation)).catch(() => undefined);
