@@ -9,7 +9,7 @@ const Input = z.object({
   name: z.string().trim().min(1).max(60)
     .regex(/^[\p{L}\p{N}][\p{L}\p{M}\p{N} .&'’()_-]*$/u)
 }).strict();
-const DEFAULT_NAME = 'Posso';
+const DEFAULT_NAME = 'POSSO';
 
 /** Identidade visual global, independente de unidade e da configuração do provedor. */
 export class BrandingService {
@@ -20,23 +20,27 @@ export class BrandingService {
       'SELECT value FROM ada.app_setting WHERE key = $1', ['assistant_branding']
     );
     const parsed = Input.safeParse(r.rows[0]?.value);
-    return parsed.success && parsed.data.name !== 'IA POSSEBON' ? parsed.data : { name: DEFAULT_NAME };
+    // Identidade oficial não é uma preferência configurável: configurações legadas
+    // permanecem preservadas no banco, mas não redefinem a identidade do agente.
+    void parsed;
+    return { name: DEFAULT_NAME };
   }
 
   async save(ctx: AuthContext, raw: unknown) {
     assertAdmin(ctx);
     const parsed = Input.safeParse(raw);
-    if (!parsed.success) throw invalid('Informe um nome de 1 a 60 caracteres, sem marcação ou quebras de linha.', parsed.error.issues);
+    if (!parsed.success || parsed.data.name.toLocaleUpperCase('pt-BR') !== DEFAULT_NAME)
+      throw invalid('A identidade oficial do assistente virtual da POSSEBON é POSSO.');
     await this.d.db.tx(async q => {
       await q.query(
         `INSERT INTO ada.app_setting(key,value,updated_by) VALUES ($1,$2::jsonb,$3)
          ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-        ['assistant_branding', JSON.stringify(parsed.data), ctx.systemUserId]
+        ['assistant_branding', JSON.stringify({ name: DEFAULT_NAME }), ctx.systemUserId]
       );
       await audit(q, { actor: ctx.systemUserId, unit: ctx.activeUnitId,
         action: 'assistente.nome_atualizado', targetType: 'app_setting',
-        targetId: 'assistant_branding', outcome: 'ok', details: parsed.data });
+        targetId: 'assistant_branding', outcome: 'ok', details: { name: DEFAULT_NAME } });
     });
-    return parsed.data;
+    return { name: DEFAULT_NAME };
   }
 }
