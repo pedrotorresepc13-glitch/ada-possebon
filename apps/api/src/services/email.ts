@@ -309,6 +309,42 @@ export class EmailService {
   }
 
   /** O envio externo fica desabilitado até ativação explícita por administrador. */
+  /** Configuração posterior do Tenant ID Microsoft e do público autorizado. */
+  async configureGraph(ctx:AuthContext,id:string,raw:unknown) {
+    assertAdmin(ctx);
+    const acc=await this.row(id);
+    if(acc.unit_id!==ctx.activeUnitId||acc.kind!=='email_graph'||acc.config.auth_mode!=='app_only')
+      throw notFound('Conta');
+    const v=z.object({
+      tenant:z.uuid(),
+      mailbox:z.string().trim().email().max(254).optional(),
+      purpose:z.enum(['institutional','posso']).optional(),
+      allowedUserIds:z.array(z.number().int().positive()).max(500).optional(),
+      allowedGroupIds:z.array(z.number().int().positive()).max(100).optional()
+    }).strict().parse(raw);
+    const config={...acc.config,tenant:v.tenant,
+      ...(v.mailbox?{mailbox:v.mailbox}:{}),
+      ...(v.purpose?{purpose:v.purpose}:{})};
+    const changed=config.tenant!==acc.config.tenant||config.mailbox!==acc.config.mailbox;
+    await this.d.db.tx(async q=>{
+      await q.query(`UPDATE ada.integration_account SET config=$2::jsonb,
+        allowed_user_ids=$3, allowed_group_ids=$4,
+        watermark=CASE WHEN $5 THEN NULL ELSE watermark END,
+        status=CASE WHEN $5 THEN 'configurado_nao_validado' ELSE status END,
+        sending_enabled=CASE WHEN $5 THEN false ELSE sending_enabled END,
+        last_test_at=CASE WHEN $5 THEN NULL ELSE last_test_at END,
+        last_test_result=CASE WHEN $5 THEN NULL ELSE last_test_result END,
+        updated_at=now() WHERE id=$1`,
+        [id,JSON.stringify(config),v.allowedUserIds??acc.allowed_user_ids,
+          v.allowedGroupIds??acc.allowed_group_ids,changed]);
+      if(changed)await q.query('DELETE FROM ada.app_setting WHERE key=$1',[this.cacheKey(id)]);
+      await audit(q,{actor:ctx.systemUserId,unit:ctx.activeUnitId,
+        action:'email.graph_configuracao_atualizada',targetType:'integration_account',
+        targetId:id,outcome:'ok',details:{identityChanged:changed}});
+    });
+    return {id,requiresAccessTest:changed};
+  }
+
   async setSending(ctx: AuthContext, id: string, enabled: boolean) {
     assertAdmin(ctx);
     const account=await this.row(id);
