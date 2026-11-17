@@ -1,4 +1,5 @@
 import { BoardSharing } from '../components/BoardSharing.tsx';
+import { WorklistPanel } from '../components/WorklistPanel.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart,LineChart,PieChart } from 'echarts/charts';
@@ -10,7 +11,12 @@ import { useApp } from '../app-context.ts';
 
 type Cell=string|number|boolean|null;
 export type Panel={
-  title:string;type:'table'|'kpi'|'bar'|'line'|'pie';status:string;message?:string;
+  title:string;type:'table'|'kpi'|'bar'|'line'|'pie'|'worklist';status:string;message?:string;
+  worklist?:{
+    fields:{id:string;status:string;subject:string;description?:string;priority?:string;
+      createdAt?:string;updatedAt?:string;category?:string;product?:string};
+    defaultStatuses:string[];primaryActionLabel?:string;
+  };
   rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;
   provenance?:{source:string;unitId:number|null;scope?:string;queriedAt:string};
 };
@@ -60,6 +66,7 @@ function Graph({p}:{p:Panel}){
 
 export function PanelWidget({panel}:{panel:Panel}){
   const [filter,setFilter]=useState('');
+  if(panel.type==='worklist' && panel.worklist)return <WorklistPanel panel={panel}/>;
   const category=panel.type==='kpi' ? undefined : panel.columns.find(column =>
     panel.rows.some(row=>typeof row[column]==='string') &&
     new Set(panel.rows.map(row=>row[column])).size<=30
@@ -135,7 +142,7 @@ export function LiveBoardDetail({id,personal=false}:{id:string;personal?:boolean
       {d?<><p className="muted small">{d.board.spec.description.replace(/códigos? de status exibidos? sem interpretação/gi,'situações exibidas com seus nomes de negócio')}</p>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,440px),1fr))',gap:16}}>
           {d.panels.length===0 && <div className="empty">Seu Dashboard está em branco. Peça no chat para adicionar um indicador, gráfico ou tabela.</div>}
-          {d.panels.map((p,i)=><PanelWidget key={i} panel={p}/>)}
+          {d.panels.map((p,i)=><div key={i} style={{gridColumn:p.type==='worklist'?'1 / -1':undefined}}><PanelWidget panel={p}/></div>)}
         </div>
       </>:<div className="skeleton" style={{height:300}}/>}
     </div>
