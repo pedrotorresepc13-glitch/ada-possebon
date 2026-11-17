@@ -400,6 +400,18 @@ export class ChatService {
         }
         case 'adicionar_painel': { const input=z.object({id:z.uuid(),panel:LiveBoardSpec.shape.panels.element}).strict().parse(args); const assets = ctx.identitySource === 'possebon' ? await this.d.workspace.personalAssets(ctx) : undefined; if (assets && assets.liveBoardId !== input.id) throw invalid('Use sua Tela Viva pessoal.'); const board=await this.d.liveBoards.append(ctx,input.id,input.panel); meta.liveBoardId=board.id;return {ok:true,id:board.id,url:'/telas/'+board.id}; }
         case 'editar_dashboard_pessoal': {
+          const mentionsWorkQueue=/(chamad|ordens? de servi[cç]o|fila de atendimento|help\s*desk)/i.test(message)
+            && /(dashboard|painel|central|visualiza[cç])/i.test(message);
+          if(mentionsWorkQueue) {
+            const parsed=z.object({operations:z.array(z.object({
+              action:z.enum(['add','replace','remove']),targetTitle:z.string(),
+              panel:LiveBoardSpec.shape.panels.element.optional()
+            }).strict())}).strict().parse(args);
+            const adds=parsed.operations.filter(op=>op.action==='add'||op.action==='replace');
+            if(adds.length && !adds.some(op=>op.panel?.type==='worklist')) throw invalid(
+              'Uma central de atendimento precisa do componente interativo worklist com assunto, situação, filtros e detalhes. Investigue os campos e revise a proposta.'
+            );
+          }
           const updated=await this.d.liveBoards.editPersonal(ctx,args);
           meta.liveBoardId=updated.id;
           return updated;
@@ -411,6 +423,10 @@ export class ChatService {
           return {id:board.id,spec:board.spec};
         }
         case 'criar_tela': {
+          const targetWorkQueue=/(chamad|ordens? de servi[cç]o|fila de atendimento|help\s*desk)/i.test(message)
+            && /(dashboard|painel|central|visualiza[cç])/i.test(message);
+          if(targetWorkQueue && !LiveBoardSpec.parse(args).panels.some(panel=>panel.type==='worklist'))
+            throw invalid('Para uma central de chamados, use um único painel worklist: gráfico, filtros, prioridades, assunto e detalhes integrados. Não salve apenas uma pizza e uma tabela.');
           const personal = ctx.identitySource === 'possebon';
           const assets = personal ? await this.d.workspace.personalAssets(ctx) : undefined;
           if (personal && !assets?.liveBoardId) throw invalid('Sua Tela Viva ainda está sendo preparada.');
@@ -647,11 +663,18 @@ export class ChatService {
           if (resume && !readTools.has(name)) throw new Error('A retomada permite somente consultas.');
           return execute(name, args);
         },
-        toolBudgetMs: 65000
+        toolBudgetMs: 100000
       });
       await this.recordUsage(ctx, 'chat', r.usage, status, Date.now() - started);
       if (r.partial && questionMessage?.role === 'user') {
         meta.investigation = { questionId: questionMessage.id, permissionsVersion: ctx.permissionsVersion };
+      }
+      const requestedWrite=/(dashboard|painel|tela|central)/i.test(message)
+        && /(cri(?:ar|e)|mont|refa|refaz|recri|substitu|atualiz|alter|adicion|inclu|melhor|organ|ajust)/i.test(message);
+      const wrote=Boolean(meta.liveBoardId||meta.savedDashboardId)
+        || r.toolCalls.some(call=>call.ok&&['salvar_dashboard','criar_tela','editar_dashboard_pessoal','adicionar_painel'].includes(call.name));
+      if(requestedWrite&&!wrote){
+        return {text:'A alteração do seu dashboard ainda não foi concluída. Não vou afirmar que está pronta sem validar os dados e confirmar a gravação.',meta};
       }
       return { text: r.text || 'Não consegui produzir uma resposta.', meta };
     } catch (err) {
