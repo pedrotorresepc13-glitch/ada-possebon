@@ -375,6 +375,7 @@ export class EmailService {
       excerpt:string;body:string;receivedAt:string|null}[]=[];
     let checkedLive=0,truncated=false,offlineAccounts=0;
     for(const acc of visible.slice(0,6)){
+      let usedLive=false;
       let entries:Array<{id:string;subject?:string|null;excerpt?:string|null;
         body?:string|null;from?:string|null;receivedAt?:string|null}>=[];
       const account=await this.row(acc.id);
@@ -386,7 +387,7 @@ export class EmailService {
             tenant:String(account.config.tenant),clientId,clientSecret,
             mailbox:String(account.config.mailbox??''),query:p.query,limit:p.limit
           });
-          checkedLive++;truncated ||= live.truncated;
+          checkedLive++;usedLive=true;truncated ||= live.truncated;
           entries=live.messages.filter(m=>!m['@removed']).map(m=>({
             id:m.id,subject:m.subject??'',
             excerpt:m.bodyPreview??'',body:m.body?.content??'',
@@ -398,17 +399,17 @@ export class EmailService {
             'Pesquisa histórica Microsoft Graph falhou; usando cache cifrado da caixa');
         }
       }
-      if(!checkedLive || !entries.length){
+      if(!usedLive){
         const inbox=await this.readGraph(ctx,acc.id);
         const cached=inbox.messages as typeof entries;
-        if(!entries.length)entries=cached;
+        entries=cached;
       }
       for(const mail of entries){
         const searched=[mail.subject,mail.excerpt,mail.body,mail.from].join(' ').toLocaleLowerCase('pt-BR');
         if(p.query&&!searched.includes(p.query.toLocaleLowerCase('pt-BR'))){
           // Quando o Graph já filtrou, não descartar um resultado válido devido a
           // diferenças entre seu índice de busca e os campos de texto retornados.
-          if(!checkedLive)continue;
+          if(!usedLive)continue;
         }
         hits.push({
           accountId:acc.id,account:acc.label,id:mail.id,
