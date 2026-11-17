@@ -213,71 +213,219 @@ function Connectors() {
 
 function Email() {
   const { me } = useApp();
-  const { data, reload } = useLoad<{ id: string; label: string; kind: string; status: string; hasSecret: boolean; unitId: number; lastTestResult: string | null; sync: string; sending: string; config: { graph_sync?: boolean }; allowedUserIds: number[] }[]>('/admin/email/accounts');
-  const [msg, setMsg] = useState('');
-  return (
-    <div className="grid">
-      {msg && <div className="note-box" role="status">{msg}</div>}
-      <section className="card">
-        <h3>Nova conta</h3>
-        <form className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }} onSubmit={async (e) => {
-          e.preventDefault();
-          const form = e.currentTarget;
-          const f = new FormData(form);
-          const kind = String(f.get('kind'));
-          try {
-            await api('/admin/email/accounts', { body: {
-              kind, label: String(f.get('label')), unit_id: me.activeUnit.id,
-              allowed_user_ids: String(f.get('users') || '').split(/[,\s]+/).filter(Boolean).map(Number),
-              config: kind === 'email_graph' ? { graph_sync: true, tenant: String(f.get('tenant') || '') }
-                : { host: String(f.get('host') || '') || undefined, port: Number(f.get('port') || 993), username: String(f.get('username') || '') || undefined },
-              ...(f.get('secret') ? { secret: String(f.get('secret')) } : {})
-            } });
-            setMsg('Conta registrada. A senha foi cifrada e não será exibida novamente.');
-            form.reset();
-            reload();
-          } catch (er) { setMsg('Erro: ' + (er as Error).message); }
+  const [kind,setKind] = useState<'email_graph'|'email_imap'|'email_gmail'>('email_graph');
+  const [purpose,setPurpose] = useState<'institutional'|'posso'>('institutional');
+  const { data, reload } = useLoad<{
+    id:string;label:string;kind:string;status:string;hasSecret:boolean;unitId:number;
+    lastTestResult:string|null;lastSyncAt:string|null;sync:string;sending:string;
+    sendingEnabled:boolean;config:{graph_sync?:boolean;auth_mode?:string;mailbox?:string;purpose?:string;tenant?:string};
+    allowedUserIds:number[];allowedGroupIds:number[];
+  }[]>('/admin/email/accounts');
+  const {data:drafts,reload:reloadDrafts}=useLoad<{
+    id:string;accountId:string;to:string[];subject:string;body:string;status:string;
+  }[]>('/email/drafts');
+  const [msg,setMsg]=useState('');
+  const [busy,setBusy]=useState('');
+  const [mailboxChoice,setMailboxChoice]=useState('');
+  const [draftTo,setDraftTo]=useState('');
+  const [draftSubject,setDraftSubject]=useState('');
+  const [draftBody,setDraftBody]=useState('');
+
+  const accountOptions=(data??[]).filter(a=>a.unitId===me.activeUnit.id&&
+    a.kind==='email_graph'&&a.config.auth_mode==='app_only');
+  const execute=async (key:string,task:()=>Promise<void>)=>{
+    setBusy(key);setMsg('');
+    try{await task();reload();reloadDrafts();}
+    catch(e){setMsg('Não foi possível concluir: '+(e as Error).message);}
+    finally{setBusy('');}
+  };
+
+  return <div className="grid" style={{gap:18}}>
+    {msg&&<div className="note-box" role="status">{msg}</div>}
+
+    <section className="card">
+      <h2>Integração Microsoft 365 — POSSO</h2>
+      <p className="muted">Cadastre separadamente as caixas institucionais e o e-mail do próprio POSSO. A leitura e o envio usam a identidade de cada caixa, sempre na unidade ativa.</p>
+      <div className="grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
+        <div className="note-box" style={{margin:0}}>
+          <strong>Correspondência institucional — Petrobras</strong>
+          <p>Caixa utilizada para a comunicação oficial do Consórcio EPC13, com acesso apenas aos usuários autorizados.</p>
+          <code>consorcioepc13@consorcioepc13.com.br</code>
+        </div>
+        <div className="note-box" style={{margin:0}}>
+          <strong>Identidade de e-mail do POSSO</strong>
+          <p>Caixa própria para receber mensagens, criar comunicações e enviar como POSSO. O endereço definitivo será informado pela TI.</p>
+          <span>Separada da caixa institucional</span>
+        </div>
+      </div>
+      <p className="muted small">O Microsoft Graph deve ser autorizado no Microsoft Entra ID / Exchange Online. Não informe senhas de usuário nem segredos de aplicativo nesta tela; a equipe de TI configura as credenciais no servidor seguro do POSSO.</p>
+    </section>
+
+    <section className="card">
+      <h3>Adicionar conta de e-mail</h3>
+      <form className="grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))',gap:12}}
+        onSubmit={e=>{
+          e.preventDefault();const form=e.currentTarget;const f=new FormData(form);
+          void execute('create',async()=>{
+            const users=String(f.get('users')??'').split(/[,\s]+/).filter(Boolean).map(Number);
+            const groups=String(f.get('groups')??'').split(/[,\s]+/).filter(Boolean).map(Number);
+            await api('/admin/email/accounts',{body:{
+              kind,label:String(f.get('label')??''),unit_id:me.activeUnit.id,
+              allowed_user_ids:users.length?users:[me.user.systemUserId],
+              allowed_group_ids:groups,
+              config:kind==='email_graph'?{
+                graph_sync:true,auth_mode:'app_only',purpose,
+                mailbox:String(f.get('mailbox')??'').trim(),
+                tenant:String(f.get('tenant')??'').trim()
+              }:{
+                host:String(f.get('host')??'').trim()||undefined,
+                port:Number(f.get('port')??993),
+                username:String(f.get('username')??'').trim()||undefined
+              },
+              ...(kind==='email_graph'?{}:f.get('secret')?{secret:String(f.get('secret'))}:{})
+            }});
+            setMsg('Conta cadastrada na EPC13. Faça o teste de acesso antes de habilitar o envio.');
+            form.reset();setKind('email_graph');setPurpose('institutional');
+          });
         }}>
-          <label className="field">Tipo<select name="kind" className="select"><option value="email_imap">IMAP (senha de app)</option><option value="email_gmail">Gmail (OAuth)</option><option value="email_graph">Microsoft 365 (Graph/OAuth)</option></select></label>
-          <label className="field">Nome<input name="label" className="input" required placeholder="Caixa de compras" /></label>
-          <label className="field">Servidor IMAP<input name="host" className="input" placeholder="imap.provedor.com.br" /></label>
-          <label className="field">Porta<input name="port" type="number" className="input" defaultValue={993} /></label>
-          <label className="field">Usuário<input name="username" className="input" autoComplete="off" /></label>
-          <label className="field">Tenant Microsoft (Graph)<input name="tenant" className="input" autoComplete="off" /></label>
-          <label className="field">Senha de app ou token de renovação Graph<input name="secret" type="password" className="input" autoComplete="new-password" /></label>
-          <label className="field">IDs de usuários autorizados (POSSEBON)<input name="users" className="input" placeholder="ex.: 123, 456" /></label>
-          <div style={{ alignSelf: 'end' }}><button className="btn primary">Registrar</button></div>
-        </form>
-        <p className="muted small">Microsoft Graph sincroniza assuntos e prévias da caixa de entrada após configurar o aplicativo e o consentimento. O acesso fica restrito aos usuários e grupos autorizados da unidade.</p>
-      </section>
-      <section className="card">
-        <h3>Contas</h3>
-        {!data?.length ? <p className="muted">Nenhuma conta configurada.</p> : (
-          <table className="data">
-            <thead><tr><th>Conta</th><th>Status</th><th>Último teste</th><th /></tr></thead>
-            <tbody>{data.map((a) => (
-              <tr key={a.id}>
-                <td>{a.label}<div className="muted small">{a.kind} · unidade {a.unitId} · credencial {a.hasSecret ? 'armazenada (cifrada)' : 'ausente'} · autorizados: {a.allowedUserIds.join(', ') || 'ninguém'}</div></td>
-                <td><Status s={a.status} /></td>
-                <td className="small">{a.lastTestResult ?? '—'}</td>
-                <td className="row">
-                  {a.config.graph_sync && a.kind === 'email_graph'
-                    ? <button className="btn sm" onClick={async () => {
-                      try {
-                        const result = await api<{ synchronized: number; stored: number }>(`/admin/email/accounts/${a.id}/sync`, { body: {} });
-                        setMsg(`Microsoft Graph conferiu ${result.synchronized} alterações. ${result.stored} prévias disponíveis.`); reload();
-                      } catch (error) { setMsg((error as Error).message); }
-                    }}>Sincronizar Microsoft Graph</button>
-                    : <button className="btn sm" onClick={async () => { const r = await api<{ message: string }>(`/admin/email/accounts/${a.id}/test`, { body: {} }); setMsg(r.message); reload(); }}>Testar conexão</button>}
-                  <button className="btn ghost sm danger" onClick={async () => { if (window.confirm('Remover conta e apagar credencial?')) { await api(`/admin/email/accounts/${a.id}`, { method: 'DELETE' }); reload(); } }}>Remover</button>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
-        )}
-      </section>
-    </div>
-  );
+        <label className="field">Integração
+          <select name="kind" className="select" value={kind}
+            onChange={e=>setKind(e.target.value as typeof kind)}>
+            <option value="email_graph">Microsoft 365 — Graph (recomendado)</option>
+            <option value="email_imap">IMAP — outro provedor</option>
+            <option value="email_gmail">Gmail — preparação OAuth</option>
+          </select>
+        </label>
+        <label className="field">Identificação no POSSO
+          <input name="label" className="input" required placeholder="Correspondência EPC13 / Petrobras"/>
+        </label>
+        {kind==='email_graph'?<>
+          <label className="field">Finalidade da caixa
+            <select name="purpose" className="select" value={purpose}
+              onChange={e=>setPurpose(e.target.value as typeof purpose)}>
+              <option value="institutional">Institucional / Petrobras</option>
+              <option value="posso">E-mail próprio do POSSO</option>
+            </select>
+          </label>
+          <label className="field">Endereço Microsoft 365
+            <input name="mailbox" type="email" className="input" required
+              defaultValue={purpose==='institutional'?'consorcioepc13@consorcioepc13.com.br':''}
+              key={purpose} placeholder="caixa@dominio.com.br" autoComplete="off"/>
+          </label>
+          <label className="field">Tenant ID Microsoft (GUID)
+            <input name="tenant" className="input" required placeholder="Identificador fornecido pela equipe de TI" autoComplete="off"/>
+          </label>
+        </>:<>
+          <label className="field">Servidor IMAP<input name="host" className="input" placeholder="imap.provedor.com.br"/></label>
+          <label className="field">Porta<input name="port" className="input" type="number" defaultValue={993}/></label>
+          <label className="field">Usuário<input name="username" className="input" autoComplete="off"/></label>
+          <label className="field">Senha de aplicativo (outros provedores)
+            <input name="secret" type="password" className="input" autoComplete="new-password"/>
+          </label>
+        </>}
+        <label className="field">IDs de usuários autorizados no POSSEBON
+          <input name="users" className="input" defaultValue={String(me.user.systemUserId)}
+            placeholder="ex.: 230, 456"/>
+        </label>
+        <label className="field">IDs de grupos autorizados (opcional)
+          <input name="groups" className="input" placeholder="ex.: 20, 33"/>
+        </label>
+        <div style={{alignSelf:'end'}}>
+          <button className="btn primary" disabled={!!busy}>{busy==='create'?'Registrando...':'Cadastrar caixa'}</button>
+        </div>
+      </form>
+    </section>
+
+    <section className="card">
+      <h3>Caixas configuradas nesta unidade</h3>
+      {!data?.length?<p className="muted">Nenhuma caixa cadastrada nesta unidade.</p>:
+        <div style={{overflowX:'auto'}}><table className="data">
+          <thead><tr><th>Identidade</th><th>Integração</th><th>Situação</th><th>Operações</th></tr></thead>
+          <tbody>{data.map(a=><tr key={a.id}>
+            <td><strong>{a.label}</strong><div className="small muted">{a.config.mailbox??'Provedor externo'}</div>
+              <div className="small muted">{a.config.purpose==='posso'?'E-mail do POSSO':'Conta institucional'} · Unidade {a.unitId}</div></td>
+            <td>{a.kind==='email_graph'?'Microsoft Graph':'IMAP/Gmail'}
+              <div className="small muted">{a.config.auth_mode==='app_only'?'Aplicativo (sem senha pessoal)':
+                a.hasSecret?'Token ou senha cifrado':'Ainda sem autorização'}</div></td>
+            <td><Status s={a.status}/><div className="small muted">{a.lastTestResult??'Aguardando teste de acesso'}</div>
+              <div className="small muted">{a.sendingEnabled?'Envio autorizado':'Envio desabilitado'}</div></td>
+            <td><div className="row" style={{gap:7,flexWrap:'wrap'}}>
+              <button type="button" className="btn sm" disabled={!!busy}
+                onClick={()=>void execute(a.id+'-test',async()=>{
+                  const result=await api<{ok:boolean;message:string}>(`/admin/email/accounts/${a.id}/test`,{body:{}});
+                  setMsg(result.message);
+                })}>Testar acesso</button>
+              {a.kind==='email_graph'&&a.config.graph_sync&&
+                <button type="button" className="btn sm" disabled={!!busy} onClick={()=>void execute(a.id+'-sync',async()=>{
+                  const result=await api<{synchronized:number;stored:number}>(`/admin/email/accounts/${a.id}/sync`,{body:{}});
+                  setMsg(`Leitura concluída: ${result.synchronized} alterações, ${result.stored} mensagens disponíveis.`);
+                })}>Ler e-mails</button>}
+              {a.kind==='email_graph'&&a.config.auth_mode==='app_only'&&
+                <button type="button" className="btn sm" disabled={!!busy||(!a.sendingEnabled&&a.status!=='ativo')}
+                  onClick={()=>void execute(a.id+'-sending',async()=>{
+                    if(!window.confirm(a.sendingEnabled?'Desativar o envio por esta caixa?':
+                      'Habilitar envio externo por esta caixa? O POSSO continuará exigindo confirmação para cada rascunho.'))return;
+                    await api(`/admin/email/accounts/${a.id}/sending`,{body:{enabled:!a.sendingEnabled}});
+                    setMsg(a.sendingEnabled?'Envio desativado.':'Envio habilitado para usuários autorizados.');
+                  })}>{a.sendingEnabled?'Desativar envio':'Habilitar envio'}</button>}
+              <button type="button" className="btn ghost sm danger" disabled={!!busy}
+                onClick={()=>void execute(a.id+'-remove',async()=>{
+                  if(!window.confirm('Remover esta caixa, suas credenciais e o cache sincronizado?'))return;
+                  await api(`/admin/email/accounts/${a.id}`,{method:'DELETE'});
+                  setMsg('Conta removida.');
+                })}>Remover</button>
+            </div></td>
+          </tr>)}</tbody>
+        </table></div>}
+    </section>
+
+    <section className="card">
+      <h3>Preparar e aprovar uma mensagem</h3>
+      <p className="muted small">O POSSO pode elaborar rascunhos na conversa. Mensagens externas só são transmitidas com confirmação explícita; uma resposta HTTP 202 do Graph significa solicitação de envio aceita, não entrega garantida.</p>
+      <form className="grid" onSubmit={event=>{
+        event.preventDefault();
+        void execute('draft',async()=>{
+          const draft=await api<{id:string}>('/email/drafts',{body:{
+            accountId:mailboxChoice,to:draftTo.split(/[,;]+/).map(s=>s.trim()).filter(Boolean),
+            subject:draftSubject,body:draftBody
+          }});
+          setMsg('Rascunho '+draft.id+' criado. Revise e confirme o envio abaixo.');
+          setDraftTo('');setDraftSubject('');setDraftBody('');
+        });
+      }}>
+        <label className="field">Remetente
+          <select className="select" value={mailboxChoice} onChange={e=>setMailboxChoice(e.target.value)} required>
+            <option value="">Selecione a caixa autorizada</option>
+            {accountOptions.map(a=><option value={a.id} key={a.id}>{a.label} — {a.config.mailbox}</option>)}
+          </select>
+        </label>
+        <label className="field">Destinatários (separados por vírgula)
+          <input className="input" value={draftTo} onChange={e=>setDraftTo(e.target.value)}
+            required placeholder="destinatario@empresa.com.br"/>
+        </label>
+        <label className="field">Assunto
+          <input className="input" value={draftSubject} onChange={e=>setDraftSubject(e.target.value)} required/>
+        </label>
+        <label className="field">Mensagem
+          <textarea className="textarea" rows={5} value={draftBody} onChange={e=>setDraftBody(e.target.value)}
+            required placeholder="Escreva a mensagem que o POSSO deverá preparar."/>
+        </label>
+        <button className="btn primary" disabled={!!busy||!mailboxChoice}>Salvar rascunho</button>
+      </form>
+      <h4>Meus rascunhos e envios</h4>
+      {!drafts?.length?<p className="muted">Nenhum rascunho preparado.</p>:
+        <div className="list">{drafts.map(d=><div key={d.id} className="list-item">
+          <strong>{d.subject}</strong><div className="muted small">Para: {d.to.join(', ')} · {d.status}</div>
+          <details><summary>Ver texto completo</summary><p style={{whiteSpace:'pre-wrap'}}>{d.body}</p></details>
+          {d.status==='draft'&&<button className="btn sm" disabled={!!busy}
+            onClick={()=>void execute('send-'+d.id,async()=>{
+              if(!window.confirm('Confirma o ENVIO externo de "'+d.subject+'" para '+d.to.join(', ')+'?'))return;
+              const result=await api<{message:string}>(`/email/drafts/${d.id}/send`,{body:{confirm:true}});
+              setMsg(result.message);
+            })}>Confirmar e enviar</button>}
+        </div>)}</div>}
+    </section>
+  </div>;
 }
 
 interface AiConfigView {
