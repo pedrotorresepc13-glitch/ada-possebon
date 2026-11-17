@@ -305,6 +305,127 @@ export class EmailService {
     return { ok, message };
   }
 
+  /** O envio externo fica desabilitado até ativação explícita por administrador. */
+  async setSending(ctx: AuthContext, id: string, enabled: boolean) {
+    assertAdmin(ctx);
+    const account=await this.row(id);
+    if (!ctx.allowedUnitIds.includes(account.unit_id)) throw notFound('Conta');
+    if (enabled && (account.kind!=='email_graph' || account.config.auth_mode!=='app_only' ||
+      account.status!=='ativo' || !account.config.mailbox))
+      throw invalid('Teste primeiro a leitura da caixa Microsoft Graph e configure o aplicativo autorizado.');
+    await this.d.db.query(`UPDATE ada.integration_account SET sending_enabled=$2,updated_at=now() WHERE id=$1`,
+      [id,enabled]);
+    await audit(this.d.db,{actor:ctx.systemUserId,unit:account.unit_id,
+      action:'email.envio_configurado',targetType:'integration_account',targetId:id,
+      outcome:'ok',details:{enabled}});
+    return {id,sendingEnabled:enabled};
+  }
+
+  /** Pesquisa somente caixas e mensagens explicitamente autorizadas para o usuário/unidade. */
+  async search(ctx:AuthContext,raw:unknown) {
+    const p=z.object({query:z.string().trim().max(200).default(''),
+      accountId:z.uuid().optional(),limit:z.number().int().min(1).max(30).default(15)
+    }).strict().parse(raw);
+    const accounts=await this.readableGraphAccounts(ctx);
+    const visible=p.accountId?accounts.filter(a=>a.id===p.accountId):accounts;
+    if(p.accountId && !visible.length)throw notFound('Conta');
+    const hits:{accountId:string;account:string;id:string;from:string;subject:string;
+      excerpt:string;body:string;receivedAt:string|null}[]=[];
+    for(const acc of visible.slice(0,12)){
+      const inbox=await this.readGraph(ctx,acc.id);
+      const entries=inbox.messages as Array<{id:string;subject?:string;excerpt?:string;body?:string;
+        from?:string;receivedAt?:string|null}>;
+      for(const mail of entries){
+        const searched=[mail.subject,mail.excerpt,mail.body,mail.from].join(' ').toLocaleLowerCase('pt-BR');
+        if(p.query && !searched.includes(p.query.toLocaleLowerCase('pt-BR')))continue;
+        hits.push({
+          accountId:acc.id,account:acc.label,id:mail.id,
+          from:mail.from??'',subject:mail.subject??'',excerpt:mail.excerpt??'',
+          body:(mail.body??'').slice(0,6000),receivedAt:mail.receivedAt??null
+        });
+      }
+    }
+    hits.sort((a,b)=>Date.parse(b.receivedAt??'1970-01-01')-Date.parse(a.receivedAt??'1970-01-01'));
+    return {messages:hits.slice(0,p.limit),checkedAccounts:visible.length,
+      note:'Pesquisa no conteúdo já sincronizado de cada caixa, não na totalidade do histórico Microsoft 365.'};
+  }
+
+  async createDraft(ctx:AuthContext,raw:unknown) {
+    const p=z.object({
+      accountId:z.uuid(),to:z.array(z.string().trim().email().max(254)).min(1).max(20),
+      subject:z.string().trim().min(1).max(200),body:z.string().trim().min(1).max(20000)
+    }).strict().parse(raw);
+    const account=await this.row(p.accountId);
+    if(account.kind!=='email_graph'||account.config.auth_mode!=='app_only'||
+      !this.canUserRead(ctx,account))throw notFound('Conta');
+    const created=await this.d.db.query<{id:string}>(`
+      INSERT INTO ada.email_draft(account_id,unit_id,author_user_id,recipients,subject,body_enc)
+      VALUES($1,$2,$3,$4::jsonb,$5,$6) RETURNING id`,
+      [account.id,ctx.activeUnitId,ctx.systemUserId,JSON.stringify(p.to),p.subject,
+        this.d.cipher.encrypt(p.body)]);
+    const id=created.rows[0]!.id;
+    await audit(this.d.db,{actor:ctx.systemUserId,unit:ctx.activeUnitId,
+      action:'email.rascunho_criado',targetType:'email_draft',targetId:id,
+      outcome:'ok',details:{accountId:account.id,recipientCount:p.to.length}});
+    return {id,account:account.label,from:account.config.mailbox,
+      to:p.to,subject:p.subject,body:p.body,status:'draft',requiresConfirmation:true};
+  }
+
+  async drafts(ctx:AuthContext) {
+    const rows=await this.d.db.query<{id:string;account_id:string;unit_id:number;author_user_id:number;
+      recipients:string[];subject:string;body_enc:string;status:string;created_at:Date}>(`
+      SELECT id,account_id,unit_id,author_user_id,recipients,subject,body_enc,status,created_at
+      FROM ada.email_draft WHERE unit_id=$1 AND author_user_id=$2
+      ORDER BY created_at DESC LIMIT 30`,[ctx.activeUnitId,ctx.systemUserId]);
+    const permitted=await this.readableGraphAccounts(ctx);
+    const allowed=new Set(permitted.map(account=>account.id));
+    return rows.rows.filter(r=>allowed.has(r.account_id)).map(r=>({
+      id:r.id,accountId:r.account_id,to:r.recipients,subject:r.subject,
+      body:this.d.cipher.decrypt(r.body_enc),status:r.status,createdAt:r.created_at
+    }));
+  }
+
+  async sendDraft(ctx:AuthContext,id:string,confirmed:boolean) {
+    if(confirmed!==true)throw invalid('É necessária confirmação explícita antes do envio externo.');
+    const draft=(await this.d.db.query<{
+      id:string;account_id:string;unit_id:number;author_user_id:number;
+      recipients:string[];subject:string;body_enc:string;status:string
+    }>(`SELECT * FROM ada.email_draft WHERE id=$1`,[z.uuid().parse(id)])).rows[0];
+    if(!draft || draft.unit_id!==ctx.activeUnitId || draft.author_user_id!==ctx.systemUserId)
+      throw notFound('Rascunho');
+    const account=await this.row(draft.account_id);
+    if(!this.canUserRead(ctx,account)||!account.sending_enabled||
+      account.status!=='ativo'||account.config.auth_mode!=='app_only')
+      throw invalid('Envio não habilitado para esta caixa ou usuário.');
+    const clientId=process.env.POSSO_GRAPH_CLIENT_ID,clientSecret=process.env.POSSO_GRAPH_CLIENT_SECRET;
+    if(!clientId||!clientSecret)throw invalid('Aplicativo Microsoft 365 ainda não configurado.');
+    const reserved=await this.d.db.query<{id:string}>(`
+      UPDATE ada.email_draft SET status='sending',updated_at=now()
+      WHERE id=$1 AND status='draft' RETURNING id`,[id]);
+    if(!reserved.rows[0])throw invalid('Este rascunho não está disponível para novo envio.');
+    try{
+      await graphAppSend({
+        tenant:String(account.config.tenant??''),clientId,clientSecret,
+        mailbox:String(account.config.mailbox??''),to:draft.recipients,
+        subject:draft.subject,body:this.d.cipher.decrypt(draft.body_enc)
+      });
+      await this.d.db.query(`
+        UPDATE ada.email_draft SET status='submitted',submitted_at=now(),updated_at=now()
+        WHERE id=$1`,[id]);
+      await audit(this.d.db,{actor:ctx.systemUserId,unit:ctx.activeUnitId,
+        action:'email.graph_envio_aceito',targetType:'email_draft',targetId:id,
+        outcome:'ok',details:{accountId:account.id,recipientCount:draft.recipients.length}});
+      return {id,status:'submitted',accepted:true,
+        message:'Microsoft Graph aceitou o envio. A entrega final ao destinatário ainda não foi confirmada.'};
+    }catch(err){
+      await this.d.db.query(`
+        UPDATE ada.email_draft SET status='failed',last_error=$2,updated_at=now()
+        WHERE id=$1`,[id,(err as Error).message.slice(0,300)]);
+      this.d.log.warn({accountId:account.id,draftId:id},'falha de envio Graph; não repetir automaticamente');
+      throw invalid('O envio não foi confirmado. Verifique a caixa Itens Enviados antes de criar outra tentativa.');
+    }
+  }
+
   async remove(ctx: AuthContext, id: string) {
     await this.row(id);
     await this.d.db.tx(async q => {
