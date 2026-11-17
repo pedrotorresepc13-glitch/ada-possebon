@@ -205,7 +205,7 @@ export function WorklistPanel({panel}:{panel:Panel}) {
       {visible<filtered.length&&<button className="posso-worklist-more" onClick={()=>setVisible(n=>n+12)}>
         Mostrar mais {Math.min(12,filtered.length-visible)} registros
       </button>}
-      {panel.rowCount>=200&&<p className="posso-worklist-note">A consulta atingiu o limite de 200 registros. Refine os filtros para analisar os demais.</p>}
+      {panel.limit&&panel.rowCount>=panel.limit&&<p className="posso-worklist-note">Exibindo até {panel.limit} registros nesta consulta. Refine os filtros para analisar os demais.</p>}
     </div>
   </section>;
 }
