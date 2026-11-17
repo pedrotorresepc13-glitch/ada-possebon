@@ -133,3 +133,30 @@ export async function graphAppSend(input:{
   // 202 = pedido aceito pela Microsoft, não confirmação de entrega ao destinatário.
   return {accepted:true,mailbox};
 }
+
+
+/** Busca histórica diretamente na caixa Microsoft, incluindo recebidos e enviados.
+ * Não permite URLs arbitrárias nem edição pelo conteúdo das mensagens.
+ */
+export async function graphAppSearch(input:{
+  tenant:string;clientId:string;clientSecret:string;mailbox:string;
+  query:string;limit:number
+},fetcher:typeof fetch=fetch){
+  const mailbox=mailboxAddress.parse(input.mailbox).toLowerCase();
+  const phrase=z.string().trim().max(150).parse(input.query);
+  const limit=z.number().int().min(1).max(50).parse(input.limit);
+  const token=await graphAppToken(input,fetcher);
+  const url=new URL('https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(mailbox)+'/messages');
+  url.searchParams.set('$top',String(limit));
+  url.searchParams.set('$select','id,subject,bodyPreview,body,receivedDateTime,from,conversationId');
+  if(phrase){
+    const safe=phrase.replace(/["\\]/g,' ').replace(/\s+/g,' ').trim();
+    url.searchParams.set('$search','"'+safe+'"');
+  }else url.searchParams.set('$orderby','receivedDateTime desc');
+  const result=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(20000),
+    headers:{Authorization:'Bearer '+token,Prefer:'outlook.body-content-type="text"'}});
+  if(!result.ok)throw new Error('Microsoft Graph não conseguiu pesquisar a caixa '+mailbox+
+    ' (HTTP '+result.status+').');
+  const page=AppPage.parse(await result.json());
+  return {messages:page.value,truncated:Boolean(page['@odata.nextLink'])};
+}
