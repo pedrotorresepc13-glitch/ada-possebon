@@ -16,11 +16,54 @@ interface BoardRow {
 export class OperationalBoardService {
   constructor(private readonly d:Deps) {}
 
+  /** Verifica dados e utilidade antes de declarar um dashboard de trabalho concluído. */
+  async evaluate(ctx:AuthContext,raw:unknown) {
+    const spec=LiveBoardSpec.parse(raw);
+    const reports:{panel:string;records:number;notices:string[]}[]=[];
+    for(const panel of spec.panels){
+      const data=await this.d.operational.query(ctx,panel.plan);
+      const notices:string[]=[];
+      if(panel.type==='worklist' && panel.worklist){
+        const fields=panel.worklist.fields;
+        const rows=data.rows as Record<string,unknown>[];
+        const meaningful=(value:unknown)=>typeof value==='string'&&value.trim().length>=5&&
+          !/^[-—0-9#\s.]+$/.test(value.trim());
+        const withoutSubject=rows.filter(row=>!meaningful(row[fields.subject]));
+        const indistinguishable=rows.filter(row=>
+          [fields.product,fields.category].some(key=>key&&row[fields.subject]!==null&&
+            String(row[fields.subject]).trim()===String(row[key]??'').trim())
+        );
+        if(rows.length && withoutSubject.length>rows.length*0.3)
+          throw invalid('A central "'+panel.title+'" não identifica o assunto de '+withoutSubject.length+
+            ' registro(s). Investigue o título, descrição de abertura ou problema relatado antes de salvar.');
+        if(rows.length>=3 && indistinguishable.length>rows.length*0.5)
+          throw invalid('O assunto dos registros está repetindo o produto/categoria. Consulte o texto real do problema antes de criar a central.');
+        const distinct=new Set(rows.map(row=>String(row[fields.subject]??'').trim().toLocaleLowerCase('pt-BR')));
+        const descriptions=fields.description?new Set(rows.map(row=>String(row[fields.description!]??'').trim())):new Set<string>();
+        if(rows.length>=4 && distinct.size<2 && descriptions.size<2)
+          throw invalid('Os registros parecem indistinguíveis. A central precisa mostrar o assunto ou descrição de cada solicitação.');
+        if(rows.length){
+          const statusLabels=new Set(rows.map(row=>String(row[fields.status]??'').toLocaleLowerCase('pt-BR').trim()));
+          const normalized=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
+          for(const item of panel.worklist.defaultStatuses){
+            if(![...statusLabels].some(v=>normalized(v)===normalized(item)))
+              notices.push('Situação inicial "'+item+'" não aparece na amostra consultada.');
+          }
+        }
+        if(rows.length===panel.plan.limit)notices.push('A consulta atingiu o limite de '+panel.plan.limit+' registros; não afirme que todos foram carregados.');
+        if(!fields.priority)notices.push('Prioridade ainda não disponível na central.');
+        if(!fields.description)notices.push('Descrição detalhada ainda não disponível na central.');
+      }
+      reports.push({panel:panel.title,records:data.rowCount,notices});
+    }
+    return {validated:true,panels:reports};
+  }
+
   async create(ctx:AuthContext,raw:unknown) {
     this.d.operational.assertAllowed(ctx);
     const spec=LiveBoardSpec.parse(raw);
-    // Antes de salvar, executa e valida TODOS os painéis; não cria telas vazias ou fictícias.
-    for(const panel of spec.panels) await this.d.operational.query(ctx,panel.plan);
+    // Não salva a central se faltarem os campos que tornam cada registro identificável.
+    await this.evaluate(ctx,spec);
     const r=await this.d.db.query<BoardRow>(
       `INSERT INTO ada.operational_board(owner_user_id,unit_id,title,spec)
        VALUES ($1,$2,$3,$4::jsonb) RETURNING id,owner_user_id,unit_id,title,spec,created_at,updated_at`,
@@ -61,7 +104,7 @@ export class OperationalBoardService {
     const panels=await Promise.all(spec.panels.map(async (p)=>{
       try {
         const data=await this.d.operational.query(ctx,p.plan);
-        return {title:p.title,type:p.type,status:'ok',...data};
+        return {title:p.title,type:p.type,worklist:p.worklist,status:'ok',...data};
       } catch(err) {
         // Painel continua acessível, mas informa falhas de fonte, estrutura ou permissão.
         return {title:p.title,type:p.type,status:'indisponivel',
@@ -75,7 +118,7 @@ export class OperationalBoardService {
     const board = await this.get(ctx,id);
     if (board.owner_user_id !== ctx.systemUserId) throw forbidden('Somente o dono pode editar a tela.');
     const spec = LiveBoardSpec.parse(raw);
-    for (const panel of spec.panels) await this.d.operational.query(ctx,panel.plan);
+    await this.evaluate(ctx,spec);
     const result = await this.d.db.query<BoardRow>(
       `UPDATE ada.operational_board SET title=$4,spec=$5,updated_at=now()
        WHERE id=$1 AND owner_user_id=$2 AND unit_id=$3 AND deleted_at IS NULL AND spec=$6::jsonb
