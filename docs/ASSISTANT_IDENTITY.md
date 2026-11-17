@@ -1,11 +1,23 @@
-# Nome global da assistente
+# Identidade institucional do POSSO
 
-Em Administração → Identidade, qualquer administrador autorizado pode alterar o nome de exibição da assistente. O nome é global para usuários e unidades, registrado em `ada.app_setting` sob a chave `assistant_branding`, com auditoria. Não exige chave de IA nem migration nova.
+**Nome oficial:** POSSO.
 
-A interface atualiza imediatamente na sessão que salvou. Outras sessões consultam a configuração a cada 30 segundos quando visíveis e ao voltar à janela. O nome aparece no login, menu, título da aba, conversa, administração, memória e textos de apoio. As próximas chamadas do chat recebem a identidade atual. Mensagens antigas e nomes de telas escolhidos pelos usuários são preservados.
+**Apresentação:** POSSO — assistente virtual da POSSEBON.
 
-O endpoint público `GET /ada/api/ada/branding` retorna apenas `{ "name": "..." }`, sem cache ou metadados administrativos. O futuro painel compacto e o botão global devem consumir esse mesmo endpoint. A alteração é feita por `PUT /ada/api/ada/admin/branding`, com sessão administrativa e CSRF. O campo aceita de 1 a 60 caracteres, sem HTML ou controles. Sem configuração, o nome permanece IA POSSEBON.
+O nome homenageia o fundador da POSSEBON, conhecido pelo apelido POSSO. O assistente não se apresenta como ADA nem recebe nomes diferentes por unidade, sessão, administrador ou voz.
 
-Isso altera a identidade de apresentação. Caminhos técnicos, pacotes, variáveis, permissões POSSEBON e identificadores de banco mantêm seus nomes atuais para preservar compatibilidade. A configuração não renomeia botões externos que ainda estejam fixos no MAD Builder; esses botões precisarão usar a mesma configuração quando a integração global for instalada.
+A configuração legada `ada.app_setting.assistant_branding` continua no banco para manter compatibilidade, mas a identidade pública é fixa. O endpoint `GET /branding` retorna `{ "name": "POSSO" }`. O antigo endpoint administrativo de alteração rejeita nomes diferentes; a tela administrativa exibe a identidade oficial, sem campo para renomeá-la.
 
-Validação: testes cobrem leitura pública mínima, autenticação, autorização, CSRF, persistência entre instâncias/unidades, validação de entrada, auditoria e aplicação do nome nas próximas chamadas do chat sem modificar mensagens antigas.
+Não renomear tabelas, chaves, diretórios, variáveis, caminhos de integração ou permissões antigos sem uma migração separada e auditada.
+
+## Voz
+
+O serviço GPT-Live usa a voz `tempo`, fornecida pela OpenAI para português brasileiro com apresentação masculina, e instruções de fala calma, madura e clara. A voz é sintética e não tenta imitar a voz do fundador. A qualidade da rede, os modelos e a API podem afetar tempo de resposta e precisão: não há garantia de ausência de falhas.
+
+Toda ação empresarial continua sendo delegada ao motor POSSO autenticado; nunca se declara envio ou alteração concluído sem confirmação real.
+
+## Dashboards
+
+Um dashboard pessoal por usuário e unidade. Para centrais de trabalho, as definições persistem somente planos declarativos de leitura; os componentes interativos de `worklist` recebem dados atuais via API, consultados com a identidade e o escopo da sessão. Antes de gravar um painel de chamados, o motor valida se existe assunto/descrição útil que identifique os registros, além de situação e filtros coerentes.
+
+A identidade e as verificações de qualidade precisam ser comprovadas por testes e publicação controlada no servidor. Uma aprovação no GitHub não equivale a uma implantação.
