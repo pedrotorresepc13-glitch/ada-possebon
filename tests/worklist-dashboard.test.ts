@@ -55,7 +55,7 @@ describe('Central de trabalho premium e verificação de qualidade', () => {
         async()=>({executeRead:<T=Record<string,unknown>>(sql:string,params:unknown[]=[])=>h.d.db.query<T>(sql,params)}),
         async()=>({admin:true,tables:{}})
       );
-      const ctx=await h.d.sessions.resolveContext(9001,1,'worklist-test');
+      const ctx={...await h.d.sessions.resolveContext(9001,1,'worklist-test'),identitySource:'possebon' as const};
       const result=await h.d.liveBoards.evaluate(ctx,spec);
       expect(result).toMatchObject({validated:true,panels:[{records:3}]});
       const board=await h.d.liveBoards.create(ctx,spec);
@@ -89,7 +89,7 @@ describe('Central de trabalho premium e verificação de qualidade', () => {
         async()=>({executeRead:<T=Record<string,unknown>>(sql:string,params:unknown[]=[])=>h.d.db.query<T>(sql,params)}),
         async()=>({admin:true,tables:{}})
       );
-      const ctx=await h.d.sessions.resolveContext(9001,1,'worklist-missing-subject');
+      const ctx={...await h.d.sessions.resolveContext(9001,1,'worklist-missing-subject'),identitySource:'possebon' as const};
       const bad={
         title:'Dashboard de teste',
         panels:[{
