@@ -17,7 +17,7 @@ export type Panel={
       createdAt?:string;updatedAt?:string;category?:string;product?:string};
     defaultStatuses:string[];primaryActionLabel?:string;
   };
-  rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;
+  rows:Record<string,Cell>[];columns:string[];labels?:Record<string,string>;rowCount:number;limit?:number;
   provenance?:{source:string;unitId:number|null;scope?:string;queriedAt:string};
 };
 interface Board{
