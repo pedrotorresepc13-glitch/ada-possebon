@@ -36,14 +36,47 @@ export const OperationalPlan = z.object({
   limit: z.number().int().min(1).max(200).default(50)
 }).strict();
 export type OperationalPlanType = z.input<typeof OperationalPlan>;
+/** O componente de fila é reutilizável para chamados, ordens de serviço e outros processos.
+ * A IA declara os campos e filtros; o frontend nunca recebe SQL nem código executável.
+ */
+export const WorklistConfig = z.object({
+  fields: z.object({
+    id: identifier,
+    status: identifier,
+    subject: identifier,
+    description: identifier.optional(),
+    priority: identifier.optional(),
+    createdAt: identifier.optional(),
+    updatedAt: identifier.optional(),
+    category: identifier.optional(),
+    product: identifier.optional()
+  }).strict(),
+  defaultStatuses: z.array(z.string().trim().min(1).max(80)).max(12).default([]),
+  primaryActionLabel: z.string().trim().max(50).default('Ver detalhes')
+}).strict();
+const LiveBoardPanel = z.object({
+  title: z.string().min(1).max(120),
+  type: z.enum(['table','kpi','bar','line','pie','worklist']),
+  plan: OperationalPlan,
+  worklist: WorklistConfig.optional()
+}).strict().superRefine((p,refinement)=>{
+  if(p.type!=='worklist')return;
+  if(!p.worklist){refinement.addIssue({code:'custom',message:'O painel interativo precisa da definição dos campos.'});return;}
+  if(p.plan.groupBy.length || p.plan.select.some(item=>item.aggregate)){
+    refinement.addIssue({code:'custom',message:'Uma central de trabalho precisa de registros individuais, sem agregação.'});
+    return;
+  }
+  const aliases=new Set(p.plan.select.map(item=>item.as??item.field.split('.')[1]));
+  for(const [role,alias] of Object.entries(p.worklist.fields)){
+    if(alias && !aliases.has(alias))refinement.addIssue({
+      code:'custom',message:'Campo '+role+' ('+alias+') não incluído na consulta da central.'
+    });
+  }
+});
 export const LiveBoardSpec = z.object({
   title: z.string().min(1).max(120),
   description: z.string().max(500).default(''),
-  panels: z.array(z.object({
-    title: z.string().min(1).max(120),
-    type: z.enum(['table','kpi','bar','line','pie']),
-    plan: OperationalPlan
-  }).strict()).max(12)
+  panels: z.array(LiveBoardPanel).max(12)
 }).strict();
 
 interface Column { table_name: string; column_name: string; data_type: string }
