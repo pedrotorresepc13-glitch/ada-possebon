@@ -37,7 +37,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
   const conversation = useRef(conversationId);
   const latestCallback = useRef(onAnswer);
   const active = useRef(false);
-  const startedAt = useRef(0);
+  const lastActivityAt = useRef(0);
   const segments = useRef<{ start: number; end: number; text: string }[]>([]);
   const lastOffset = useRef(-1);
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -96,6 +96,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
     if (generation !== attempt.current || !active.current) return;
     const parts = segments.current.filter(p => p.end > lastOffset.current && p.start <= offset + 1200);
     const question = parts.map(p => p.text).join('').trim();
+    lastActivityAt.current = Date.now();
     lastOffset.current = Math.max(lastOffset.current, offset);
     segments.current = segments.current.filter(p => p.end > lastOffset.current);
     if (!question) {
@@ -146,12 +147,15 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
         let event: LiveEvent;
         try { event = JSON.parse(String(message.data)) as LiveEvent; } catch { return; }
         if (event.type === 'session.input_transcript.delta' && event.delta) {
+          lastActivityAt.current = Date.now();
           const start = event.start_ms ?? event.offset_ms ?? 0;
           const end = event.end_ms ?? start + 100;
           segments.current.push({ start, end, text: event.delta });
           setCaption(s => (s + event.delta).slice(-350));
         }
-        if (event.type === 'session.delegation.created' && event.delegation?.id && event.delegation.target === 'client') {
+        if (event.type === 'session.output_transcript.delta') lastActivityAt.current = Date.now();
+        if (event.type === 'session.delegation.created' && event.delegation?.id && event.delegation.target === 'client') { 
+          lastActivityAt.current = Date.now();
           const id = event.delegation.id;
           if (channel.readyState === 'open') channel.send(JSON.stringify({
             type: 'session.thinking.append', event_id: 'posso-pending-' + crypto.randomUUID(),
@@ -178,7 +182,7 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
         if (generation !== attempt.current) return;
         window.clearTimeout(connectionTimer.current);
         active.current = true;
-        startedAt.current = Date.now();
+        lastActivityAt.current = Date.now();
         setStatus('ativo');
       };
       if (channel.readyState === 'open') ready();
@@ -191,18 +195,18 @@ export function LiveVoice({ conversationId, onAnswer, disabled = false, onActive
     }
   }
 
-  // Evita sessões abandonadas e custos inesperados; não substitui controles de consumo na OpenAI.
+  // Conversas ativas permanecem abertas; somente inatividade prolongada encerra a sessão.
   useEffect(() => {
     if (status !== 'ativo') return;
     const timer = window.setInterval(() => {
-      if (Date.now() - startedAt.current > 10 * 60 * 1000) {
-        stop(); setError('A conversa foi encerrada após 10 minutos para controlar o custo.');
+      if (!processing && Date.now() - lastActivityAt.current > 15 * 60 * 1000) {
+        stop(); setError('Conversa por voz encerrada após 15 minutos de inatividade.');
       }
-    }, 1000);
+    }, 10000);
     const pageHide = () => { cleanup(); };
     window.addEventListener('pagehide', pageHide);
     return () => { window.clearInterval(timer); window.removeEventListener('pagehide', pageHide); };
-  }, [status]);
+  }, [status, processing]);
 
   const label = status === 'conectando' ? 'Conectando' : processing ? 'Consultando o POSSEBON' : 'Voz ativa';
 
