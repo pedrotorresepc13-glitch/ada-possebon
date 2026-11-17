@@ -216,8 +216,11 @@ export class EmailService {
 
   async readableGraphAccounts(ctx: AuthContext) {
     if (!ctx.allowedUnitIds.includes(ctx.activeUnitId)) return [];
-    const result = await this.d.db.query<{ id: string; label: string; last_sync_at: Date | null }>(
-      `SELECT id,label,last_sync_at FROM ada.integration_account
+    const result = await this.d.db.query<{ id: string; label: string; last_sync_at: Date | null;
+      mailbox:string|null;purpose:string|null;sending_enabled:boolean;status:string }>(
+      `SELECT id,label,last_sync_at,config->>'mailbox' AS mailbox,
+        config->>'purpose' AS purpose,sending_enabled,status
+       FROM ada.integration_account
        WHERE deleted_at IS NULL AND kind='email_graph' AND config->>'graph_sync'='true'
          AND unit_id=$1 AND ($2=ANY(allowed_user_ids) OR allowed_group_ids && $3::int[])
        ORDER BY label,id LIMIT 100`, [ctx.activeUnitId, ctx.systemUserId, ctx.groups.map(group => group.id)]
