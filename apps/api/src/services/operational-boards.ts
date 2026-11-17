@@ -130,7 +130,7 @@ export class OperationalBoardService {
     const panels=await Promise.all(spec.panels.map(async (p)=>{
       try {
         const data=await this.d.operational.query(ctx,p.plan);
-        return {title:p.title,type:p.type,worklist:p.worklist,status:'ok',...data};
+        return {title:p.title,type:p.type,worklist:p.worklist,limit:p.plan.limit,status:'ok',...data};
       } catch(err) {
         // Painel continua acessível, mas informa falhas de fonte, estrutura ou permissão.
         return {title:p.title,type:p.type,status:'indisponivel',
