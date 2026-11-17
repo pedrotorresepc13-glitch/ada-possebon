@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Deps } from '../core.ts';
 import { audit } from '../audit.ts';
 import { invalid, notFound } from '../errors.ts';
-import { graphMailPage, graphAppPage, graphAppTest, graphAppSend } from './graph-mail.ts';
+import { graphMailPage, graphAppPage, graphAppTest, graphAppSend, graphAppSearch } from './graph-mail.ts';
 
 export const EmailAccountInput = z
   .object({
@@ -365,31 +365,69 @@ export class EmailService {
 
   /** Pesquisa somente caixas e mensagens explicitamente autorizadas para o usuário/unidade. */
   async search(ctx:AuthContext,raw:unknown) {
-    const p=z.object({query:z.string().trim().max(200).default(''),
+    const p=z.object({query:z.string().trim().max(150).default(''),
       accountId:z.uuid().optional(),limit:z.number().int().min(1).max(30).default(15)
     }).strict().parse(raw);
     const accounts=await this.readableGraphAccounts(ctx);
     const visible=p.accountId?accounts.filter(a=>a.id===p.accountId):accounts;
-    if(p.accountId && !visible.length)throw notFound('Conta');
+    if(p.accountId&&!visible.length)throw notFound('Conta');
     const hits:{accountId:string;account:string;id:string;from:string;subject:string;
       excerpt:string;body:string;receivedAt:string|null}[]=[];
-    for(const acc of visible.slice(0,12)){
-      const inbox=await this.readGraph(ctx,acc.id);
-      const entries=inbox.messages as Array<{id:string;subject?:string;excerpt?:string;body?:string;
-        from?:string;receivedAt?:string|null}>;
+    let checkedLive=0,truncated=false,offlineAccounts=0;
+    for(const acc of visible.slice(0,6)){
+      let entries:Array<{id:string;subject?:string|null;excerpt?:string|null;
+        body?:string|null;from?:string|null;receivedAt?:string|null}>=[];
+      const account=await this.row(acc.id);
+      const clientId=process.env.POSSO_GRAPH_CLIENT_ID,clientSecret=process.env.POSSO_GRAPH_CLIENT_SECRET;
+      if(account.config.auth_mode==='app_only'&&account.status==='ativo'&&clientId&&clientSecret&&
+        z.uuid().safeParse(account.config.tenant).success){
+        try{
+          const live=await graphAppSearch({
+            tenant:String(account.config.tenant),clientId,clientSecret,
+            mailbox:String(account.config.mailbox??''),query:p.query,limit:p.limit
+          });
+          checkedLive++;truncated ||= live.truncated;
+          entries=live.messages.filter(m=>!m['@removed']).map(m=>({
+            id:m.id,subject:m.subject??'',
+            excerpt:m.bodyPreview??'',body:m.body?.content??'',
+            from:m.from?.emailAddress?.address??'',receivedAt:m.receivedDateTime??null
+          }));
+        }catch(error){
+          offlineAccounts++;
+          this.d.log.warn({accountId:acc.id,reason:(error as Error).message},
+            'Pesquisa histórica Microsoft Graph falhou; usando cache cifrado da caixa');
+        }
+      }
+      if(!checkedLive || !entries.length){
+        const inbox=await this.readGraph(ctx,acc.id);
+        const cached=inbox.messages as typeof entries;
+        if(!entries.length)entries=cached;
+      }
       for(const mail of entries){
         const searched=[mail.subject,mail.excerpt,mail.body,mail.from].join(' ').toLocaleLowerCase('pt-BR');
-        if(p.query && !searched.includes(p.query.toLocaleLowerCase('pt-BR')))continue;
+        if(p.query&&!searched.includes(p.query.toLocaleLowerCase('pt-BR'))){
+          // Quando o Graph já filtrou, não descartar um resultado válido devido a
+          // diferenças entre seu índice de busca e os campos de texto retornados.
+          if(!checkedLive)continue;
+        }
         hits.push({
           accountId:acc.id,account:acc.label,id:mail.id,
-          from:mail.from??'',subject:mail.subject??'',excerpt:mail.excerpt??'',
-          body:(mail.body??'').slice(0,6000),receivedAt:mail.receivedAt??null
+          from:String(mail.from??'').slice(0,254),
+          subject:redactSecrets(String(mail.subject??'')).slice(0,300),
+          excerpt:redactSecrets(String(mail.excerpt??'')).slice(0,800),
+          body:redactSecrets(String(mail.body??'')).slice(0,6000),
+          receivedAt:mail.receivedAt??null
         });
       }
     }
-    hits.sort((a,b)=>Date.parse(b.receivedAt??'1970-01-01')-Date.parse(a.receivedAt??'1970-01-01'));
-    return {messages:hits.slice(0,p.limit),checkedAccounts:visible.length,
-      note:'Pesquisa no conteúdo já sincronizado de cada caixa, não na totalidade do histórico Microsoft 365.'};
+    const unique=new Map(hits.map(row=>[row.accountId+':'+row.id,row]));
+    const result=[...unique.values()].sort((a,b)=>
+      Date.parse(b.receivedAt??'1970-01-01')-Date.parse(a.receivedAt??'1970-01-01'));
+    return {messages:result.slice(0,p.limit),checkedAccounts:visible.length,
+      historyLive:checkedLive>0,truncated,offlineAccounts,
+      note:checkedLive
+        ? 'Pesquisa no Microsoft 365 realizada na caixa autorizada, incluindo correspondência enviada e recebida. Mais resultados podem existir; refine a busca.'
+        : 'A busca usou apenas o conteúdo sincronizado localmente. Não representa todo o histórico Microsoft 365.'};
   }
 
   async createDraft(ctx:AuthContext,raw:unknown) {
