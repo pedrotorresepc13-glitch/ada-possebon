@@ -558,7 +558,7 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   });
   route('POST', '/admin/knowledge/documents/:id/reprocess', 'admin', (req, _r, ctx) => d.knowledge.reprocess(ctx, params(req).id!));
   route('GET', '/admin/knowledge/coverage', 'admin', () => d.knowledge.coverage());
-  route('GET', '/admin/email/accounts', 'admin', () => d.email.list());
+  route('GET', '/admin/email/accounts', 'admin', (_req,_reply,ctx) => d.email.list(ctx));
   route('POST', '/admin/email/accounts', 'admin', (req, reply, ctx) => {
     reply.code(201);
     return d.email.create(ctx, body(req));
@@ -567,6 +567,8 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
   route('POST', '/admin/email/accounts/:id/sync', 'admin', (req, _r, ctx) => d.email.syncGraph(ctx, params(req).id!));
   route('GET', '/email/accounts', 'user', (_req, _r, ctx) => d.email.readableGraphAccounts(ctx));
   route('GET', '/email/accounts/:id/messages', 'user', (req, _r, ctx) => d.email.readGraph(ctx, params(req).id!));
+  route('PATCH','/admin/email/accounts/:id','admin',(req,_r,ctx) =>
+    d.email.configureGraph(ctx,params(req).id!,body(req)));
   route('POST', '/admin/email/accounts/:id/sending', 'admin', (req, _r, ctx) =>
     d.email.setSending(ctx,params(req).id!,z.object({enabled:z.boolean()}).strict().parse(body(req)).enabled));
   route('GET', '/email/search', 'user', (req, _r, ctx) => d.email.search(ctx, {
