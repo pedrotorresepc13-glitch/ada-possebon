@@ -42,6 +42,23 @@ describe('POSSO: Microsoft 365 em duas caixas com identidade e autorização ind
           '@odata.deltaLink':next.href
         });
       }
+      if(url.includes('/messages?')){
+        const phrase=new URL(url).searchParams.get('$search')??'';
+        const old=phrase.includes('hist');
+        return Response.json({value:[old?{
+          id:'sent-2019',subject:'Histórico da correspondência com a Petrobras',
+          bodyPreview:'Encaminhamos o relatório da inspeção.',
+          body:{contentType:'text',content:'Prezados, segue o relatório da inspeção concluída.'},
+          from:{emailAddress:{address:INSTITUTIONAL}},
+          receivedDateTime:'2019-09-10T13:00:00Z',conversationId:'historic-01'
+        }:{
+          id:'msg-epc13-01',subject:'Solicitação Petrobras — confirmação técnica',
+          bodyPreview:'Favor confirmar a programação da inspeção.',
+          body:{contentType:'text',content:'Solicitamos confirmar a programação da inspeção de amanhã.'},
+          from:{emailAddress:{address:'contato@petrobras.com.br'}},
+          receivedDateTime:'2026-11-17T10:00:00Z',conversationId:'conv-01'
+        }]});
+      }
       if(url.includes('/mailFolders/inbox'))return Response.json({id:'inbox',displayName:'Caixa de Entrada'});
       return Response.json({error:{code:'not_found'}},{status:404});
     }));
@@ -78,6 +95,13 @@ describe('POSSO: Microsoft 365 em duas caixas com identidade e autorização ind
     expect(search.json.messages).toEqual(expect.arrayContaining([
       expect.objectContaining({accountId,subject:'Solicitação Petrobras — confirmação técnica'})
     ]));
+    const historical=await manager.get('/email/search?q=histórico');
+    expect(historical.json.historyLive).toBe(true);
+    expect(historical.json.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({accountId,subject:'Histórico da correspondência com a Petrobras',
+        from:INSTITUTIONAL})
+    ]));
+    expect(calls.some(c=>c.url.includes('/messages?')&&c.url.includes('%24search='))).toBe(true);
     const stored=await h.d.db.query('SELECT value FROM ada.app_setting WHERE key=$1',['mail:graph:'+accountId]);
     expect(JSON.stringify(stored.rows)).not.toContain('Solicitamos confirmar a programação');
     const login=calls.find(c=>c.url.startsWith('https://login.microsoftonline.com/'));
