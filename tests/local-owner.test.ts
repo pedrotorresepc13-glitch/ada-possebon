@@ -12,6 +12,6 @@ it('migra com o proprietário e libera somente tabelas novas para a aplicação'
  expect((await db.query("SELECT has_table_privilege(current_user,'ada.personal_workspace','INSERT') AS ok")).rows[0]).toEqual({ok:true});
  await db.exec('RESET ROLE');
  await db.exec(ownerMigrationSql((await db.query<{version:string;checksum:string}>('SELECT version,checksum FROM ada_migrations.applied ORDER BY version')).rows,'app_restrita'));
- expect((await db.query('SELECT * FROM ada_migrations.applied')).rows).toHaveLength(8);
+ expect((await db.query('SELECT * FROM ada_migrations.applied')).rows).toHaveLength(9);
  }finally{await db.close();}
 });
