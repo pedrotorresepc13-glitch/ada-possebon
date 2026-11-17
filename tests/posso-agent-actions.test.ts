@@ -69,10 +69,25 @@ describe('POSSO: capacidades disponíveis a todos com execução real', () => {
         await h.d.chat.handle(ctx,{message:'Liste suas ferramentas e recursos.'});
       }
       expect(captured['9001']).toEqual(captured['9004']);
-      for(const name of ['enviar_notificacao_interna','consultar_acompanhamento_registro','executar_comando_administrativo']){
+      for(const name of ['enviar_notificacao_interna','consultar_acompanhamento_registro',
+        'executar_comando_administrativo','investigar_requisitos_dashboard',
+        'avaliar_dashboard_antes_de_salvar','editar_dashboard_pessoal']){
         expect(captured['9004']).toContain(name);
       }
     }finally{await h.close();}
+  });
+
+  it('não declara um dashboard salvo quando a IA não executou a gravação',async()=>{
+    const h=await setup({ai:{name:'test',model:'test',configured:true,async run(){
+      return {text:'Pronto, salvei seu dashboard premium.',usage:{input:1,output:1},toolCalls:[],steps:1};
+    }}});
+    try{
+      await h.login('admin.demo',1);
+      const ctx=await h.d.sessions.resolveContext(9001,1,'dashboard-antibluff');
+      const reply=await h.d.chat.handle(ctx,{message:'Crie um dashboard premium dos meus chamados.'});
+      expect(reply.message.content).toContain('ainda não foi concluída');
+      expect(reply.message.content).not.toContain('Pronto, salvei');
+    }finally{await h.close()}
   });
 
   it('explica o avanço da SC sem códigos técnicos ou progresso inventado', () => {
