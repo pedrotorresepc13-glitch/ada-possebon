@@ -227,6 +227,8 @@ function Email() {
   const [msg,setMsg]=useState('');
   const [busy,setBusy]=useState('');
   const [mailboxChoice,setMailboxChoice]=useState('');
+  const [configuringId,setConfiguringId]=useState('');
+  const [tenantDraft,setTenantDraft]=useState('');
   const [draftTo,setDraftTo]=useState('');
   const [draftSubject,setDraftSubject]=useState('');
   const [draftBody,setDraftBody]=useState('');
@@ -284,7 +286,7 @@ function Email() {
               },
               ...(kind==='email_graph'?{}:f.get('secret')?{secret:String(f.get('secret'))}:{})
             }});
-            setMsg('Conta cadastrada na EPC13. Faça o teste de acesso antes de habilitar o envio.');
+            setMsg('Conta cadastrada na unidade ativa. Complete o Tenant ID quando a TI informar, depois teste o acesso.');
             form.reset();setKind('email_graph');setPurpose('institutional');
           });
         }}>
@@ -313,7 +315,7 @@ function Email() {
               key={purpose} placeholder="caixa@dominio.com.br" autoComplete="off"/>
           </label>
           <label className="field">Tenant ID Microsoft (GUID)
-            <input name="tenant" className="input" required placeholder="Identificador fornecido pela equipe de TI" autoComplete="off"/>
+            <input name="tenant" className="input" placeholder="Pode informar depois da autorização pela TI" autoComplete="off"/>
           </label>
         </>:<>
           <label className="field">Servidor IMAP<input name="host" className="input" placeholder="imap.provedor.com.br"/></label>
@@ -368,13 +370,32 @@ function Email() {
                     await api(`/admin/email/accounts/${a.id}/sending`,{body:{enabled:!a.sendingEnabled}});
                     setMsg(a.sendingEnabled?'Envio desativado.':'Envio habilitado para usuários autorizados.');
                   })}>{a.sendingEnabled?'Desativar envio':'Habilitar envio'}</button>}
+              {a.kind==='email_graph'&&a.config.auth_mode==='app_only'&&
+                <button type="button" className="btn sm" disabled={!!busy}
+                  onClick={()=>{setConfiguringId(configuringId===a.id?'':a.id);setTenantDraft(a.config.tenant??'');}}>
+                  {a.config.tenant?'Editar Tenant':'Configurar Tenant'}
+                </button>}
               <button type="button" className="btn ghost sm danger" disabled={!!busy}
                 onClick={()=>void execute(a.id+'-remove',async()=>{
                   if(!window.confirm('Remover esta caixa, suas credenciais e o cache sincronizado?'))return;
                   await api(`/admin/email/accounts/${a.id}`,{method:'DELETE'});
                   setMsg('Conta removida.');
                 })}>Remover</button>
-            </div></td>
+            </div>
+              {configuringId===a.id&&<form className="grid" style={{gap:8,marginTop:12}}
+                onSubmit={e=>{e.preventDefault();void execute(a.id+'-configure',async()=>{
+                  await api(`/admin/email/accounts/${a.id}`,{
+                    method:'PATCH',body:{tenant:tenantDraft}
+                  });
+                  setConfiguringId('');setMsg('Tenant ID registrado. Agora teste o acesso Microsoft Graph.');
+                });}}>
+                <label className="field">Tenant ID Microsoft
+                  <input className="input" required value={tenantDraft}
+                    onChange={e=>setTenantDraft(e.target.value)} placeholder="GUID informado pela TI"/>
+                </label>
+                <button className="btn sm primary" disabled={!!busy}>Salvar Tenant ID</button>
+              </form>}
+            </td>
           </tr>)}</tbody>
         </table></div>}
     </section>
